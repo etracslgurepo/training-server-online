@@ -1,0 +1,147 @@
+import com.rameses.annotations.*;
+
+class TestOnlineBusinessRuleService {
+	
+
+	@Service('gdx/OnlineBusinessRuleService')
+	def ruleSvc;
+
+	@ProxyMethod 
+	public def testGetInfos() {
+		def param = buildData(); 
+		return ruleSvc.getInfos( param );
+	}
+
+	@ProxyMethod 
+	public def testGetRequirements() {
+		def param = buildData(); 
+		return ruleSvc.getRequirements( param );
+	}
+
+
+
+	Map buildData() {
+		def map = [
+			appyear: 2023, apptype: 'NEW', appdate: '2023-08-01',
+			"businessname":"AAA BUSINESS", 
+			"assessments":[], 
+			"lastModified":"2023-07-29T03:21:20.114Z", 
+			"requirements":[[
+				"objid":"A1", "caption":"DTI Certificate", 
+				"attachment":[
+					"location":"https://uploads-89aec797-f5e4-4778-b4a0-3a324906ef50.s3.us-west-2.amazonaws.com//bpls/app/154.png", 
+					"key":"/bpls/app/154.png"
+				], 
+				"type":"dti"
+			], [
+				"objid":"A2", "caption":"Barangay Clearance", 
+				"type":"brgyclearance"
+			]], 
+			"contact":[:], 
+			"marketmoduleactive":false, 
+			"orgtype":[
+				"id":"SING", 
+				"regno":"3433333", 
+				"regdate":"2023-05-05", 
+				"caption":"Single Proprietorship", 
+				"registration":"dti"
+			], 
+			"primarylob":[
+				"objid":"LOB7b34816a:1584a68b94a:-7965", 
+				"primary":true, 
+				"classification":["objid":"RETAILER"], 
+				"name":"SARI-SARI STORE (NON-ESSENTIAL)", 
+				"state":"DRAFT", 
+				"psic":["title":null, "objid":null]
+			], 
+			"infos":[[
+				"category":"Establishment Info", 
+				"objid":"L1", "order":1, "name":"hasdelivery", 
+				"value":true, "caption":"Do you have delivery vans?", 
+				"datatype":"boolean"
+			], [
+				"category":"Establishment Info", 
+				"objid":"L2", "order":2, "name":"officetype", 
+				"value":["objid":"MAIN", "caption":"Main"], 
+				"caption":"Office Type", 
+				"datatype":"string_array", 
+				"options":[[
+					"objid":"MAIN", "caption":"Main"
+				], [
+					"objid":"BRANCH", "caption":"Branch"
+				]]
+			], [
+				"category":"Business Activity", 
+				"objid":"L3", "order":3, "name":"area", 
+				"value":5, "caption":"Area", "datatype":"decimal"
+			], [
+				"category":"Business Activity", 
+				"objid":"L4", "order":4, "name":"num_tables", 
+				"value":3, "caption":"No. of Tables", "datatype":"integer"
+			], [
+				"category":"Retail Selling in Sari-sari Stores", 
+				"objid":"C1", "order":5, "name":"capital", 
+				"value":10000, "caption":"Capital", "datatype":"decimal"
+			], [
+				"category":"Retail Sale of Rice, Corn and Other Cereals", 
+				"objid":"C2", "order":6, "name":"capital", 
+				"value":20000, "caption":"Capital", "datatype":"decimal"
+			]], 
+			"_id":"505d2dff-fd29-46b2-8688-023f867cf61d", 
+
+			"lobs":[[
+				"objid":"L-490de1ce:1409e43d1fa:-7fbc", 
+				"classification":["objid":"MANUFACTURER"], 
+				"name":"BAKERY", 
+				"state":"DRAFT", 
+				"psic":["title":null, "objid":null],
+				"lob": [
+					"classification":["objid":"MANUFACTURER"], 
+					"objid":"L-490de1ce:1409e43d1fa:-7fbc",
+					"name":"BAKERY"
+				]
+			]], 
+
+			"tradename":"AAA BUSINESS", 
+			"address":[
+				"subdivision":"", "barangay":"POBLACION", 
+				"market":[:], "unitno":"", 
+				"geolocation":[
+					"markers":[["info":"AAA BUSINESS"]]
+				], 
+				"tdno":"", 
+				"lessor":["rent":0], 
+				"street":"STREET 1", 
+				"rented":false, 
+				"inlgumarketrental":false, 
+				"bldgname":"B1"
+			], 
+			"company":["administrator":[:]], 
+			"applicant":[
+				"id":[
+					"placeissued":"CEBU CITY", 
+					"dtissued":"2020-05-26", 
+					"dtvalid":"2025-05-23", 
+					"type":[
+						"title":"Drivers License", 
+						"name":"drivers", 
+						"caption":"Driver's License No."
+					], 
+					"idno":"343333"
+				], 
+				"middlename":"M.", 
+				"address":"CEBU CITY", 
+				"lastname":"DELA CRUZ", 
+				"firstname":"JUAN", 
+				"contact":[
+					"email":"jzamss@gmail.com", 
+					"phoneno":"23123222", 
+					"mobileno":"09334333333"
+				]
+			], 
+			"trackingno":"P1-OA1OY0R8IC", 
+			"step":5
+		];
+		return map;	
+	}
+}

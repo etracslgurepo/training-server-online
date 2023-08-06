@@ -1,0 +1,17 @@
+<app>
+<env>
+rpt.app.host=${pub_app_server_ip}:${@@osiris3:port}
+rpt.app.context=etracs25
+</env>
+<modules>
+    <module version="2.15" file="rptis/rameses-gov-etracs-rptis-landtax.jar" />
+    <module version="2.15" file="rptis/rameses-gov-etracs-rptis-landtax-report.jar" />
+    <module version="2.18" file="rptis/rameses-gov-etracs-rptis.jar" />
+    <module version="2.17" file="rptis/rameses-gov-etracs-rptis-report.jar" />
+
+    <module version="2.11" file="rptis/rameses-gov-etracs-rptis-landtax-municipality.jar" />
+    <module version="2.11" file="rptis/rameses-gov-etracs-rptis-municipality.jar" />
+    <module version="2.11" file="rptis/rameses-gov-etracs-rptis-transmittal.jar" />
+    <module version="2.11" file="rptis/rameses-gov-etracs-rptis-sync2.jar" />
+</modules>
+</app>

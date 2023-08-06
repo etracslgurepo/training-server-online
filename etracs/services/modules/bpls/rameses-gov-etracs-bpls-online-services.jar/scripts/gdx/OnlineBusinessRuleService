@@ -1,0 +1,155 @@
+import com.rameses.annotations.*;
+import com.rameses.util.KeyGen; 
+import java.rmi.server.UID;
+
+class OnlineBusinessRuleService {
+
+	@Service( dynamic=true )
+	def dynaSvc; 
+
+	@ProxyMethod
+	public Map getInfos( Map param ) {
+		validate( param, 'getInfos' );
+		resolveAddress( param.address ); 
+
+		if ( !param.address.barangay?.name ) 
+			throw new Exception("'address.barangay.name'  parameter is required in getInfos");
+
+		def map = buildApp( param ); 
+		map.infos = [];
+		map.appinfos = [];
+		map.assessmentinfos = [];
+		map.requirements = [];
+		map.taxfees = [];
+		map.lastqtrpaid = 0; 
+
+		if ( param.infos instanceof List ) { 
+			map.infos = param.infos; 
+		}
+
+		def infoRuleSvc = dynaSvc.lookup('BPInfoRuleService'); 
+    	def res = infoRuleSvc.execute( map );
+    	res.each{
+    		it.name = it.attribute.name; 
+    		it.caption = it.attribute.caption;
+    	}
+    	return res;
+	} 
+
+
+
+	@ProxyMethod
+	public List getRequirements( param ) {
+		validate( param, 'getRequirements' );
+		resolveAddress( param.address ); 
+
+		if ( !param.address.barangay?.name ) 
+			throw new Exception("'address.barangay.name'  parameter is required in getRequirements");
+
+		def app = buildApp( param ); 
+
+		def reqRuleSvc = dynaSvc.lookup('BPRequirementRuleService'); 
+		def ruleRes = reqRuleSvc.execute( app ); 
+
+		def list = []; 
+		ruleRes.requirements.each{ 
+			list << [objid: it.reftype, caption: it.title, ref: it]; 
+		} 
+		return list; 
+	}
+
+
+	// 
+	// helper methods
+	// 
+	void validate( Map param, String callingMethodName ) {
+		if ( !param ) throw new Exception('please provide the parameters for '+ callingMethodName);
+		if ( !param.apptype ) throw new Exception("'apptype'  parameter is required in "+ callingMethodName);
+		if ( !param.appyear ) throw new Exception("'appyear'  parameter is required in "+ callingMethodName);
+		if ( !param.appdate ) throw new Exception("'appdate'  parameter is required in "+ callingMethodName);
+		if ( !param.tradename ) throw new Exception("'tradename'  parameter is required in "+ callingMethodName);
+		if ( !param.businessname ) throw new Exception("'businessname'  parameter is required in "+ callingMethodName);
+		if ( !param.address ) throw new Exception("'address'  parameter is required in "+ callingMethodName);
+		if ( !param.orgtype?.id ) throw new Exception("'orgtype.id'  parameter is required in "+ callingMethodName);
+		if ( !param.lobs ) throw new Exception("'lobs'  parameter is required in "+ callingMethodName);
+		if ( !param.primarylob?.objid ) throw new Exception("'primarylob'  parameter is required in "+ callingMethodName);
+
+		param.lobs.eachWithIndex{ o,idx-> 
+			if ( !(o.lob instanceof Map ))
+				throw new Exception("'lobs["+ idx +"].lob.objid'  parameter is required in "+ callingMethodName);
+			if ( !o.lob?.objid )
+				throw new Exception("'lobs["+ idx +"].objid'  parameter is required in "+ callingMethodName);
+			if ( !o.lob?.name )
+				throw new Exception("'lobs["+ idx +"].name'  parameter is required in "+ callingMethodName);
+			if ( !(o.lob?.classification instanceof Map ))
+				throw new Exception("'lobs["+ idx +"].classification.objid'  parameter is required in "+ callingMethodName);
+			if ( !o.lob?.classification?.objid )
+				throw new Exception("'lobs["+ idx +"].classification.objid'  parameter is required in "+ callingMethodName);
+		}
+	}
+
+	void resolveAddress( Map addr ) {
+		if ( addr.rented.toString().matches('true|1')) {
+			addr.type = 'rented'; 
+		}
+		else if ( addr.inlgumarketrental.toString().matches('true|1')) { 
+			addr.type = 'government'; 
+		}
+
+		if ( !addr.type ) { 
+			addr.type = 'local'; 
+		}
+
+		if ( !(addr.barangay instanceof Map)) {
+			def brgyname = addr.barangay; 
+			addr.barangay = [name: brgyname]; 
+		}
+
+		def s1 = [addr.bldgno, addr.bldgname, addr.unitno].findAll{( it )}.join(' '); 
+		def s2 = [addr.street, addr.subdivision, addr.barangay.name].findAll{( it )}.join(' '); 
+		addr.text = [s1, s2].findAll{( it )}.join(' '); 
+	}
+
+	Map buildApp( Map app ) {
+		def map = [business: [:]]; 
+		map.business.address = app.address;
+		map.business.permittype = 'BUSINESS'; 
+		map.business.officetype = 'MAIN'; 
+		map.business.orgtype = app.orgtype.id; 
+		map.appdate = app.appdate; 
+		map.appyear = app.appyear; 
+		map.apptype = app.apptype; 
+		map.orgtype = app.orgtype.id; 
+		map.yearstarted = app.yearstarted; 
+
+		map.dtfiled = app.appdate;
+		map.txnmode = 'ONLINE'; 
+		map.lobs = [];
+
+		def prilob = app.primarylob;
+		map.lobs << [
+			objid: 'BUSLOB-'+ new java.rmi.server.UID().toString(), 
+			lobid: prilob.lob.objid, name: prilob.lob.name, 
+			classification: prilob.lob.classification, 
+			assessmenttype: map.apptype 
+		];
+
+		app.lobs.each{  
+			def mm = [
+				objid: 'BUSLOB-'+ new java.rmi.server.UID().toString(), 
+				lobid: it.lob.objid, name: it.lob.name, 
+				classification: it.lob.classification, 
+				assessmenttype: map.apptype 
+			];
+			map.lobs << mm; 
+		}
+
+		map.lobs.each{
+			def assessmenttype = it.assessmenttype.toString().toUpperCase(); 
+			if ( assessmenttype.matches('NEW|RENEW|RETIRE')) {
+				it.assessmenttype = assessmenttype; 
+			}			
+		}
+		return map;
+	}
+} 

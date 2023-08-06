@@ -1,0 +1,7 @@
+provider=script
+app.host=${sms-server}:90
+app.cluster=cloud-server
+app.context=sms
+
+env.acctname=${sms_acctname}
+env.apikey=${sms_apikey}
