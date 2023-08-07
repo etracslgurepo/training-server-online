@@ -1,8 +1,8 @@
--- MySQL dump 10.13  Distrib 5.5.59, for Win64 (AMD64)
+-- MySQL dump 10.13  Distrib 5.7.40, for Win64 (x86_64)
 --
--- Host: localhost    Database: etracs_notification
+-- Host: localhost    Database: training_notification
 -- ------------------------------------------------------
--- Server version	5.5.59
+-- Server version	5.7.40-log
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -16,12 +16,12 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- Current Database: `etracs_notification`
+-- Current Database: `training_notification`
 --
 
-CREATE DATABASE /*!32312 IF NOT EXISTS*/ `etracs_notification` /*!40100 DEFAULT CHARACTER SET utf8 */;
+CREATE DATABASE /*!32312 IF NOT EXISTS*/ `training_notification` /*!40100 DEFAULT CHARACTER SET utf8 */;
 
-USE `etracs_notification`;
+USE `training_notification`;
 
 --
 -- Table structure for table `async_notification`
@@ -707,4 +707,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2021-07-07 16:45:14
+-- Dump completed on 2023-08-07 15:23:46

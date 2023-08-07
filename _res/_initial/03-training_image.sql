@@ -1,8 +1,8 @@
--- MySQL dump 10.13  Distrib 5.5.59, for Win64 (AMD64)
+-- MySQL dump 10.13  Distrib 5.7.40, for Win64 (x86_64)
 --
--- Host: localhost    Database: etracs_image
+-- Host: localhost    Database: training_image
 -- ------------------------------------------------------
--- Server version	5.5.59
+-- Server version	5.7.40-log
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -16,12 +16,12 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- Current Database: `etracs_image`
+-- Current Database: `training_image`
 --
 
-CREATE DATABASE /*!32312 IF NOT EXISTS*/ `etracs_image` /*!40100 DEFAULT CHARACTER SET utf8 */;
+CREATE DATABASE /*!32312 IF NOT EXISTS*/ `training_image` /*!40100 DEFAULT CHARACTER SET utf8 */;
 
-USE `etracs_image`;
+USE `training_image`;
 
 --
 -- Table structure for table `image_chunk`
@@ -84,4 +84,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2021-07-07 16:45:01
+-- Dump completed on 2023-08-07 15:24:31

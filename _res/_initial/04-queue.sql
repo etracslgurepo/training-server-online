@@ -1,6 +1,6 @@
 -- MySQL dump 10.13  Distrib 5.5.59, for Win64 (AMD64)
 --
--- Host: localhost    Database: queue
+-- Host: localhost    Database: training_queue
 -- ------------------------------------------------------
 -- Server version	5.5.59
 
@@ -16,12 +16,12 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- Current Database: `queue`
+-- Current Database: `training_queue`
 --
 
-CREATE DATABASE /*!32312 IF NOT EXISTS*/ `queue` /*!40100 DEFAULT CHARACTER SET utf8 */;
+CREATE DATABASE /*!32312 IF NOT EXISTS*/ `training_queue` /*!40100 DEFAULT CHARACTER SET utf8 */;
 
-USE `queue`;
+USE `training_queue`;
 
 --
 -- Table structure for table `queue_announcement`
