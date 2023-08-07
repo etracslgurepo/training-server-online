@@ -1,8 +1,0 @@
-<app>
-	<env>
-
-	</env>
-	<modules>
-		<module version="1.00" file="custom/gov-lgu-etracs-main.jar" />
-	</modules>
-</app>
