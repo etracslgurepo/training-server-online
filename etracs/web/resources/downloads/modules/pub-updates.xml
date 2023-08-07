@@ -1,16 +1,16 @@
 <app>
 <env>
 app.title=ETRACS 2.5 build 2.5.05.02-003 (${lgu_name})
-app.host=${pub_app_server_ip}:${@@osiris3:port}
+app.host=${pub_app_server_ip}:18070
 app.cluster=osiris3
 app.context=etracs25
-app.help=http://${pub_app_server_ip}:${@@anubis-web:port}/help
+app.help=http://${pub_app_server_ip}:18080/help
 app.loader=com.rameses.osiris2.client.OsirisAppLoader
 readTimeout=300000
 connectionTimeout=5000
 filemgmt.enabled=false
 
-ws.host=${pub_app_server_ip}:${@@websocket:port}
+ws.host=${pub_app_server_ip}:18060
 #res.host=${pub_app_server_ip}
 
 socketio.host=${socketio_server_ip}:7080

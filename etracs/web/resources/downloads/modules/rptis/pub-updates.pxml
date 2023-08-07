@@ -1,6 +1,6 @@
 <app>
 <env>
-rpt.app.host=${pub_app_server_ip}:${@@osiris3:port}
+rpt.app.host=${pub_app_server_ip}:18070
 rpt.app.context=etracs25
 </env>
 <modules>

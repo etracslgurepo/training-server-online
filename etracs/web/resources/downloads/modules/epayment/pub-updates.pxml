@@ -1,7 +1,7 @@
 <app>
 <env>
 epayment.build=2.5.01.02.06
-epayment.app.host=${pub_app_server_ip}:${@@osiris3:port}
+epayment.app.host=${pub_app_server_ip}:18070
 epayment.app.context=epayment
 </env>
 <modules>

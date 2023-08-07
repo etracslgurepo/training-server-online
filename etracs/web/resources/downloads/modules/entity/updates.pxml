@@ -1,6 +1,6 @@
 <app>
 <env>
-entity.app.host=${app_server_ip}:${@@osiris3:port}
+entity.app.host=${app_server_ip}:18070
 entity.app.context=etracs25
 </env>
 <modules>
