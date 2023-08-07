@@ -15,6 +15,5 @@ _tmp
 /etracs/web/resources/downloads/modules/custom
 /custom-template
 /bin/env.conf
-/lib/mysql.jar
 **/resources/platform/etracs255-platform/**
 zzz-custom
