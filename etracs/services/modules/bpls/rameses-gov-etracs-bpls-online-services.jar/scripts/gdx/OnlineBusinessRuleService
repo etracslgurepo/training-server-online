@@ -29,7 +29,7 @@ class OnlineBusinessRuleService {
 
 		def infoRuleSvc = dynaSvc.lookup('BPInfoRuleService'); 
     	def res = infoRuleSvc.execute( map );
-    	res.each{
+    	res.infos.each{
     		it.name = it.attribute.name; 
     		it.caption = it.attribute.caption;
     	}
@@ -51,11 +51,27 @@ class OnlineBusinessRuleService {
 		def reqRuleSvc = dynaSvc.lookup('BPRequirementRuleService'); 
 		def ruleRes = reqRuleSvc.execute( app ); 
 
-		def list = []; 
+		def doctype = [reftype: 'UAF', title: 'UNIFIED APPLICATION FORM'];
+		def uaf = [objid: doctype.reftype, caption: doctype.title, ref: doctype, required: true, sortorder: 0]; 
+
+		def docList = [ uaf ]; 
+
 		ruleRes.requirements.each{ 
-			list << [objid: it.reftype, caption: it.title, ref: it]; 
+			def mm = [objid: it.reftype, caption: it.title, ref: it, required: false, sortorder: 1]; 
+			mm.required = ( it.step ? true : false ); 
+			docList << mm; 
 		} 
-		return list; 
+		ruleRes.clear(); 
+
+		def newList = [];
+		docList.findAll{( it.required == true )}.sort{ it.sortorder.toString() +'-'+ it.caption }.each{ 
+			newList << it; 
+		}
+		docList.findAll{( it.required == false )}.sort{ it.sortorder.toString() +'-'+ it.caption }.each{ 
+			newList << it; 
+		}
+		docList.clear();
+		return newList; 
 	}
 
 
@@ -71,8 +87,8 @@ class OnlineBusinessRuleService {
 		if ( !param.businessname ) throw new Exception("'businessname'  parameter is required in "+ callingMethodName);
 		if ( !param.address ) throw new Exception("'address'  parameter is required in "+ callingMethodName);
 		if ( !param.orgtype?.id ) throw new Exception("'orgtype.id'  parameter is required in "+ callingMethodName);
-		if ( !param.lobs ) throw new Exception("'lobs'  parameter is required in "+ callingMethodName);
 		if ( !param.primarylob?.objid ) throw new Exception("'primarylob'  parameter is required in "+ callingMethodName);
+		if ( !param.lobs && !param.primarylob?.objid ) throw new Exception("'lobs'  parameter is required in "+ callingMethodName);
 
 		param.lobs.eachWithIndex{ o,idx-> 
 			if ( !(o.lob instanceof Map ))

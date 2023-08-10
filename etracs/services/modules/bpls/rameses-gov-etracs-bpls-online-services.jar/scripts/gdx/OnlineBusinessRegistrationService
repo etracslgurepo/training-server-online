@@ -1,6 +1,7 @@
 import com.rameses.annotations.*;
 import com.rameses.util.KeyGen; 
 import java.rmi.server.UID;
+import org.apache.commons.codec.binary.Base64;
 
 class OnlineBusinessRegistrationService {
 
@@ -40,6 +41,21 @@ class OnlineBusinessRegistrationService {
 		}
 		res.clear(); 
 		list.sort{ it.name } 
+
+		if ( param?.gzip.toString() == '1' ) {
+			def jsonUtil = new com.rameses.osiris3.server.JSON();
+			def jsonBytes = jsonUtil.encode( list ).getBytes("UTF-8"); 
+			def baos = new java.io.ByteArrayOutputStream(); 
+			def gzip = new java.util.zip.GZIPOutputStream(baos);
+			try { 
+			    gzip.write( jsonBytes ); 
+			} finally {
+			    gzip.close();
+			}
+
+			def compressedBytes = baos.toByteArray(); 
+			return [new Base64().encodeAsString( compressedBytes )];
+		}
 		return list; 
 	} 
 
@@ -54,6 +70,26 @@ class OnlineBusinessRegistrationService {
 		
 		def svc = dynaSvc.lookup('QueryService');
 		return svc.getList( qmap ); 
+	}
+
+	@ProxyMethod
+	public def buildUAF( param ) {
+		// param: app, partner
+		if ( !param?.partner?.id ) throw new Exception('partner.id  parameter is required in buildUAF');
+		if ( !param?.partner?.name ) throw new Exception('partner.name  parameter is required in buildUAF');
+		if ( !param?.partner?.group ) throw new Exception('partner.group  parameter is required in buildUAF');
+		if ( !(param?.app instanceof Map)) throw new Exception('partner.app  parameter is required in buildUAF');
+
+		def ruleSvc = dynaSvc.lookup('gdx/OnlineBusinessRuleService'); 
+		def docList = ruleSvc.getRequirements( param.app ); 
+		param.app.requirements = docList; 
+		param.app.barcode = param.app.trackingno;
+
+		def reportParam = [ data: param.app, reportid: 'bpls_unifiedform', template: 'bpls/uaf3/main']; 
+		def reportResult = dynaSvc.lookup('JasperReportService').generateReport( reportParam ); 
+		println 'reportResult ==> '+ reportResult; 
+
+		return [path: "https://output-docs.s3.us-west-2.amazonaws.com/03802/bpls/b-134-h0n325pb13/UAF-0348503945039450398405345.pdf"]; 
 	}
 
 	@ProxyMethod

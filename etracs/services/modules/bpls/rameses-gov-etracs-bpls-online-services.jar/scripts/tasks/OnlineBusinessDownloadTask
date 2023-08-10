@@ -17,12 +17,12 @@ class OnlineBusinessDownloadTask {
 
 	@Schedule
 	public void startupProcess( task ) { 
-		self.download([:]); 
+		//self.download([:]); 
 	} 
 
 	@Schedule( interval=5 )
 	public void recurringProcess( task ) { 
-		self.download([:]); 
+		//self.download([:]); 
 	} 
 
 

@@ -170,7 +170,6 @@ class DownloadTask {
         if (status.matches("1|y|yes|t|true")) {
             return true;
         }
-        println 'DownloadTask [INFO] inactive' ;
         return false;
     }
 

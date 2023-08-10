@@ -1,0 +1,4 @@
+provider=s3
+region=US_WEST_2
+bucket=output-docs
+credentials=GsqpCUdJneTldb4ZTSQATElmLtu9KGTnHhNH9tCj1luUcNlTD8yyOVWK6ilBJdXICHgK9AHAuhKBx64GQFBmFw==

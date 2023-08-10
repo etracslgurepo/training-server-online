@@ -1,8 +1,9 @@
 import com.rameses.annotations.*;
-import groovy.text.*;
-import java.util.regex.*;
 import com.rameses.osiris2.reports.*;
 import com.rameses.io.*;
+import com.rameses.server.BootLoader;
+import groovy.text.*;
+import java.util.regex.*;
 import jasper.*;
 
 class SysReportTemplateService {
@@ -13,8 +14,7 @@ class SysReportTemplateService {
 	@DataContext("sys_report_header")
 	def headerEm;
 
-	def rootPath = "/report-files";
-
+	String rootPath = "/report-files";
 
 	@ProxyMethod
 	public def getMasterTemplateList() {
@@ -99,10 +99,10 @@ class SysReportTemplateService {
 
 	@ProxyMethod
 	public def getInfo(def o ) {
-		if(!o.name) throw new Exception("name is required in SysReportTemplateService.findTemplate");
-		def tmp =  templateEm.find( [name:o.name] ).first();
-		if( tmp ) {
-			tmp.resources = getResources( [name: tmp.filepath ] );
+		if ( !o.name ) throw new Exception("name is required in SysReportTemplateService.findTemplate");
+		def tmp =  templateEm.find([ name: o.name ]).first();
+		if ( tmp ) {
+			tmp.resources = getResources([ name: tmp.filepath ]);
 		}
 		return tmp;
 	}
