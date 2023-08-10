@@ -259,7 +259,10 @@ class OnlineBusinessRegistrationService {
 		if ( !param.orgtype?.id ) throw new Exception("'orgtype.id'  parameter is required in "+ callingMethodName);
 		if ( !param.primarylob ) throw new Exception("'primarylob'  parameter is required in "+ callingMethodName);
 		if ( !param.infos ) throw new Exception("'infos'  parameter is required in "+ callingMethodName);
-		if ( !param.requirements ) throw new Exception("'requirements'  parameter is required in "+ callingMethodName);
+
+		if ( !param.requirements && callingMethodName != 'buildUAF') 
+			throw new Exception("'requirements'  parameter is required in "+ callingMethodName);
+
 		if ( !param.applicant ) throw new Exception("'applicant'  parameter is required in "+ callingMethodName);
 		if ( !param.applicant?.lastname ) throw new Exception("'applicant.lastname'  parameter is required in "+ callingMethodName);
 		if ( !param.applicant?.firstname ) throw new Exception("'applicant.firstname'  parameter is required in "+ callingMethodName);
@@ -312,7 +315,7 @@ class OnlineBusinessRegistrationService {
 			resolveAddress( param.address ); 
 		} 
 		else { 
-			param.address = [text: param.address];
+			param.address = [text: param.address, street: param.address];
 		}
 	}
 

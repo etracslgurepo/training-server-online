@@ -45,6 +45,14 @@ class OnlineBplsUAFService {
 			business.owner.phoneno = business.owner.contact.remove('phoneno');
 		}
 
+		business.owner.sss = null; 
+		business.owner.tin = null; 
+
+		def idinfo = business.owner.id;
+		def idtype = idinfo?.type?.name.toString().toUpperCase(); 
+		if ( idtype == 'SSS' ) business.owner.sss = idinfo.idno;
+		if ( idtype == 'TIN' ) business.owner.tin = idinfo.idno;  		
+
 		app.business = business; 
 
 		def infos = app.remove('infos');
@@ -96,7 +104,22 @@ class OnlineBplsUAFService {
 			if ( doctype ) newdocs << doctype;
 		}
 		app.requirements = newdocs;
+
 		app.taxfees = []; 
+		app.reg = [:]; 
+
+		def reg = olddocs.find{( it.ref.reftype.toString().toUpperCase().matches('DTI|SEC|CDA'))} 
+		if ( reg ) {
+			app.reg.reftype = reg.ref?.reftype; 
+			app.reg.refno = reg.refno; 
+			app.reg.dtissued = reg.dtissued; 
+		}
+
+		def ctc = olddocs.find{( it.ref.reftype.toString().toUpperCase() == 'CTC' )} 
+		app.ctcno = ctc?.refno; 
+		app.ctcplaceissued = ctc?.placeissued; 
+		app.ctcdateissued = ctc?.dateissued;
+
 		app.approvername = app.approvertitle = '';
 		app.assessorname = app.assessortitle = '';
 	}
