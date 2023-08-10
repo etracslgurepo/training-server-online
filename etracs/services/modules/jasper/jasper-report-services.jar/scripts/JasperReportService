@@ -190,7 +190,8 @@ class JasperReportService  {
 			}
 
 			report_params.REPORT_CLASS_LOADER = classLoader;
-			report_params.REPORT_URL_HANDLER_FACTORY = com.rameses.util.URLStreamHandlers.getFactory();
+
+			report_params.REPORT_URL_HANDLER_FACTORY = com.rameses.util.URLStreamHandlers.createFactory( classLoader );
 
 			def jasperFile = JasperFillManager.fillReport( jReport, report_params, new ReportDataSource( data ) );
 
