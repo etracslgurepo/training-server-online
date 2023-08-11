@@ -18,51 +18,6 @@ class OnlineBusinessRegistrationService {
 	@Service( dynamic=true )
 	def dynaSvc; 
 
-
-	@ProxyMethod
-	public def getLobs( param ) { 
-		def res = online_bpls.getLobsWithPSIC(); 
-
-		def resolveStr = { str-> 
-			if ( !str ) return str; 
-			return str.toString().replaceAll("\\n"," ").trim();
-		}
-
-		def list = [];
-		res.groupBy{ it.objid }.each{ k,v-> 
-			def mm = [:]; 
-			def fo = v.first(); 
-			mm.putAll( fo ); 
-			mm.remove('lob'); 
-			mm.lobs = v.collect{ it.lob } 
-			mm.lobnames = mm.lobs.collect{ it.name }.findAll{( it )}.sort{ it }.unique().join(', '); 
-
-			mm.name = resolveStr( mm.name ); 
-			mm.details = resolveStr( mm.details ); 
-			mm.classification.name = resolveStr( mm.classification.name ); 
-			mm.classification.details = resolveStr( mm.classification.details ); 
-			list << mm; 
-		}
-		res.clear(); 
-		list.sort{ it.name } 
-
-		if ( param?.gzip.toString() == '1' ) {
-			def jsonUtil = new com.rameses.osiris3.server.JSON();
-			def jsonBytes = jsonUtil.encode( list ).getBytes("UTF-8"); 
-			def baos = new java.io.ByteArrayOutputStream(); 
-			def gzip = new java.util.zip.GZIPOutputStream(baos);
-			try { 
-			    gzip.write( jsonBytes ); 
-			} finally {
-			    gzip.close();
-			}
-
-			def compressedBytes = baos.toByteArray(); 
-			return [new Base64().encodeAsString( compressedBytes )];
-		}
-		return list; 
-	} 
-
 	@ProxyMethod 
 	public def getBarangays( param ) {
 		
@@ -129,6 +84,8 @@ class OnlineBusinessRegistrationService {
 		resolveApplicant( param.applicant ); 
 		resolveContact( param.contact, param.applicant, param.orgtype ); 
 
+		param.permittype = 'BUSINESS'; 
+
 		def rundate = dynaSvc.lookup('DateService').getServerDate();
 		def appid = 'ONBPAPP-'+ new java.rmi.server.UID().toString(); 
 
@@ -151,7 +108,11 @@ class OnlineBusinessRegistrationService {
   		newapp.address = param.remove('address');
   		newapp.owner = param.remove('applicant');
   		
-  		def p_lobs = param.remove('lobs');
+  		def p_lobs = [ param.primarylob ];
+  		if ( param.lobs ) { 
+  			p_lobs.addAll( param.remove('lobs')); 
+  		}
+
   		def lob_ids = p_lobs.collect{ it.lob?.objid }.findAll{( it )} 
 
   		def queryMap = [_schemaname: 'lob'];
@@ -170,12 +131,24 @@ class OnlineBusinessRegistrationService {
 				assessmenttype: newapp.apptype 
   			]; 
   			mm.lob = lobs.find{( it.objid == o.lob.objid )} 
+  			if ( !mm.lob ) mm.lob = o.lob;
+
+  			mm.lob.psicid = o.code;
   			newapp.lobs << mm;
   		}
 
   		newapp.infos = param.remove('infos');
-  		newapp.requirements = param.remove('requirements');
+  		newapp.infos.findAll{( it.lob?.objid )}.groupBy{ it.lob.objid }.each{ k,v-> 
+  			
+  			def lobinfo = newapp.lobs.find{( it.lob.objid == k )}
+  			if ( !lobinfo ) return; 
 
+  			v.findAll{( it.name.toString().toLowerCase().startsWith('declared'))}.each{ o-> 
+  				lobinfo.put( o.name.toLowerCase(), o.value ); 
+			}
+  		}
+
+  		newapp.requirements = param.remove('requirements');
   		newapp.requirements.eachWithIndex{ o, idx-> 
   			def path = o.attachment?.location; 
   			if ( !path ) path = o.attachment?.path;

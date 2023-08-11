@@ -7,10 +7,40 @@ class OnlineBusinessApplicationInterceptor {
 
 	@After(pattern="PersistenceService.read", eval="#{ args[0]._schemaname == 'vw_online_business_application' }")
 	public void afterRead( evt ) { 
-		def result = evt.result;
+		def res = evt.result;
 
 		// load data from the actual table 
-		def app = online_app.find([ objid: result.objid.toString() ]).first(); 
-		if ( app ) result.putAll( app ); 
+		def app = online_app.find([ objid: res.objid.toString() ]).first(); 
+		if ( app ) {
+			res.putAll( app ); 
+
+			if ( !res.orgtype && res.datainfo instanceof Map ) {
+				res.orgtype = res.datainfo.orgtype?.id; 
+			}
+		} 
+
+		if ( !res.permittype ) res.permittype = 'BUSINESS'; 
+
+
+		def dec_formatter = new java.text.DecimalFormat('#,##0.00'); 
+		def int_formatter = new java.text.DecimalFormat('#,##0'); 
+
+		res.infos.each{ o-> 
+			o.displayValue = o.value;
+			if ( !o.value ) return; 
+
+			def datatype = o.datatype.toString().toLowerCase();
+			if ( datatype == 'decimal' && o.value ) {
+				o.displayValue = dec_formatter.format( o.value ); 
+			}
+			else if ( datatype == 'integer' && o.value ) {
+				o.displayValue = int_formatter.format( o.value ); 
+			}
+			else if ( datatype == 'boolean' && o.value ) {
+				o.displayValue = (o.value.toString().matches('true|1') ? 'yes' : 'no');
+			}
+		}
+
+		res.infos.sort{ it.caption }
 	} 
 }
