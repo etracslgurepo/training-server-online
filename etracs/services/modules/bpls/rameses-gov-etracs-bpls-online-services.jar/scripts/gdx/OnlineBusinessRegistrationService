@@ -42,7 +42,7 @@ class OnlineBusinessRegistrationService {
 		def app = param.app;
 		validate( app, 'buildUAF' ); 
 		resolveAddress( app.address ); 
-		resolveApplicant( app.applicant ); 
+		resolveApplicant( app.applicant, app.company, app.orgtypeid ); 
 		resolveContact( app.contact, app.applicant, app.orgtype ); 
 
 		def ruleSvc = dynaSvc.lookup('gdx/OnlineBusinessRuleService'); 
@@ -81,7 +81,7 @@ class OnlineBusinessRegistrationService {
 	public def submit( param ) { 
 		validate( param, 'submit' ); 
 		resolveAddress( param.address ); 
-		resolveApplicant( param.applicant ); 
+		resolveApplicant( param.applicant, param.company, param.orgtypeid ); 
 		resolveContact( param.contact, param.applicant, param.orgtype ); 
 
 		param.permittype = 'BUSINESS'; 
@@ -237,8 +237,39 @@ class OnlineBusinessRegistrationService {
 			throw new Exception("'requirements'  parameter is required in "+ callingMethodName);
 
 		if ( !param.applicant ) throw new Exception("'applicant'  parameter is required in "+ callingMethodName);
-		if ( !param.applicant?.lastname ) throw new Exception("'applicant.lastname'  parameter is required in "+ callingMethodName);
-		if ( !param.applicant?.firstname ) throw new Exception("'applicant.firstname'  parameter is required in "+ callingMethodName);
+
+		param.orgtypeid = param.orgtype.id.toString().toUpperCase(); 
+
+		if ( param.orgtypeid == 'CORP' ) {
+			if ( !param.company ) throw new Exception("'company'  parameter is required in "+ callingMethodName);
+			if ( !param.company.name ) throw new Exception("'company.name'  parameter is required in "+ callingMethodName);
+
+			param.applicant.name = param.company.name; 
+			param.applicant.lastname = param.applicant.firstname = param.applicant.middlename = null; 
+			param.reg = [reftype: 'SEC']; 
+		}
+		else if ( param.orgtypeid == 'COOP') {
+			if ( !param.applicant.name ) {
+				def sname = [param.applicant.firstname, param.applicant.middlename, param.applicant.lastname].findAll{( it )}.join(' '); 
+				param.applicant.name = sname; 
+			}
+
+			if ( !param.applicant.name ) 
+				throw new Exception("'applicant.name'  parameter is required in "+ callingMethodName);
+
+			param.reg = [reftype: 'CDA']; 
+		}
+		else {
+			if ( !param.applicant?.lastname ) throw new Exception("'applicant.lastname'  parameter is required in "+ callingMethodName);
+			if ( !param.applicant?.firstname ) throw new Exception("'applicant.firstname'  parameter is required in "+ callingMethodName); 
+
+			def sname = [param.applicant.firstname, param.applicant.middlename, param.applicant.lastname].findAll{( it )}.join(' '); 
+			param.applicant.name = sname; 
+			param.reg = [reftype: 'DTI']; 
+		}
+
+		param.reg.refno = param.orgtype.regno; 
+		param.reg.dtissued = param.orgtype.regdate;
 
 		def lobs = [ param.primarylob ];
 		if ( param.lobs instanceof List ) {
@@ -281,9 +312,22 @@ class OnlineBusinessRegistrationService {
 		addr.text = [s1, s2].findAll{( it )}.join(' '); 
 	}
 
-	void resolveApplicant( Map param ) {		
-		def sname = [param.lastname, param.firstname].findAll{( it )}.join(', '); 
-		param.name = [sname, param.middlename].findAll{( it )}.join(' '); 
+	void resolveApplicant( Map param, Map company, String orgtypeid ) {
+
+		orgtypeid = orgtypeid.toString().toUpperCase(); 
+
+		if (orgtypeid == 'CORP') {
+			param.name = company.name; 
+			param.address = company.address;
+		}
+		else if ( orgtypeid == 'COOP' ) {
+			// do nothing, expect the name has been already set
+		} 
+		else {
+			def sname = [param.lastname, param.firstname].findAll{( it )}.join(', '); 
+			param.name = [sname, param.middlename].findAll{( it )}.join(' '); 			
+		}
+
 		if ( param.address instanceof Map ) {
 			resolveAddress( param.address ); 
 		} 

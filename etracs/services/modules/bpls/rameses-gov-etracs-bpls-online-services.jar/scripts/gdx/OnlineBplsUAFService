@@ -11,11 +11,13 @@ class OnlineBplsUAFService {
 	@ProxyMethod 
 	public def generateNew( app ) {
 		buildDataForNew( app ); 
+		capitalize( app ); 
 
 		def param = [ 
 			data: app, 
 			template: 'bpls/uaf/main-new',
-			reportid: 'bpls_uaf_registration' 
+			reportid: 'bpls_uaf_registration', 
+			parameters: [ PRINTEDBY: app.contact?.name ]
 		]; 
 
 		def reportSvc = dynaSvc.lookup('JasperReportService'); 
@@ -70,9 +72,8 @@ class OnlineBplsUAFService {
 			def mm = [:]; 
 			mm.putAll( o.lob ); 
 
-			mm.psic = [:]; 
-			mm.psic.putAll( o.classification ); 
-			mm.psic.subclass = [code: o.code, name: o.name]; 
+			mm.psic = [code: o.code, name: o.name];
+			mm.psic.classification = o.classification; 
 
 			infos.findAll{( 
 				it.lob?.objid == mm.objid && 
@@ -105,14 +106,16 @@ class OnlineBplsUAFService {
 		}
 		app.requirements = newdocs;
 
-		app.taxfees = []; 
-		app.reg = [:]; 
+		def size = 5 - app.requirements.size();
+		if ( size > 0 ) {
+			[1..size].each{
+				app.requirements << [filler: 1]; 
+			}
+		}
 
-		def reg = olddocs.find{( it.ref.reftype.toString().toUpperCase().matches('DTI|SEC|CDA'))} 
-		if ( reg ) {
-			app.reg.reftype = reg.ref?.reftype; 
-			app.reg.refno = reg.refno; 
-			app.reg.dtissued = reg.dtissued; 
+		app.taxfees = []; 
+		for (int i=0; i<5; i++) {
+			app.taxfees << [filler: 1]; 
 		}
 
 		def ctc = olddocs.find{( it.ref.reftype.toString().toUpperCase() == 'CTC' )} 
@@ -122,6 +125,32 @@ class OnlineBplsUAFService {
 
 		app.approvername = app.approvertitle = '';
 		app.assessorname = app.assessortitle = '';
+	}
+
+	void capitalize( Map data ) {
+		if ( !data ) return;
+
+		data.keySet().each{ k-> 
+			if ( k == 'email' ) return; 
+
+			def v = data.get( k ); 
+			if ( v instanceof String ) {
+				data.put( k, v.toUpperCase() ); 
+			}
+			else if ( v instanceof Map ) {
+				capitalize( v ); 
+			}
+			else if ( v instanceof Collection ) {
+				v.eachWithIndex{ o,idx->  
+					if ( o instanceof Map ) {
+						capitalize( o ); 
+					}
+					else if ( o instanceof String ) {
+						v[idx] = o.toUpperCase();
+					}
+				}
+			}
+		}
 	}
 
 

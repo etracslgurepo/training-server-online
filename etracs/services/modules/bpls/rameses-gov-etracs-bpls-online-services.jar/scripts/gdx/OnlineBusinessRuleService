@@ -12,9 +12,6 @@ class OnlineBusinessRuleService {
 		validate( param, 'getInfos' );
 		resolveAddress( param.address ); 
 
-		if ( !param.address.barangay?.name ) 
-			throw new Exception("'address.barangay.name'  parameter is required in getInfos");
-
 		def map = buildApp( param ); 
 		map.infos = [];
 		map.appinfos = [];
@@ -42,9 +39,6 @@ class OnlineBusinessRuleService {
 	public List getRequirements( param ) {
 		validate( param, 'getRequirements' );
 		resolveAddress( param.address ); 
-
-		if ( !param.address.barangay?.name ) 
-			throw new Exception("'address.barangay.name'  parameter is required in getRequirements");
 
 		def app = buildApp( param ); 
 
