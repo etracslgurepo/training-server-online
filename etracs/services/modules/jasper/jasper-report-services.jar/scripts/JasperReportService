@@ -21,7 +21,7 @@ class JasperReportService  {
 	def self; 
 
 	@Service(dynamic=true)
-	def dSvc;
+	def dynaSvc;
 
 	@Service("SysReportTemplateService")
 	def sysReportTemplateSvc;
@@ -57,7 +57,7 @@ class JasperReportService  {
 				}
 				if ( !params ) throw new Exception("'parameters'  is required in JasperReportService.generateReport")
 
-				def svc = dSvc.lookup("FormReportService" );
+				def svc = dynaSvc.lookup("FormReportService" );
 				def result = svc.getData([ reportid: reportid, parameters: params ]);
 				data = result.data;
 			}
@@ -145,8 +145,18 @@ class JasperReportService  {
 
 			// load the parameters 
 			// 
-			def report_params = self.getStandardParameter(); 
-			if ( report_params == null ) report_params = [:]; 
+			def report_params = [:]; 
+			if ( o.parameters instanceof Map ) {
+				report_params.putAll( o.parameters ); 
+			}
+
+			def standardParams = self.getStandardParameter(); 
+			if ( standardParams instanceof Map ) {
+				report_params.putAll( standardParams ); 
+			}
+
+			def dateSvc = dynaSvc.lookup('DateService'); 
+			report_params.PRINTDATE = dateSvc.getServerDate(); 
 
 			if ( headerinfo_file && headerinfo_file.exists()) {
 	            def fis = null; 
