@@ -35,6 +35,21 @@ public class BusinessMasterService {
 	@Service("OrgService")
 	def orgSvc;
 
+
+	@ProxyMethod
+	public String generateBIN() {
+		def lgucode = orgSvc.getRoot()?.code;
+		if ( !lgucode )
+			throw new Exception("LGU code is null. Please check OrgService.getRoot. Ensure there is a root org");
+		
+		lgucode = lgucode.replace("-", "");	
+
+		def YM = new java.text.SimpleDateFormat('yyyy-MM');
+		def arr = YM.format( dateSvc.getServerDate() ); 
+		def prefix = "B" + lgucode + arr[0] + arr[1];
+		return (prefix + seqSvc.getNextFormattedSeries( prefix )).toString();		
+	}
+
 	/**********************************************************
 	* called by new application or by data capture.
 	* BIN naming standard = {LGUCODE,3}{YEAR,4}{MONTH,2}{SEQ,5}
@@ -46,17 +61,7 @@ public class BusinessMasterService {
 		o.appcount = 1;
 		o.activeqtr = 0;
 		o.currentapplicationid = null;
-
-		//create the bin
-		def lgucode = orgSvc.getRoot()?.code;
-		if(!lgucode)
-			throw new Exception("LGU code is null. Please check OrgService.getRoot. Ensure there is a root org");
-		lgucode = lgucode.replace("-", "");	
-		def yr = dateSvc.serverYear;
-		def mnth = dateSvc.serverMonth;
-		def smon = ( mnth < 10 ) ? "0"+mnth : mnth+"";
-		def prefix = "B"+lgucode+yr+smon;
-		o.bin = prefix+seqSvc.getNextFormattedSeries(prefix);
+		o.bin = generateBIN(); 
 
 		if(!o.address) 
 			throw new Exception("BusinessInfo.beforeCreate error. business address must be provided");

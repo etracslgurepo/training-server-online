@@ -24,7 +24,10 @@ public class BusinessLobService  {
 		//ensure to remove all applications before adding new
 		applob_db.removeList( o );
 		o.lobs.each {
-			it.objid = "BUSLOB"+new UID();
+			if ( !it.objid ) {
+				it.objid = "BUSLOB"+ new UID();
+			}
+			
 			it.businessid = o.businessid;
 			it.applicationid = o.applicationid;
 			it.activeyear = o.activeyear;

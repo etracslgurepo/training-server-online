@@ -72,10 +72,14 @@ public class BusinessApplicationService  {
 		}
 
 		o.txndate = dateSvc.getServerDate();
-		if(!o.dtfiled) o.dtfiled = o.txndate;
-		if(!o.state) o.state = 'INFO';
-		if(!o.appqtr) o.appqtr = 0;
-		o.createdby = [objid:env.USERID,name:env.FULLNAME];
+		if ( !o.dtfiled ) o.dtfiled = o.txndate;
+		if ( !o.state ) o.state = 'INFO';
+		if ( !o.appqtr ) o.appqtr = 0;
+
+		if ( !(o.createdby instanceof Map )) {
+			o.createdby = [objid:env.USERID,name:env.FULLNAME];
+		}
+		
 		o.ownername = o.business.owner.name;
 		o.owneraddress = o.business.owner?.address?.text;
 		o.tradename = o.business.tradename;

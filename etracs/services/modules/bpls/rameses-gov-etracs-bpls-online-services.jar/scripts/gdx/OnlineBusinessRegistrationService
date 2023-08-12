@@ -122,8 +122,8 @@ class OnlineBusinessRegistrationService {
   		newapp.contact = param.remove('contact');
   		newapp.tradename = param.remove('tradename');
   		newapp.businessname = param.remove('businessname');
-  		newapp.address = param.remove('address');
-  		newapp.owner = param.remove('applicant');
+  		newapp.address = param.address;
+  		newapp.owner = param.applicant;
   		
   		def p_lobs = [ param.primarylob ];
   		if ( param.lobs ) { 
@@ -204,6 +204,9 @@ class OnlineBusinessRegistrationService {
   		newapp.dtsubmitted = rundate; 
   		newapp.controlno = param.trackingno;
   		newapp.partnername = System.getenv().get('filipizen_group'); 
+
+  		def rmfields = ['assessments','marketmoduleactive','lobs','resetInfo','company','agreed','infophase','phase','filter'];
+  		rmfields.each{ param.remove( it ) }
   		newapp.datainfo = param;
 
 		def online_app = dynaEm.lookup('online_business_application'); 

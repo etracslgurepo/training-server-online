@@ -13,22 +13,35 @@ public class BusinessInfoService  {
 
 	private void convertInfo(o) {
 		def value = o.value;
-		if( value == null ) return;
-		switch(o.attribute.datatype) {
+		if ( value == null ) return;
+
+		switch( o.attribute.datatype ) {
 			case "decimal":
-				o.decimalvalue = Double.parseDouble(value+"");
+				if ( value instanceof Number ) {
+					o.decimalvalue = value.doubleValue(); 
+				} 
+				else {
+					o.decimalvalue = Double.parseDouble( value.toString());
+				}
 				break;
+
 			case "integer":
-				o.intvalue = Integer.parseInt(value+"");
+				if ( value instanceof Number ) {
+					o.intvalue = value.intValue(); 
+				} 
+				else {
+					o.intvalue = Integer.parseInt( value.toString());
+				}
 				break;
-			case "string_array":	
+
+			case "string_array":
 			case "string":
-				o.stringvalue = (String)value;
+				o.stringvalue = value.toString(); 
 				break;
+			
 			case "boolean":
-				value = ( value == 1 || value == true ) ? "true" : "false";
-				boolean b =  Boolean.parseBoolean(value);
-				o.boolvalue = (b) ? 1 : 0; 
+				boolean b = value.toString().matches('true|1'); 
+				o.boolvalue = (b ? 1 : 0); 
 				break;
 		} 
 	}
@@ -72,8 +85,11 @@ public class BusinessInfoService  {
 		if(!o.applicationid) throw new Exception("applicationid is required");
 		if(!o.activeyear) throw new Exception("activeyear is required");
 		em.removeAppInfos( o );
-		o.appinfos.each {
-			it.objid = "BUSINFO"+new UID();
+		o.appinfos.each { 
+			if ( !it.objid ) {
+				it.objid = "BUSINFO"+ new UID();
+			}
+
 			it.businessid = o.businessid;
 			it.applicationid = o.applicationid;
 			it.activeyear = o.activeyear;
