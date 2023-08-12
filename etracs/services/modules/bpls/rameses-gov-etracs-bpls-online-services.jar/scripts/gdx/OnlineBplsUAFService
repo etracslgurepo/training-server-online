@@ -2,6 +2,9 @@ import com.rameses.annotations.*;
 
 class OnlineBplsUAFService {
 
+	@XConnection( dynamic=true )
+	def dynaConn;
+
 	@DataContext( dynamic=true )
 	def dynaEm;
 
@@ -28,6 +31,17 @@ class OnlineBplsUAFService {
 
 
 	void buildDataForNew( app ) {
+		def orgSvc = dynaSvc.lookup('SysOrgService'); 
+		def org = orgSvc.findRootOrg();
+
+		app.address.type = 'local';
+		attachOrg( app.address, org ); 
+
+		if ( !app.applicant.address.type ) {
+			app.applicant.address.type = 'local'; 
+		}
+		attachOrg( app.applicant.address, org ); 
+
 		if ( !app.appno ) app.appno = app.trackingno;
 		if ( !app.barcode ) app.barcode = app.trackingno;
 
@@ -47,13 +61,13 @@ class OnlineBplsUAFService {
 			business.owner.phoneno = business.owner.contact.remove('phoneno');
 		}
 
-		business.owner.sss = null; 
-		business.owner.tin = null; 
-
-		def idinfo = business.owner.id;
-		def idtype = idinfo?.type?.name.toString().toUpperCase(); 
-		if ( idtype == 'SSS' ) business.owner.sss = idinfo.idno;
-		if ( idtype == 'TIN' ) business.owner.tin = idinfo.idno;  		
+		if ( !business.owner.sss ) {
+			def idinfo = business.owner.id;
+			if ( idinfo instanceof Map ) {
+				def idtype = idinfo.type?.name.toString().toUpperCase(); 
+				if ( idtype == 'SSS' ) business.owner.sss = idinfo.idno;				
+			}
+		}
 
 		app.business = business; 
 
@@ -125,6 +139,31 @@ class OnlineBplsUAFService {
 
 		app.approvername = app.approvertitle = '';
 		app.assessorname = app.assessortitle = '';
+	}
+
+	void attachOrg( Map addr, Map org ) {
+		if ( addr.type != 'local' ) return; 
+
+		def orgclass = org?.orgclass.toString().toUpperCase();  
+		if ( orgclass == 'PROVINCE' ) {
+			addr.municipality = null;  
+			addr.province = org.name; 
+		}		
+		else if ( orgclass == 'MUNICIPALITY' ) {
+			addr.municipality = org.name; 
+			addr.province = org.parent?.name; 
+		}
+		else if ( orgclass == 'CITY' ) {
+			addr.municipality = null;  
+			addr.province = org.parent?.name; 
+
+			def orgname = org.name.toString().toUpperCase().trim(); 
+			if ( orgname.endsWith('CITY')) {
+				addr.city = orgname; 
+			} else {
+				addr.city = orgname +' CITY'; 
+			}
+		}
 	}
 
 	void capitalize( Map data ) {

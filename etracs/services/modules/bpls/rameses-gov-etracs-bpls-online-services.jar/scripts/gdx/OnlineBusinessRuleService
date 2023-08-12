@@ -82,9 +82,13 @@ class OnlineBusinessRuleService {
 		if ( !param.address ) throw new Exception("'address'  parameter is required in "+ callingMethodName);
 		if ( !param.orgtype?.id ) throw new Exception("'orgtype.id'  parameter is required in "+ callingMethodName);
 		if ( !param.primarylob?.objid ) throw new Exception("'primarylob'  parameter is required in "+ callingMethodName);
-		if ( !param.lobs && !param.primarylob?.objid ) throw new Exception("'lobs'  parameter is required in "+ callingMethodName);
 
-		param.lobs.eachWithIndex{ o,idx-> 
+		def lobs = [ param.primarylob ];
+		if ( param.lobs instanceof List ) {
+			lobs.addAll( param.lobs ); 
+		}		
+
+		lobs.eachWithIndex{ o,idx-> 
 			if ( !(o.lob instanceof Map ))
 				throw new Exception("'lobs["+ idx +"].lob.objid'  parameter is required in "+ callingMethodName);
 			if ( !o.lob?.objid )
@@ -96,6 +100,8 @@ class OnlineBusinessRuleService {
 			if ( !o.lob?.classification?.objid )
 				throw new Exception("'lobs["+ idx +"].classification.objid'  parameter is required in "+ callingMethodName);
 		}
+
+		param.orgtypeid = param.orgtype.id.toString().toUpperCase(); 
 	}
 
 	void resolveAddress( Map addr ) {
@@ -125,41 +131,30 @@ class OnlineBusinessRuleService {
 		map.business.address = app.address;
 		map.business.permittype = 'BUSINESS'; 
 		map.business.officetype = 'MAIN'; 
-		map.business.orgtype = app.orgtype.id; 
+		map.business.orgtype = app.orgtypeid; 
 		map.appdate = app.appdate; 
 		map.appyear = app.appyear; 
 		map.apptype = app.apptype; 
-		map.orgtype = app.orgtype.id; 
+		map.orgtype = app.orgtypeid; 
 		map.yearstarted = app.yearstarted; 
 
 		map.dtfiled = app.appdate;
 		map.txnmode = 'ONLINE'; 
 		map.lobs = [];
 
-		def prilob = app.primarylob;
-		map.lobs << [
-			objid: 'BUSLOB-'+ new java.rmi.server.UID().toString(), 
-			lobid: prilob.lob.objid, name: prilob.lob.name, 
-			classification: prilob.lob.classification, 
-			assessmenttype: map.apptype 
-		];
+		def lobs = [ app.primarylob ]; 
+		if ( app.lobs ) lobs.addAll( app.lobs ); 
 
-		app.lobs.each{  
+		lobs.each{
 			def mm = [
 				objid: 'BUSLOB-'+ new java.rmi.server.UID().toString(), 
 				lobid: it.lob.objid, name: it.lob.name, 
 				classification: it.lob.classification, 
-				assessmenttype: map.apptype 
+				assessmenttype: map.apptype
 			];
 			map.lobs << mm; 
 		}
 
-		map.lobs.each{
-			def assessmenttype = it.assessmenttype.toString().toUpperCase(); 
-			if ( assessmenttype.matches('NEW|RENEW|RETIRE')) {
-				it.assessmenttype = assessmenttype; 
-			}			
-		}
 		return map;
 	}
 } 

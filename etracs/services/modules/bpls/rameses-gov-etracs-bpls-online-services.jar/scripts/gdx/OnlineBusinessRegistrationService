@@ -18,6 +18,9 @@ class OnlineBusinessRegistrationService {
 	@Service( dynamic=true )
 	def dynaSvc; 
 
+	@Service 
+	def self;
+
 	@ProxyMethod 
 	public def getBarangays( param ) {
 		
@@ -42,8 +45,8 @@ class OnlineBusinessRegistrationService {
 		def app = param.app;
 		validate( app, 'buildUAF' ); 
 		resolveAddress( app.address ); 
-		resolveApplicant( app.applicant, app.company, app.orgtypeid ); 
-		resolveContact( app.contact, app.applicant, app.orgtype ); 
+		resolveApplicant( app.applicant, app.orgtypeid ); 
+		resolveContact( app.contact, app.applicant, app.orgtypeid ); 
 
 		def ruleSvc = dynaSvc.lookup('gdx/OnlineBusinessRuleService'); 
 		def docList = ruleSvc.getRequirements( app ); 
@@ -65,24 +68,38 @@ class OnlineBusinessRegistrationService {
 		def result = uafSvc.generateNew( app ); 
 		def filename = result.tokenid +'.pdf'; 
 
-		def paths = [ param.partner.id, 'bpls', app.trackingno, ('uaf-'+ filename)]; 
+		def paths = [ param.partner.id, 'bpls', app.trackingno, 'uaf.pdf']; 
 		def key = paths.join('/').toLowerCase(); 
 
 		def outdir = BootLoader.getOutputDir();
 		def file = new java.io.File( outdir, filename ); 
 		xconn.send([ source: file, key: key ]); 
 
+		self.deleteTempFile([ filename: filename ]); 
+
 		paths = [ viewerHost, viewerContext, key ]; 
 		result = [ path: viewerScheme +"://"+ paths.findAll{( it )}.join('/') ]; 
 		return result; 
+	} 
+
+
+	@Async 
+	@ProxyMethod
+	public void deleteTempFile( param ) {
+		if ( !param.filename ) return; 
+
+		def outdir = BootLoader.getOutputDir();
+		def file = new java.io.File( outdir, param.filename );
+		file.delete(); 
 	}
+
 
 	@ProxyMethod
 	public def submit( param ) { 
 		validate( param, 'submit' ); 
 		resolveAddress( param.address ); 
-		resolveApplicant( param.applicant, param.company, param.orgtypeid ); 
-		resolveContact( param.contact, param.applicant, param.orgtype ); 
+		resolveApplicant( param.applicant, param.orgtypeid ); 
+		resolveContact( param.contact, param.applicant, param.orgtypeid ); 
 
 		param.permittype = 'BUSINESS'; 
 
@@ -150,24 +167,14 @@ class OnlineBusinessRegistrationService {
 
   		newapp.requirements = param.remove('requirements');
   		newapp.requirements.eachWithIndex{ o, idx-> 
-  			def path = o.attachment?.location; 
-  			if ( !path ) path = o.attachment?.path;
-  			if ( !path ) return;
+  			def key = o.attachment?.key; 
+  			if ( !key ) return; 
 
 			o.docid = newapp.objid +'-doc'+ idx; 
-
-  			if ( path.indexOf("://") > 0 ) {
-				def sb = new StringBuilder(); 
-				sb.append("/s3/"); 
-
-				def ii = path.indexOf("://"); 
-				sb.append( path.substring( ii+3 ));
-
-				path = o.path = sb.toString(); 
-			}
+			o.path = key;
 
 			if ( !o.attachment.filename ) {
-				o.attachment.filename = path.substring( path.lastIndexOf('/')+ 1 ); 
+				o.attachment.filename = o.path.substring( o.path.lastIndexOf('/')+ 1 ); 
 			}
 			if ( !o.attachment.filetype ) {
 				def filename = o.attachment.filename; 
@@ -238,34 +245,26 @@ class OnlineBusinessRegistrationService {
 
 		if ( !param.applicant ) throw new Exception("'applicant'  parameter is required in "+ callingMethodName);
 
+		param.reg = [:]; 
 		param.orgtypeid = param.orgtype.id.toString().toUpperCase(); 
 
 		if ( param.orgtypeid == 'CORP' ) {
-			if ( !param.company ) throw new Exception("'company'  parameter is required in "+ callingMethodName);
-			if ( !param.company.name ) throw new Exception("'company.name'  parameter is required in "+ callingMethodName);
-
-			param.applicant.name = param.company.name; 
-			param.applicant.lastname = param.applicant.firstname = param.applicant.middlename = null; 
-			param.reg = [reftype: 'SEC']; 
-		}
-		else if ( param.orgtypeid == 'COOP') {
-			if ( !param.applicant.name ) {
-				def sname = [param.applicant.firstname, param.applicant.middlename, param.applicant.lastname].findAll{( it )}.join(' '); 
-				param.applicant.name = sname; 
-			}
-
 			if ( !param.applicant.name ) 
 				throw new Exception("'applicant.name'  parameter is required in "+ callingMethodName);
 
-			param.reg = [reftype: 'CDA']; 
+			param.reg.reftype = 'SEC'; 
+		}
+		else if ( param.orgtypeid == 'COOP') {
+			if ( !param.applicant.name ) 
+				throw new Exception("'applicant.name'  parameter is required in "+ callingMethodName);
+
+			param.reg.reftype = 'CDA'; 
 		}
 		else {
 			if ( !param.applicant?.lastname ) throw new Exception("'applicant.lastname'  parameter is required in "+ callingMethodName);
 			if ( !param.applicant?.firstname ) throw new Exception("'applicant.firstname'  parameter is required in "+ callingMethodName); 
 
-			def sname = [param.applicant.firstname, param.applicant.middlename, param.applicant.lastname].findAll{( it )}.join(' '); 
-			param.applicant.name = sname; 
-			param.reg = [reftype: 'DTI']; 
+			param.reg.reftype = 'DTI'; 
 		}
 
 		param.reg.refno = param.orgtype.regno; 
@@ -312,32 +311,24 @@ class OnlineBusinessRegistrationService {
 		addr.text = [s1, s2].findAll{( it )}.join(' '); 
 	}
 
-	void resolveApplicant( Map param, Map company, String orgtypeid ) {
+	void resolveApplicant( Map data, String orgtypeid ) {
 
 		orgtypeid = orgtypeid.toString().toUpperCase(); 
 
-		if (orgtypeid == 'CORP') {
-			param.name = company.name; 
-			param.address = company.address;
-		}
-		else if ( orgtypeid == 'COOP' ) {
-			// do nothing, expect the name has been already set
-		} 
-		else {
-			def sname = [param.lastname, param.firstname].findAll{( it )}.join(', '); 
-			param.name = [sname, param.middlename].findAll{( it )}.join(' '); 			
+		if (orgtypeid == 'SING') {
+			def sname = [data.lastname, data.firstname].findAll{( it )}.join(', '); 
+			data.name = [sname, data.middlename].findAll{( it )}.join(' '); 			
 		}
 
-		if ( param.address instanceof Map ) {
-			resolveAddress( param.address ); 
+		if ( data.address instanceof Map ) {
+			resolveAddress( data.address ); 
 		} 
 		else { 
-			param.address = [text: param.address, street: param.address];
+			data.address = [text: data.address, street: data.address];
 		}
 	}
 
-	void resolveContact( Map contact, Map applicant, Map orgtype ) {
-		def orgtypeid = orgtype.id; 
+	void resolveContact( Map contact, Map applicant, String orgtypeid ) {
 		if ( !contact.name ) {
 			if ( orgtypeid == 'SING' ) { 
 				contact.name = applicant.name; 
@@ -393,5 +384,5 @@ class OnlineBusinessRegistrationService {
 		}
 
 		return map;
-	}	
+	} 
 } 
