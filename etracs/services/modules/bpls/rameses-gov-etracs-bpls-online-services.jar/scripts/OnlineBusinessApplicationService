@@ -18,6 +18,13 @@ class OnlineBusinessApplicationService {
 			throw new Exception('Application record must be in OPEN status'); 
 
 		
+		def lob_ids = app.lobs.collect{ it.lob?.objid }.findAll{( it )}
+		def em = dynaEm.lookup('lob_lobattribute'); 
+        em.where("lobid IN ('"+ lob_ids.join("','") +"')"); 
+
+        def lobattr_ids = em.list().collect{ it.lobattributeid }
+        lobattr_ids.unique();
+
 		def svc = null; 
 
 		if ( app.apptype == 'NEW' ) {
@@ -27,7 +34,22 @@ class OnlineBusinessApplicationService {
 			svc = dynaSvc.lookup('bpls/OnlineAppRenewalService'); 
 		}
 
-		return svc.approve( app );
+		svc.approve( app ); 
+		
+		em = dynaEm.lookup('vw_online_business_application'); 
+		
+		def findby = [ objid: app.objid ]; 
+		def res = em.findProcessApp( findby ); 
+		if ( !res ) throw new Exception('failed to locate record in findProcessApp'); 
+		
+		res.data = em.findBusinessApp( findby ); 
+		if ( !res.data.apptype ) {
+			res.data.apptype = res.apptype; 
+		}
+		if ( !res.data.lobattributes ) {
+			res.data.lobattributes = lobattr_ids; 
+		} 
+		return res; 
 	}
 
 	@ProxyMethod 

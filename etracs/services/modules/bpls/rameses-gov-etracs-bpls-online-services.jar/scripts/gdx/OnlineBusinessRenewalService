@@ -308,6 +308,7 @@ class OnlineBusinessRenewalService {
 		newapp.contact = param.contact; 
 		newapp.partnername = [ param.partner.group.name, param.partner.name ].join('_'); 
 		newapp.controlno = KeyGen.generateAlphanumKey( 'B-'+ param.orgcode +'-', 12 ); 
+		newapp.datainfo = [:];
 		online_app.create( newapp ); 
 
 		updateRequirements( newapp.objid, newapp.lobs ); 

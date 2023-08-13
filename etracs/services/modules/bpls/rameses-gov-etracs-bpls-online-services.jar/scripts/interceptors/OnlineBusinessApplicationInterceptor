@@ -2,8 +2,8 @@ import com.rameses.annotations.*;
 
 class OnlineBusinessApplicationInterceptor {
 
-	@DataContext('online_business_application')
-	def online_app;
+	@DataContext( dynamic=true )
+	def dynaEm;
 
 	@Service( dynamic=true )
 	def dynaSvc;
@@ -11,6 +11,11 @@ class OnlineBusinessApplicationInterceptor {
 
 	@After(pattern="PersistenceService.read", eval="#{ args[0]._schemaname == 'online_business_application' }")
 	public void afterRead( evt ) { 
+		def res = evt.result; 
+
+		def em = dynaEm.lookup('vw_online_business_application'); 
+		def app = em.select('objid,owner.*').find([ objid: res.objid ]).first(); 
+		res.taxpayerid = app.owner?.objid; 
 		resolveData( evt ); 
 	} 
 
@@ -18,10 +23,14 @@ class OnlineBusinessApplicationInterceptor {
 	public void afterReadVW( evt ) { 
 		def res = evt.result;
 
+		def ownerid = res.owner?.objid; 
+
 		// load data from the actual table 
-		def app = online_app.find([ objid: res.objid.toString() ]).first(); 
+		def em = dynaEm.lookup('online_business_application'); 
+		def app = em.find([ objid: res.objid.toString() ]).first(); 
 		if ( app ) res.putAll( app ); 
 
+		res.taxpayerid = ownerid; 
 		resolveData( evt ); 
 	} 
 
@@ -32,8 +41,13 @@ class OnlineBusinessApplicationInterceptor {
 			if ( !res.orgtype ) { 
 				res.orgtype = res.datainfo.orgtypeid; 
 			} 
+			if ( !res.taxpayerid ) {
+				res.taxpayerid = res.datainfo.taxpayerid; 
+			}
+		}
 
-			res.taxpayerid = res.datainfo.taxpayerid; 
+		if ( res.owner instanceof Map ) {
+			res.owner.objid = res.taxpayerid; 
 		}
 
 		if ( !res.permittype ) res.permittype = 'BUSINESS'; 
@@ -46,10 +60,18 @@ class OnlineBusinessApplicationInterceptor {
 			if ( !o.value ) return; 
 
 			def datatype = o.datatype.toString().toLowerCase();
-			if ( datatype == 'decimal' && o.value ) {
+			if ( datatype == 'decimal' ) { 
+				if ( !(o.value instanceof Number)) {
+					o.value = new BigDecimal( o.value.toString()); 
+				} 
+
 				o.displayValue = dec_formatter.format( o.value ); 
+
 			}
-			else if ( datatype == 'integer' && o.value ) {
+			else if ( datatype == 'integer' ) {
+				if ( !(o.value instanceof Number)) {
+					o.value = new BigDecimal( o.value.toString()).intValue(); 
+				}
 				o.displayValue = int_formatter.format( o.value ); 
 			}
 			else if ( datatype == 'boolean' && o.value ) {

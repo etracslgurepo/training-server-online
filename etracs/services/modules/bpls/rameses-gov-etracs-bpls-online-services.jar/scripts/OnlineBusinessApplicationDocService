@@ -188,8 +188,11 @@ class OnlineBusinessApplicationDocService {
 		if ( !file ) throw new Exception("'"+ fileid +"'' sys_file record not found"); 
 
 		def s3_conn = dynaConn.lookup('s3'); 
-		def url_path = s3_conn.buildPath( doc.attachment.path, true );
-		println '>> '+ url_path; 
+		def doc_path = doc.attachment.path;
+		def url_path = s3_conn.buildPath( doc_path, true );
+		if ( doc_path.startsWith('/s3/')) {
+			url_path = 'http://'+ s3_conn.conf.get('viewer.relayhost') + doc_path;
+		}
 
 		def url = new java.net.URL( url_path ); 
 		long filesize = getContentLength( url ); 

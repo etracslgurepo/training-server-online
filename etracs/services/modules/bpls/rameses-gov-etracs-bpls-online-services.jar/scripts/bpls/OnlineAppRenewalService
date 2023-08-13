@@ -49,6 +49,7 @@ class OnlineAppRenewalService {
 		def appcount = bus.appcount + 1; 
 		def appno = (''+ bus.bin +'-'+ appcount.toString() +'R').toString(); 
 
+		def findby = [ objid: app.objid ]; 
 		def uu = [ state: 'PROCESSING' ]; 
 		uu.approvedby = [ objid: env.USERID, name: env.FULLNAME ]; 
 		uu.approvedappno = appno;  
