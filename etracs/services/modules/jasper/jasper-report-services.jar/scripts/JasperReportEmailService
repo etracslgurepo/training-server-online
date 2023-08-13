@@ -1,14 +1,14 @@
 import com.rameses.annotations.*;
-import java.io.*;
+import com.rameses.server.BootLoader;
 import com.rameses.util.*;
+import java.io.*;
 import java.rmi.server.*;
 import java.util.zip.*;
+
 
 class JasperReportEmailService  {
 	
 	final String DEFAULT_EMAIL_CONNECTION = "primary-email-server";
-
-	final String outputReportPath = "/apps/server/output/";
 
 	@XConnection(dynamic=true)
 	def connDb;
@@ -18,6 +18,12 @@ class JasperReportEmailService  {
 
 	@DataContext( dynamic=true )
 	def dynaEm;
+
+
+	String getOutputReportPath() {
+		return BootLoader.getOutputDirPath() +"/"; 
+	}
+
 
 	@ProxyMethod
 	@Async
@@ -31,7 +37,7 @@ class JasperReportEmailService  {
 		if(!o.connection) throw new Exception("email connection is required in JasperReportEmailService.send");
 
 		def attachments = o.attachments;
-		if( attachments ) {
+		if( attachments ) { 
 			attachments.each { p->
 				if(!p.filename) {
 					def token = jasperSvc.generateReport( p );

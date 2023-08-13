@@ -1,12 +1,15 @@
 import com.rameses.annotations.*;
+import com.rameses.server.BootLoader;
+import com.rameses.osiris2.reports.*;
+import com.rameses.util.*;
+
+import java.io.*;
+import java.net.*;
+import java.rmi.server.*;
+
 import net.sf.jasperreports.engine.*;
 import net.sf.jasperreports.engine.util.*;
-import com.rameses.osiris2.reports.*;
-import java.io.*;
-import com.rameses.util.*;
-import java.rmi.server.*;
-import java.net.*;
-import net.sf.jasperreports.engine.util.*;
+
 
 class SysReportGeneratorService  {
 
@@ -22,7 +25,10 @@ class SysReportGeneratorService  {
 	@DataContext("sys_report_template")
 	def reportTemplateEm;
 
-	String outputReportPath = "/apps/server/output/";
+
+	String getOutputReportPath() {
+		return BootLoader.getOutputDirPath() +"/"; 
+	}
 
 
 	@ProxyMethod
