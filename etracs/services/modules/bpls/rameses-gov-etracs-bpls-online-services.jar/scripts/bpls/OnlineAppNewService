@@ -27,7 +27,7 @@ class OnlineAppNewService {
 		owner.address.objid = key; 
 		owner.address.parentid = key; 
 		owner.state = 'INACTIVE';  
-		owner.orgtype = app.orgtypeid;
+		owner.orgtype = (app.orgtype ? app.orgtype : app.orgtypeid);
 
 		if ( app.orgtype == 'SING' ) {
 			owner.type = 'INDIVIDUAL'; 
@@ -36,6 +36,18 @@ class OnlineAppNewService {
 		} 
 		else {
 			owner.type = 'JURIDICAL';
+			
+			if ( owner.administrator instanceof Map ) {
+				def arrs_1 = [
+					owner.administrator.lastname, 
+					owner.administrator.firstname   
+				];
+				def arrs_2 = [
+					arrs_1.findAll{( it )}.join(','), 
+					owner.administrator.middlename 
+				];
+				owner.administrator.name = arrs_2.findAll{( it )}.join(' '); 
+			}
 		}
 
 		def contact = owner.remove('contact'); 
@@ -167,6 +179,15 @@ class OnlineAppNewService {
 		} 
 
 		data.address.businessid = data.objid; 
+
+		if ( data.address.lessor instanceof Map ) {
+			def lessor = data.address.lessor; 
+			if ( !(lessor.address instanceof Map)) { 
+				lessor.address = [ 
+					text: (lessor.address ? lessor.address.toString(): null) 
+				];
+			}
+		}
 		return data; 
 	}
 
