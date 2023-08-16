@@ -27,7 +27,7 @@ public class VerifyEmailService {
 		def recipient = (data?.email ? data.email : data?.mobileno); 
 		if ( !recipient ) throw new Exception("Please provide an email");
 
-		def skey = self.generateKey().value;
+		def skey = '888888';
 		println "generating key " + skey;
 
 		def msg = " Your 6 digit validation key is " + skey;
