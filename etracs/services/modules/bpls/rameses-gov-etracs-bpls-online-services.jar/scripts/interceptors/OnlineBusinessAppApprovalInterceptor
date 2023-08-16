@@ -45,13 +45,13 @@ class OnlineBusinessAppApprovalInterceptor {
 		}
 
 		def email = result.contact?.email; 
+		def appno = result.approvedappno; 
 		if ( email ) { 
 			def data = [:]; 
 			data.to = email; 
 			data.refid = result.objid; 
 			data.dtsent = result.data.txndate; 
 
-			def appno = result.approvedappno; 
 			data.putAll( createMsg( result, apptype, appno )); 
 			self.sendEmail( data ); 
 		} 
