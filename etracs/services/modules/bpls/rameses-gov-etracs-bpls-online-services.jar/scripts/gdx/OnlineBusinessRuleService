@@ -46,7 +46,7 @@ class OnlineBusinessRuleService {
 		def ruleRes = reqRuleSvc.execute( app ); 
 
 		def doctype = [reftype: 'UAF', title: 'UNIFIED APPLICATION FORM'];
-		def uaf = [objid: doctype.reftype, caption: doctype.title, ref: doctype, required: true, sortorder: 0]; 
+		def uaf = [objid: doctype.reftype, caption: doctype.title, ref: doctype, required: false, sortorder: 0]; 
 
 		def docList = [ uaf ]; 
 
