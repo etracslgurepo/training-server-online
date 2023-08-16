@@ -1,5 +1,5 @@
 provider=script
-app.host=107.21.113.74
+app.host=192.168.1.51
 app.cluster=cloud-server
 app.context=sms
 
