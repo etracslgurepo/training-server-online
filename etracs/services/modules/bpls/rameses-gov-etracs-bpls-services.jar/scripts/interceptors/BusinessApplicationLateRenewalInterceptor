@@ -77,6 +77,9 @@ public class LastRenewalBusinessApplicationInterceptor {
 		def b = [businessid: o.business.objid, activeyear: o.appyear, applicationid: o.objid];
 		b.lobs = o.lobs;
 
+		b.lobs.each{
+			it.objid = "BUSAPPLOB"+ new java.rmi.server.UID();
+		}
 		lobSvc.addAppLobs( b ); 
 		lobSvc.updateActiveLOBHistory([ businessid: o.business.objid, appyear: o.appyear ]);  
 
