@@ -148,6 +148,7 @@ class OnlineBusinessApplicationDocService {
 		def dateBean = new com.rameses.util.DateBean( rundate, pattern ); 
 		def mm = [ scheduledate: formatter.format( dateBean.add("10s")) ];
 
+		if ( doc.msg ) mm.msg = doc.msg; 
 		if ( doc.filesize ) mm.filesize = doc.filesize; 
 		if ( doc.bytesprocessed ) mm.bytesprocessed = doc.bytesprocessed; 
 
@@ -194,13 +195,61 @@ class OnlineBusinessApplicationDocService {
 			url_path = 'http://'+ s3_conn.conf.get('viewer.relayhost') + doc_path;
 		}
 
+		def url_info = s3_conn.fetchURLInfo( url_path ); 
+		if ( url_info.error ) {
+			doc.filesize = 0; 
+			doc.bytesprocessed = 0; 
+			doc.msg = url_info.error; 
+			updateSchedule( doc ); 
+			return; 
+		}
+
+		if ( url_info.code != 200 ) {
+			// get and try the original location 
+			def em_app = dynaEm.lookup('online_business_application');
+			def parent = em_app.find([ objid: doc.parentid ]).select('objid,requirements').first(); 
+			
+			def docref_location = null;
+			if ( parent?.requirements instanceof List ) {
+				def docref = parent.requirements.find{( it.docid == doc.objid )} 
+				docref_location = docref?.attachment?.location; 
+			}
+
+			def err_msg = null; 
+			if ( docref_location ) {
+				def uinfo = s3_conn.fetchURLInfo( docref_location ); 
+				if ( uinfo.error ) {
+					err_msg = uinfo.error; 
+				}
+				else if ( uinfo.code != 200 ) {
+					err_msg = ""+ uinfo.code +" - "+ uinfo.message;
+				}
+
+				url_path = docref_location; 
+			
+			}
+			else {
+				err_msg = ""+ url_info.code +" - "+ url_info.message; 
+			}
+
+			if ( err_msg ) {
+				doc.filesize = 0; 
+				doc.bytesprocessed = 0; 
+				doc.msg = err_msg; 
+				updateSchedule( doc ); 
+				return; 
+			}
+		}
+
+
 		def url = new java.net.URL( url_path ); 
 		long filesize = getContentLength( url ); 
 
 		em_fileitem.find([ objid: fileitem.objid ]).update([ filesize: filesize ]); 
 
+		doc.msg = "";
 		doc.filesize = filesize; 
-		doc.bytesprocessed = 0;
+		doc.bytesprocessed = 0; 
 		updateSchedule( doc ); 
 
 		def param = [url_path: url_path, fileloc: fileloc, fileitem: fileitem, file: file, doc: doc];
@@ -234,12 +283,24 @@ class OnlineBusinessApplicationDocService {
             sess.connect(); 
             pass = true; 
         }
+        catch( Throwable t ) {
+        	def err = getCause( t ); 
+        	param.doc.msg = err.message; 
+        }
         finally {
             if ( !pass ) {
-                disconnect( sess ); 
-            }
+                disconnect( sess );
+            }  
         }
 
+        if ( !pass ) {
+	        param.doc.bytesprocessed = 0; 
+			self.updateSchedule( param.doc );  
+			return;        	
+        }
+
+
+        param.doc.msg = ""; 
 		param.doc.bytesprocessed = 0; 
 		self.updateSchedule( param.doc ); 
 
@@ -306,4 +367,11 @@ class OnlineBusinessApplicationDocService {
             try { httpConn.disconnect(); } catch(Throwable t){;} 
         } 
     } 
+
+    def getCause(Throwable t) {
+    	if ( t.cause ) { 
+    		return getCause( t.cause ); 
+    	} 
+    	return t; 
+    }
 } 
