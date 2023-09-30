@@ -1,5 +1,5 @@
 provider=script
-app.host=107.21.113.74:90
+app.host=${gdx_proxy_server_ip}:18500
 app.cluster=cloud-server
 app.context=sms
 readTimeout=60000
