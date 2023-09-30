@@ -1,5 +1,8 @@
 provider=script
-app.host=${app_server_ip}:${@@osiris3:gdxport}
-app.cluster=osiris3
-app.context=gdx
+app.host=107.21.113.74:90
+app.cluster=cloud-server
+app.context=sms
 readTimeout=60000
+
+env.acctname=${sms_acctname}
+env.apikey=${sms_apikey}

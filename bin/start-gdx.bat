@@ -21,6 +21,7 @@ set START_BASE_DIR=%cd%
 set START_RUN_DIR=%START_BASE_DIR%\bin
 
 rem This will be the base directory
+set REPO_DIR=%START_BASE_DIR%
 set GDX_DIR=%START_BASE_DIR%\gdx
 set BASE_DIR=%GDX_DIR%
 set RUN_DIR=%GDX_DIR%\bin
@@ -29,7 +30,7 @@ set RUN_DIR=%GDX_DIR%\bin
 set JAVA_OPT_XMX=1024
 if not "%JAVA_XMX%" == "" set JAVA_OPT_XMX=%JAVA_XMX%
 
-set JAVA_OPT="-Xms512m -Xmx%JAVA_OPT_XMX%m -Dosiris.run.dir=%RUN_DIR% -Dosiris.base.dir=%BASE_DIR%"
+set JAVA_OPT="-Xms512m -Xmx%JAVA_OPT_XMX%m -Dosiris.run.dir=%RUN_DIR% -Dosiris.base.dir=%BASE_DIR% -Dosiris.repo.dir=%REPO_DIR%"
 
 echo .=================================================================
 echo .

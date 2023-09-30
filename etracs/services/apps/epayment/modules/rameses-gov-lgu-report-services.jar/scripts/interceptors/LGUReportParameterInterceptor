@@ -1,0 +1,18 @@
+import com.rameses.annotations.*;
+import com.rameses.util.*;
+
+public class LGUReportParameterInterceptor {
+
+	@Service( dynamic=true )
+	def dynaSvc; 
+
+	
+	@After( pattern="JasperReportService.getStandardParameter")
+	public void afterGetStandardParameter( evt ) {
+		def svc = dynaSvc.lookup('JasperReportService', 'etracs'); 
+		def res = svc.getStandardParameter(); 
+		if ( res ) { 
+			new DataCloner().copy( res, evt.result );	
+		} 
+	}
+}

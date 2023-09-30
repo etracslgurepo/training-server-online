@@ -11,6 +11,8 @@ _tmp
 /etracs/fileserver
 /etracs/output
 /etracs/output
+/etracs/reportcache
+/etracs/report-files
 /etracs/templates/custom
 /etracs/web/resources/downloads/modules/custom
 /custom-template

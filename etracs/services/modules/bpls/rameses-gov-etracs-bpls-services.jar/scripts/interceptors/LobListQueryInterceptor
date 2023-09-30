@@ -1,8 +1,9 @@
 import com.rameses.annotations.*;
-import com.rameses.util.*;
-import java.rmi.server.*;
 
 public class LobListQueryInterceptor {
+
+	@DataContext( dynamic=true )
+	def dynaEm;
 
 	@Before(pattern="QueryService.getList", eval="#{args[0]._schemaname == 'lob' && args[0].attribute !=null }")
 	public void beforeGetList( evt ) { 
@@ -13,4 +14,20 @@ public class LobListQueryInterceptor {
 	}
 
 
+	@After(pattern="QueryService.getList", eval="#{args[0]._schemaname == 'lob'}")
+	public void afterGetList( evt ) {
+		def lobs = evt.result; 
+		def psicids = lobs.collect{ it.psicid }.findAll{( it )}
+		if ( psicids ) {
+			def em = dynaEm.lookup('psic_subclass'); 
+			em.where("code IN ('"+ psicids.join("','") +"')");
+			em.select('code,description'); 
+
+			em.list().each{ o-> 
+				lobs.findAll{( it.psicid == o.code )}.each{
+					it.psic = o; 
+				}
+			} 
+		}
+	}  
 }

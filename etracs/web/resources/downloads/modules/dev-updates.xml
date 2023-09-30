@@ -1,0 +1,34 @@
+<app>
+<env>
+app.title=ETRACS 2.5 build 2.5.05.02-003 (${lgu_name})
+app.host=${app_server_ip}:18070
+app.cluster=osiris3
+app.context=etracs25
+app.help=http://${app_server_ip}:18080/help
+app.loader=com.rameses.osiris2.client.OsirisAppLoader
+readTimeout=300000
+connectionTimeout=5000
+filemgmt.enabled=false
+
+ws.host=${app_server_ip}:18060
+#res.host=${app_server_ip}
+
+socketio.host=${socketio_server_ip}:7080
+
+entity.app.host=${app_server_ip}:18070
+entity.app.context=etracs25
+
+bpls.app.host=${app_server_ip}:18070
+bpls.app.context=etracs25
+
+rpt.app.host=${app_server_ip}:18070
+rpt.app.context=etracs25
+
+epayment.build=2.5.01.02.06
+epayment.app.host=${app_server_ip}:18070
+epayment.app.context=epayment
+</env>
+<modules>
+   <module version="1.00" file="libs/commons-net-3.5.jar"  />
+</modules>
+</app>

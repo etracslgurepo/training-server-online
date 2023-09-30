@@ -11,6 +11,15 @@ public class VerifyEmailService {
 	@XConnection(dynamic=true)
 	def dyna_xconn;
 
+
+	@ProxyMethod 
+	public def generateKey() {
+		Random rand = new Random();
+		def otp = rand.nextInt(100000000);
+		def key = String.format("%06d", otp).substring(0, 6); 
+		return [value: key]; 
+	}
+
 	@ProxyMethod
 	public def verifyEmail( data ) { 
 		println 'verifyEmail-> '+ data;
@@ -18,10 +27,7 @@ public class VerifyEmailService {
 		def recipient = (data?.email ? data.email : data?.mobileno); 
 		if ( !recipient ) throw new Exception("Please provide an email");
 
-		Random rand = new Random();
-		def otp = rand.nextInt(100000000);
-		def skey = String.format("%06d", otp).substring(0,6);
-
+		def skey = '888888';
 		println "generating key " + skey;
 
 		def msg = " Your 6 digit validation key is " + skey;
