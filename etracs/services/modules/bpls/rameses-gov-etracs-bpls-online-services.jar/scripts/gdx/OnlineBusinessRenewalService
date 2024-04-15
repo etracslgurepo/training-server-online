@@ -166,6 +166,7 @@ class OnlineBusinessRenewalService {
 		
 		def app = appValidator( business, currentyear, currentdate ); 
 		def redflags = online_bpls_renewal.getRedFlags([ businessid: business.objid, currentdate: currentdate ]);  
+		redflags = redflags.findAll{ it.blockaction == 'renewal' }
 		redflags.each { 
 			it.issue = it.remove('message'); 
 		} 
@@ -308,6 +309,7 @@ class OnlineBusinessRenewalService {
 		newapp.contact = param.contact; 
 		newapp.partnername = [ param.partner.group.name, param.partner.name ].join('_'); 
 		newapp.controlno = KeyGen.generateAlphanumKey( 'B-'+ param.orgcode +'-', 12 ); 
+		newapp.dtsubmitted = newapp.dtcreated; 
 		newapp.datainfo = [:];
 		online_app.create( newapp ); 
 

@@ -34,8 +34,23 @@ class RPUService
     @DataContext('rpu')
     def em_rpu
 
+    @DataContext('bldgrpu')
+    def em_bldgrpu
+
+    @DataContext('machrpu')
+    def em_machrpu
+    
+    @DataContext('planttreerpu')
+    def em_planttreerpu
+
+    @DataContext('miscrpu')
+    def em_miscrpu
+
     @DataContext('rpu_type_suffix')
     def em_rpu_type_suffix
+
+    @Service('LogService')
+	def logSvc
 
     
     def RPUTYPE_LAND       = 'land' 
@@ -272,19 +287,6 @@ class RPUService
 
             def landfaas = em_faas.find([rpuid:landrpu.objid]).first()
 
-            if (!landfaas){
-                def impfaas = em.findImprovementByRpuId(rpu)
-                landfaas = em.findLandFaasByPin(impfaas)
-                if (landfaas){
-                    rpu.landrpuid = landfaas.rpuid 
-                    if (rpu.rputype == RPUTYPE_BLDG) em.updateBldgLandRpuId(rpu)
-                    else if (rpu.rputype == RPUTYPE_MACH) em.updateMachLandRpuId(rpu)
-                    else if (rpu.rputype == RPUTYPE_MISC) em.updateMiscLandRpuId(rpu)
-                    else if (rpu.rputype == RPUTYPE_PLANTTREE) em.updatePlantTreeLandRpuId(rpu)
-                    em_faas.find([objid:impfaas.objid]).update([realpropertyid:landfaas.realpropertyid])
-                }
-            }
-
             if (!landfaas) {
                 throw new Exception('Land FAAS does not exist.')
             }
@@ -417,9 +419,35 @@ class RPUService
 
     void updateLandRpuId(rpu) {
         if (rpu.rputype == 'land') return
+        if (util.isFalse(var.faas_improvement_auto_update_land_reference)) return
 
         def currentland = em_rpu.select('objid').find([previd: rpu.landrpuid]).first()
         if (!currentland) return;
         rpu.landrpuid = currentland.objid
+    }
+
+    @ProxyMethod
+    public def getRpuMaster(param) {
+        def rpu = em_rpu.select('rpumasterid').find([objid: param.objid]).first();
+        if (!rpu) {
+            println 'getRpuMaster: RPU ' + param.objid + ' does not exist or has already been deleted.'
+            return [:]
+        }
+        return em_rpumaster.find([objid: rpu.rpumasterid]).first()
+    }
+
+    @ProxyMethod
+    public void updateLandReferenceId(rpu) {
+        def em_handlers = [
+            bldg: em_bldgrpu,
+            mach: em_machrpu,
+            misc: em_miscrpu,
+            planttree: em_planttreerpu
+        ]
+
+        def em = em_handlers[rpu.rputype]
+        if (!em) throw new Exception('Invalid improvement type "' + rpu.rputype + '"')
+        em.find([objid: rpu.objid]).update([landrpuid: rpu.landrpuid])
+        logSvc.logA('updatelandref', 'faas', rpu.objid, 'Previous Land: ' + rpu.prevtdno)
     }
 }

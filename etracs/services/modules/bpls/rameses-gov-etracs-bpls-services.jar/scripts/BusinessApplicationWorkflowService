@@ -215,6 +215,12 @@ public class BusinessApplicationWorkflowService extends ActiveWorkflowService {
 			data.state = 'COMPLETED';
 			self.notifyChangeAppState([ objid: data.objid, state: data.state ]); 
 		} 
+
+		else if ( data.state.toString().toUpperCase() == 'RELEASE' && r.to == 'end') {
+			appSvc.release( data );
+			data.state = 'COMPLETED';
+			self.notifyChangeAppState([ objid: data.objid, state: data.state ]); 
+		}
 	}
 
 	//set the assignee computed based on the beforeSignal.

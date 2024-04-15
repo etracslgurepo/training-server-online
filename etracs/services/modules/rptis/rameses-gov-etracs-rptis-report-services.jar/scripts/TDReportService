@@ -375,15 +375,22 @@ class TDReportService
 					td.landref += ' Block No. ' + landref.blockno
 				}
 
+				if (landref.titleno) {
+                    td.landref += ' with Title No. '	 + landref.titleno
+                }
+				
+				if (landref.surveyno) {
+                    td.landref += '; Survey No. ' + landref.surveyno
+                }
+				
 				if (td.landref) {
 					td.landref += ' under TD No. '	 + landref.tdno 
 				} else {
 					td.landref = ' Located on TD No. '	 + landref.tdno 
 				}
 
-                if (landref.titleno) {
-                    td.landref += ' Title No. '	 + landref.titleno
-                }
+                
+				
 
 				if (td.rputype == 'planttree')
 					td.landref += ' with an area of ' + numberSvc.format('#,##0.0000', landref.totalareaha) + ' ha.'

@@ -12,7 +12,8 @@ where business_objid = $P{businessid}
 
 [findBusinessApp]
 select a.*, 
-	oa.approvedappno, oa.contact_email, oa.contact_mobileno, oa.partnername
+	oa.approvedappno, oa.contact_name, 
+	oa.contact_email, oa.contact_mobileno, oa.partnername
 from business_application a 
 	inner join business b on b.objid = a.business_objid 
 	inner join online_business_application oa on oa.objid = a.objid 

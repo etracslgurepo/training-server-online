@@ -21,6 +21,67 @@ class OnlineBusinessRegistrationService {
 	@Service 
 	def self;
 
+
+	@ProxyMethod
+	public void emailTrackingNo( data ) {
+		if ( !data.trackingno )
+			throw new Exception('trackingno  parameter is required in emailTrackingNo'); 
+		if ( !data.contact?.name )
+			throw new Exception('contact.name  parameter is required in emailTrackingNo'); 
+		if ( !data.contact?.email )
+			throw new Exception('contact.email  parameter is required in emailTrackingNo'); 
+
+
+		data.filipizen_group = System.getenv("filipizen_group");
+		if ( !data.filipizen_group ) {
+			data.filipizen_group = System.getProperty("filipizen_group"); 
+		} 
+
+		def req = [ to: data.contact.email ];
+		req.connection = "bpls-email-server"; 
+		req.subject = "Business Registration Tracking Number";
+		req.message = """ 
+
+<br>
+<b>Hi ${data.contact.name ? data.contact.name : ''}!</b> 
+<br><br>
+<span style="font-size:1.2em;">
+    Thank you for submitting the initial information for your application.
+    <br><br>
+    We are pleased to inform you that your tracking number for your 
+    application is <b>${data.trackingno}</b>. <br> 
+    This unique identifier will help you track the status of your 
+    application throughout the evaluation, assessment and approval process.
+    <br><br>
+    Please be reminded that this is the initial step, and we may 
+    require additional information to complete your application. 
+
+    We kindly request you to check your email regularly for updates 
+    and follow any instructions provided.
+
+  <br><br><br>
+  To view your application, please visit or click &nbsp;
+  <a href="https://www.filipizen.com/partners/${data.filipizen_group}/bpls/newbusiness" style="font-size:1.12em;">
+    filipizen.com
+  </a>
+
+  <br><br>
+  Thank you for using Filipizen!
+  <br><br>
+</span>
+
+		""".toString(); 
+
+		req.state = 0; 
+		req.refid = data.trackingno; 
+		req.objid = 'SEQ'+ new java.rmi.server.UID(); 
+		req.dtsent = dynaSvc.lookup('DateService').getServerDate();
+
+		def em = dynaEm.lookup('sys_email_queue'); 
+		em.create( req ); 
+	}
+
+
 	@ProxyMethod 
 	public def getBarangays( param ) {
 		
@@ -110,65 +171,85 @@ class OnlineBusinessRegistrationService {
 		newapp.objid = appid;
 		newapp.state = 'OPEN';
 		newapp.dtcreated = rundate;
-  		newapp.createdby = (newapp.createdby ? newapp.createdby : [:]); 
-  		if ( !newapp.createdby?.objid ) newapp.createdby.objid = 'filipizen'; 
-  		if ( !newapp.createdby?.name ) newapp.createdby.name = 'filipizen'; 
+		newapp.createdby = (newapp.createdby ? newapp.createdby : [:]); 
+		if ( !newapp.createdby?.objid ) newapp.createdby.objid = 'filipizen'; 
+		if ( !newapp.createdby?.name ) newapp.createdby.name = 'filipizen'; 
 
 		param.apptype = 'NEW'; 
-  		newapp.apptype = param.remove('apptype'); 
-  		newapp.appyear = param.remove('appyear');
-  		newapp.appdate = resolveDate( param.remove('appdate')); 
-  		newapp.step = param.remove('step');
-  		newapp.contact = param.remove('contact');
-  		newapp.tradename = param.remove('tradename');
-  		newapp.businessname = param.remove('businessname');
-  		newapp.address = param.address;
-  		newapp.owner = param.applicant;
+		newapp.apptype = param.remove('apptype'); 
+		newapp.appyear = param.remove('appyear');
+		newapp.appdate = resolveDate( param.remove('appdate')); 
+		newapp.step = param.remove('step');
+		newapp.contact = param.remove('contact');
+		newapp.tradename = param.remove('tradename');
+		newapp.businessname = param.remove('businessname');
+		newapp.address = param.address;
+		newapp.owner = param.applicant;
   		
-  		def p_lobs = [ param.primarylob ];
-  		if ( param.lobs ) { 
-  			p_lobs.addAll( param.remove('lobs')); 
-  		}
+		def p_lobs = [ param.primarylob ];
+		if ( param.lobs ) { 
+			p_lobs.addAll( param.remove('lobs')); 
+		}
 
-  		def lob_ids = p_lobs.collect{ it.lob?.objid }.findAll{( it )} 
+		def lob_ids = p_lobs.collect{ it.lob?.objid }.findAll{( it )} 
 
-  		def queryMap = [_schemaname: 'lob'];
-  		queryMap.where = "objid IN ('"+ lob_ids.join("','") +"')";
-  		queryMap.select = 'objid,name'; 
+		def queryMap = [_schemaname: 'lob'];
+		queryMap.where = "objid IN ('"+ lob_ids.join("','") +"')";
+		queryMap.select = 'objid,name'; 
 
-  		def querySvc = dynaSvc.lookup('QueryService');
-  		def lobs = querySvc.getList( queryMap );  
-  		
-  		newapp.lobs = [];
+		def querySvc = dynaSvc.lookup('QueryService');
+		def lobs = querySvc.getList( queryMap );  
+		
+		newapp.lobs = [];
 
-  		p_lobs.each{ o-> 
-  			def mm = [
-				objid: 'BUSLOB-'+ new java.rmi.server.UID().toString(), 
-				appyear: newapp.appyear, txndate: rundate, 
-				assessmenttype: newapp.apptype 
-  			]; 
-  			mm.lob = lobs.find{( it.objid == o.lob.objid )} 
-  			if ( !mm.lob ) mm.lob = o.lob;
+		p_lobs.each{ o-> 
+			def mm = [
+			objid: 'BUSLOB-'+ new java.rmi.server.UID().toString(), 
+			appyear: newapp.appyear, txndate: rundate, 
+			assessmenttype: newapp.apptype 
+			]; 
+			mm.lob = lobs.find{( it.objid == o.lob.objid )} 
+			if ( !mm.lob ) mm.lob = o.lob;
 
-  			mm.lob.psicid = o.code;
-  			newapp.lobs << mm;
-  		}
+			mm.lob.psicid = o.code;
+			newapp.lobs << mm;
+		}
 
-  		newapp.infos = param.remove('infos');
-  		newapp.infos.findAll{( it.lob?.objid )}.groupBy{ it.lob.objid }.each{ k,v-> 
-  			
-  			def lobinfo = newapp.lobs.find{( it.lob.objid == k )}
-  			if ( !lobinfo ) return; 
+		newapp.infos = param.remove('infos');
+		newapp.infos.findAll{( it.lob?.objid )}.groupBy{ it.lob.objid }.each{ k,v-> 
 
-  			v.findAll{( it.name.toString().toLowerCase().startsWith('declared'))}.each{ o-> 
-  				lobinfo.put( o.name.toLowerCase(), o.value ); 
+			def lobinfo = newapp.lobs.find{( it.lob.objid == k )}
+			if ( !lobinfo ) return; 
+
+			v.findAll{( it.name.toString().toLowerCase().startsWith('declared'))}.each{ o-> 
+				lobinfo.put( o.name.toLowerCase(), o.value ); 
 			}
-  		}
+		}
 
-  		newapp.requirements = param.remove('requirements');
-  		newapp.requirements.eachWithIndex{ o, idx-> 
-  			def key = o.attachment?.key; 
-  			if ( !key ) return; 
+		// fix the duplicate infos
+		if ( newapp.infos ) {
+  		def fixInfos = [];
+  		newapp.infos.groupBy{ it.objid }.each{ k,v-> 
+  			fixInfos << v.first(); 
+  		}
+  		newapp.infos.clear();
+  		newapp.infos = fixInfos;
+		}
+
+		newapp.requirements = param.remove('requirements');
+		newapp.requirements.eachWithIndex{ o, idx-> 
+			if ( !o.refno ) {
+				o.refno = o.attachment?.refno; 
+			}
+			if ( !o.dtissued ) { 
+				o.dtissued = o.attachment?.dtissued; 
+			}
+			if ( !o.placeissued ) { 
+				o.placeissued = o.attachment?.placeissued; 
+			}
+
+			def key = o.attachment?.key; 
+			if ( !key ) return; 
 
 			o.docid = newapp.objid +'-doc'+ idx; 
 			o.path = key;
@@ -183,14 +264,14 @@ class OnlineBusinessRegistrationService {
 			if ( !o.attachment.name ) {
 				o.attachment.name = o.attachment.filename; 
 			} 
-  		}
+		}
 
-  		def appdocs = [];
-  		newapp.requirements.findAll{( it.docid )}.each{
-  			def mm = [objid: it.docid, parentid: newapp.objid];
-  			mm.doc = [type: it.ref?.reftype, title: it.ref?.title];
-  			mm.attachment = [objid: mm.doc.type, path: it.path]; 
-  			mm.attachment.name = it.attachment?.name; 
+		def appdocs = [];
+		newapp.requirements.findAll{( it.docid )}.each{
+			def mm = [objid: it.docid, parentid: newapp.objid];
+			mm.doc = [type: it.ref?.reftype, title: it.ref?.title];
+			mm.attachment = [objid: mm.doc.type, path: it.path]; 
+			mm.attachment.name = it.attachment?.name; 
 			if ( !mm.attachment.name ) {
 				mm.attachment.name =  it.attachment?.filename;
 			}
@@ -199,15 +280,15 @@ class OnlineBusinessRegistrationService {
 			mm.filesize = mm.bytesprocessed = 0; 
 
 			appdocs << mm; 
-  		} 
+		} 
 
-  		newapp.dtsubmitted = rundate; 
-  		newapp.controlno = param.trackingno;
-  		newapp.partnername = System.getenv().get('filipizen_group'); 
+		newapp.dtsubmitted = rundate; 
+		newapp.controlno = param.trackingno;
+		newapp.partnername = System.getenv().get('filipizen_group'); 
 
-  		def rmfields = ['assessments','marketmoduleactive','lobs','resetInfo','company','agreed','infophase','phase','filter'];
-  		rmfields.each{ param.remove( it ) }
-  		newapp.datainfo = param;
+		def rmfields = ['assessments','marketmoduleactive','lobs','resetInfo','company','agreed','infophase','phase','filter'];
+		rmfields.each{ param.remove( it ) }
+		newapp.datainfo = param;
 
 		def online_app = dynaEm.lookup('online_business_application'); 
 		def online_appdoc = dynaEm.lookup('online_business_application_doc'); 

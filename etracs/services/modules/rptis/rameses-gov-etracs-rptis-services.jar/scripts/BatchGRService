@@ -509,4 +509,26 @@ public class BatchGRService
         }
         return items;
     }
+
+    @ProxyMethod
+    public def updateRevisedItem(item) {
+        em_batchgr_item.update(item)
+
+        def faasinfo = [objid: item.newfaasid]
+
+        if (item.newfaas.tdno) {
+            def faas = faasSvc.openFaas([objid: item.newfaasid])
+            faas.tdno = item.newfaas.tdno
+            faasSvc.updateTDNo(faas)
+            
+            faasinfo.tdno = faas.tdno
+            faasinfo.utdno = faas.utdno
+        } else {
+            faasinfo.tdno = null
+        }
+        
+        em_faas.find([objid: faasinfo.objid]).update(faasinfo)
+        em_faas_list.find([objid: faasinfo.objid]).update(faasinfo)
+        return item
+    }
 }

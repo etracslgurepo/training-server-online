@@ -1,6 +1,6 @@
 <app>
 <env>
-app.title=ETRACS 2.5 build 2.5.05.02-003 (${lgu_name})
+app.title=ETRACS 2.5 build 2.5.05.03-12 (${lgu_name})
 app.host=${pub_app_server_ip}:18070
 app.cluster=osiris3
 app.context=etracs25
@@ -14,6 +14,9 @@ ws.host=${pub_app_server_ip}:18060
 #res.host=${pub_app_server_ip}
 
 socketio.host=${socketio_server_ip}:7080
+
+admin.app.host=${pub_app_server_ip}:18070
+admin.app.context=etracs25
 </env>
 <modules>
    <module version="1.00" file="libs/commons-net-3.5.jar"  />

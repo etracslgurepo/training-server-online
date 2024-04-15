@@ -552,27 +552,31 @@ public class BldgRYSettingService
             em_bldg.save(setting)
 
             setting.lgus.each{
-                em_rysettinglgu.save(it)
+                if (!em_rysettinglgu.find([rysettingid: it.rysettingid, lguid: it.lguid]).first()) {
+                    em_rysettinglgu.save(it)
+                }
             }
 
             setting.levels.each{lvl -> 
                 saveAssessLevel(lvl)
-                lvl.ranges.each{ range ->
-                    saveRange(range)
-                }
+            }
+            setting.ranges.each{ range ->
+                saveRange(range)
             }
 
             setting.bldgtypes.each{ bt ->
                 saveBldgType(bt)
-                bt.bldgkindbuccs.each{ 
-                    it.bldgkind.state = 'APPROVED'
-                    em_bldgkind.save(it.bldgkind)
-                    saveBldgKindBucc(it) 
-                }
-                bt.depreciations.each{ saveDepreciation(it) }
-                bt.storeyadjustments.each{ saveStoreyAdjustment(it) }
-                bt.storeyadjbldgkinds.each{ saveStoreyAdjustmentBldgKind(it) }
             }
+
+            setting.bldgkindbuccs.each{
+                it.bldgkind.state = 'APPROVED'
+                em_bldgkind.save(it.bldgkind)
+                saveBldgKindBucc(it) 
+            }
+
+            setting.depreciations.each{ saveDepreciation(it) }
+            setting.storeyadjustments.each{ saveStoreyAdjustment(it) }
+            setting.storeyadjbldgkinds.each{ saveStoreyAdjustmentBldgKind(it) }
 
             setting.additionalitems.each{
                 def item = em_additionalitem.find([code:it.code]).first()

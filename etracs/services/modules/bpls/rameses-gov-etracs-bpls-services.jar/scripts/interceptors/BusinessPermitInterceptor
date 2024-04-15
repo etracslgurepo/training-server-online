@@ -124,6 +124,5 @@ class BusinessPermitInterceptor {
 		data.reftype = "business_permit";
 		data.refid = result.objid;
 		result.qrcode = "qrcode:" + qrCodeSvc.getData( data ); 
-		println 'qrcode ==> '+ result.qrcode;
 	}	
 }

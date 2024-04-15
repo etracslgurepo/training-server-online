@@ -3,6 +3,9 @@ import com.rameses.util.*;
 
 class OnlineBusinessBillingService {
 
+	@DataContext( dynamic=true )
+	def dynaEm; 
+
 	@Service( dynamic=true )
 	def dynaSvc; 
 
@@ -52,6 +55,13 @@ class OnlineBusinessBillingService {
 
 		if ( !app.state.toString().toUpperCase().matches('PAYMENT|RELEASE|COMPLETED')) {
 			throw new Exception("Application is not in payment state");
+		}
+
+		if ( o.checksum ) {
+			def oapp = dynaEm.lookup('online_bpls').findBusinessApp([ objid: app.objid ]);
+			if ( !verifyCheckSum( app.objid, app.appno, oapp.contact?.email.toString(), o.checksum )) {
+				throw new Exception("Invalid checksum value for this transaction");
+			}
 		}
 
 		// This is to inform the BillingService not to refetch the app record
@@ -146,4 +156,30 @@ class OnlineBusinessBillingService {
     	def shareSvc = dynaSvc.lookup('RevenueSharingService', 'treasury'); 
         return shareSvc.execute( param ); 
     } 
+
+
+	@ProxyMethod
+	public boolean verifyCheckSum( appid, appno, email, checksum ) {
+		if ( checksum.toString() == '0' ) {
+			// do nothing 
+			return true;
+		}
+
+		def newchecksum = buildCheckSum( appid, appno, email ); 
+		return ( newchecksum == checksum ); 
+	}
+
+	@ProxyMethod(local=true)
+	public def buildCheckSum( appid, appno, email ) {
+		if ( !appid ) 
+			throw new Exception("appid argument is required in buildCheckSum");
+		if ( !appno ) 
+			throw new Exception("appid argument is required in buildCheckSum");
+		if ( !email ) 
+			throw new Exception("email argument is required in buildCheckSum");
+
+		def buff = new StringBuilder();
+		buff.append( appid ).append( email); 
+		return com.rameses.util.Encoder.MD5.encode( buff.toString(), appno );
+	} 
 }

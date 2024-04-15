@@ -241,6 +241,14 @@ class MachRPUService
 
 
     void calculateRCNLD( machine ) {
+        machine.originalcost = machine.originalcost ? machine.originalcost : 0
+        machine.freightcost = machine.freightcost ? machine.freightcost : 0
+        machine.insurancecost = machine.insurancecost ? machine.insurancecost : 0
+        machine.installationcost = machine.installationcost ? machine.installationcost : 0
+        machine.brokeragecost = machine.brokeragecost ? machine.brokeragecost : 0
+        machine.arrastrecost = machine.arrastrecost ? machine.arrastrecost : 0
+        machine.othercost = machine.othercost ? machine.othercost : 0
+
         machine.acquisitioncost = machine.originalcost + machine.freightcost + 
                                         machine.insurancecost + machine.installationcost + 
                                         machine.brokeragecost + machine.arrastrecost + 
@@ -376,6 +384,6 @@ class MachRPUService
         }
          
     }
-
+    
  }
  

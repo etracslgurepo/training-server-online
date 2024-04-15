@@ -5,6 +5,8 @@ import java.util.*;
 
 public class BPApplication {
     
+    def dyna_ADB;
+
     String objid;
     String orgtype;
     String apptype;
@@ -22,6 +24,7 @@ public class BPApplication {
     int appdate;
 
     int lastqtrpaid;
+    boolean online; 
 
     /** Creates a new instance of BPApplication */
     public BPApplication() {
@@ -80,5 +83,10 @@ public class BPApplication {
             app.lastqtrpaid = 0; 
         } 
         lastqtrpaid = app.lastqtrpaid;
+
+        this.online = false; 
+        if ( app.onlineapplication?.objid ) {
+            this.online = true; 
+        }
     }
 }

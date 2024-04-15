@@ -147,7 +147,19 @@ public class BusinessInfoService  {
 		if(!o.businessid) throw new Exception("businessid is required");
 		if(!o.appinfos) throw new Exception("appinfos is required");
 		if(o.remove_all == true) activeInfo.removeAppInfos( o );
+
+		o.lobs.each{ alob-> 
+			o.appinfos.findAll{( it.lob?.objid == alob.lobid )}.each{
+				it.assessmenttype = alob.assessmenttype; 
+			}
+		}
+
 		o.appinfos.each {
+			if ( it.assessmenttype.toString().toUpperCase() == 'RETIRE' ) {
+				// do not process the data related to retire
+				return; 
+			}
+
 			it.businessid = o.businessid;
 			it.type = 'appinfo';
 			convertInfo(it);

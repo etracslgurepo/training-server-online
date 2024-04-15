@@ -15,6 +15,9 @@ class LandTaxReportStatementOfShareService{
     @Service('NumberService')
     def numSvc
 
+    @Service('RPTUtil')
+	def util
+
     @DataContext('barangay')
     def em_barangay
     
@@ -82,7 +85,7 @@ class LandTaxReportStatementOfShareService{
 
     @ProxyMethod
     public def generateBasicSharesAbstract( params ) {
-        buildDateFilters(params)
+        buildFilters(params)
         def shares = em.getBasicSharesAbstract(params)
         if (!shares) 
             throw new Exception('Records not found.')
@@ -103,7 +106,7 @@ class LandTaxReportStatementOfShareService{
 
     @ProxyMethod
     public def generateBasicShares( params ) {
-        buildDateFilters(params)
+        buildFilters(params)
         def shares = em.getBasicShares(params)
         if (!shares) 
             throw new Exception('Records not found.')
@@ -123,7 +126,7 @@ class LandTaxReportStatementOfShareService{
 
     @ProxyMethod
     public def generateBasicSharesSummary( params ) {
-        buildDateFilters(params)
+        buildFilters(params)
         def shares = em.getBasicSharesSummary(params)
         if (!shares) 
             throw new Exception('Records not found.')
@@ -137,7 +140,7 @@ class LandTaxReportStatementOfShareService{
 
     @ProxyMethod
     public def generateSefShares( params ) {
-        buildDateFilters(params)
+        buildFilters(params)
         def shares = em.getSefShares(params)
         if (!shares) 
             throw new Exception('Records not found.')
@@ -152,7 +155,7 @@ class LandTaxReportStatementOfShareService{
 
     @ProxyMethod
     public def getBarangayShares(params) {
-        buildDateFilters(params)
+        buildFilters(params)
         def shares = em.getBrgyShares( params) 
         if(! shares )  throw new Exception('Records not found.')
         
@@ -164,7 +167,8 @@ class LandTaxReportStatementOfShareService{
 
     @ProxyMethod
     public def getBarangayAdvanceShares(params) {
-        params.filter = ' year = $P{advanceyear} '
+        buildFilters(params)
+        params.filter += ' AND year = $P{advanceyear} '
         def brgyCollections = em.getAdvanceCollectionsByBrgy( params) 
         if(! brgyCollections )  throw new Exception('Records not found.')
 
@@ -175,7 +179,7 @@ class LandTaxReportStatementOfShareService{
         def brgytitle  = (rate * 100) + '% BARANGAY SHARE' 
 
         return [
-            params : [PERIOD : 'For the Year ' + params.advanceyear, RATE: rate, LGUTITLE: lgutitle, BRGYTITLE: brgytitle],  
+            params : [PERIOD : params.period, RATE: rate, LGUTITLE: lgutitle, BRGYTITLE: brgytitle],  
             shares : shares
         ]
     }
@@ -190,7 +194,13 @@ class LandTaxReportStatementOfShareService{
             share.total += bc.total
         }
 
-        params.filter = ' rps.year = $P{advanceyear} '
+        params.filter = ' cv.controldate >= $P{fromdate} AND cv.controldate < $P{todate} '
+        if (params.postingtype && params.postingtype.code == 'byrem'){
+            params.filter = ' rem.controldate >= $P{fromdate} AND rem.controldate < $P{todate} '
+        }
+        params.filter += ' AND rps.year = $P{advanceyear} '
+        
+
         def brgyShares = em.getAdvanceBrgySharesAnnual(params)
         brgyShares.each{bs->
             def share = shares.find{it.objid == bs.brgyid}
@@ -201,7 +211,6 @@ class LandTaxReportStatementOfShareService{
         }
 
         params.lgutype = env.ORGCLASS.toLowerCase()
-        params.filter = ' rps.year = $P{advanceyear} '
         def lguShares = em.getAdvanceLguSharesAnnual(params)
         lguShares.each{ls->
             def share = shares.find{it.objid == ls.brgyid}
@@ -233,19 +242,42 @@ class LandTaxReportStatementOfShareService{
     }
 
 
-    void buildDateFilters(params) {
-        if ("daily".equalsIgnoreCase(params.period)) {
-            String idx = (params.month.index+'').padLeft(2, '0')
-            params.fromdate = dtsvc.parse('yyyy-MM-dd', params.date)
-            params.todate = dtsvc.add(dtsvc.parse("yyyy-MM-dd",params.fromdate),"1d")
-            params.periodtitle = 'For ' + dtsvc.format('MMMMM dd, yyyy', params.fromdate)
-        } else {
-            String idx = (params.month.index+'').padLeft(2, '0')
-            params.fromdate = dtsvc.parse('yyyy-MM-dd', params.year+"-"+idx+"-01")
-            params.todate = dtsvc.getMonthEndDate(dtsvc.parse("yyyy-MM-dd",params.fromdate))
-            params.todate = dtsvc.add(dtsvc.parse("yyyy-MM-dd",params.todate),"1d")
-            params.periodtitle = 'For the Month of ' + dtsvc.format('MMMMM, yyyy', params.fromdate)
-        }
+    void buildFilters(params) {
+        def periodcode = params.period?.toLowerCase()
+		if ( !periodcode ) periodcode = 'monthly'; 
+
+		if ( periodcode == 'yearly' ) {
+			params.fromdate = dtsvc.parse('yyyy-MM-dd', params.year + '-01-01');
+			params.todate = dtsvc.parse('yyyy-MM-dd', params.year + '-12-31') + 1;
+			params.period = 'FOR THE YEAR ' + params.year;
+		} else if ( periodcode.matches('quarterly|asofqtr') ) {
+			if ( !params.qtr ) throw new Exception('qtr parameter is required');
+			params.fromdate = dtsvc.getBeginningQtrDate( (periodcode == 'asofqtr' ? 1 : params.qtr), params.year, 1 ); 
+			params.todate  =  dtsvc.getQtrEndDate( params.qtr, params.year ) + 1;
+			params.period = (periodcode == 'asofqtr' ? '1ST QUARTER - ' : 'FOR THE ') + util.getQuarterName( params.qtr ) + ' OF ' + params.year 
+		} else if ( periodcode == 'asofday' ) {
+            if ( !params.date ) throw new Exception('date parameter is required');
+			params.fromdate = dtsvc.parse('yyyy-MM-dd', params.year + '-01-01');
+			params.todate   = dtsvc.parse('yyyy-MM-dd', params.date) + 1;
+			params.period = 'As of ' + dtsvc.format('MMMMM dd, yyyy', params.date);
+		} else if ( periodcode == 'daily' ) {
+            if ( !params.date ) throw new Exception('date parameter is required');
+			params.fromdate = dtsvc.parse('yyyy-MM-dd', params.date);
+			params.todate   = dtsvc.parse('yyyy-MM-dd', params.date) + 1;
+			params.period = 'For ' + dtsvc.format('MMMMM dd, yyyy', params.date);
+		} else if ( periodcode == 'range' ) {
+            if ( !params.fromdate ) throw new Exception('fromdate parameter is required');
+            if ( !params.todate ) throw new Exception('todate parameter is required');
+			params.fromdate = dtsvc.parse('yyyy-MM-dd', params.fromdate);
+			params.todate   = dtsvc.parse('yyyy-MM-dd', params.todate) + 1;
+			params.period = 'From ' + dtsvc.format('MMMMM dd, yyyy', params.fromdate) + ' to ' + dtsvc.format('MMMMM dd, yyyy', (params.todate-1)) ;
+		} else {
+			if ( !params.month ) throw new Exception('month parameter is required ')
+			params.fromdate = dtsvc.parse('yyyy-MM-dd', params.year + '-' + (periodcode == 'asofmon' ? '01' : params.month.index) + '-01');
+			def todate = dtsvc.parse('yyyy-MM-dd', params.year + '-' + params.month.index + '-01');
+			params.todate = dtsvc.getMonthEndDate(todate) + 1;
+			params.period = (periodcode == 'asofmon' ? 'JANUARY - ' : 'FOR THE MONTH OF ') + util.getMonthName( params.month.index ) + ', ' + params.year  
+		} 
 
         params.filter = ' liquidationdate >= $P{fromdate} AND liquidationdate < $P{todate} '
         if (params.postingtype && params.postingtype.code == 'byrem'){

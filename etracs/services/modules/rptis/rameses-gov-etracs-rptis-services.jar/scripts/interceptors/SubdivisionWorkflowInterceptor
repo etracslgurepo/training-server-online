@@ -150,7 +150,7 @@ class SubdivisionWorkflowInterceptor
 	void updateAssistantItemStatus(faas) {
 		if (!faas.assistant) return
 		def item = em.findAssistItemStatus([subdivisionid: faas.assistant.parent.objid, assistid: faas.assistant.objid])
-		if (item) {
+		if (item && item.objid) {
 			item.parcelcreated = item.appraisedcount
 			em_assist_item.update(item)
 		}

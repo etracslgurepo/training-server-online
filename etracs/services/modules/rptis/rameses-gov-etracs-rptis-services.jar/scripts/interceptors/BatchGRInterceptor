@@ -26,23 +26,6 @@ class BatchGRInterceptor
 		
 		batchitem.state = 'CURRENT'
 		em_batchgr_item.update(batchitem)
-		postCompletedBatch(batchitem)
-	}
-
-	/*-----------------------------------------------------
-	* Set batchgr state to COMPLETED if all
-	* items state are CURRENT
-	-----------------------------------------------------*/
-	void postCompletedBatch(batchitem){
-		def param = [parentid: batchitem.parent.objid, state : 'CURRENT']
-
-		def hasforapproval = em_batchgr_item
-						.where('parent_objid = :parentid and state <> :state', param)
-						.first()
-
-		if (!hasforapproval){
-			em_batchgr.find([objid: batchitem.parent.objid]).update([state: 'COMPLETED'])
-		}
 	}
 
 }

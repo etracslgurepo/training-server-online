@@ -2,6 +2,11 @@
 Restore Databases
 =================
 
+This document will guide you in restoring 
+the initial databases that are needed in 
+running the ETRACS application.
+
+
 1. Open a Command Prompt console from this location "_res/_initial/mysql"
 
 

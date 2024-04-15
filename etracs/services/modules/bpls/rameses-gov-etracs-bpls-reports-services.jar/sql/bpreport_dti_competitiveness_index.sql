@@ -103,9 +103,9 @@ from (
 		select 
 			a.apptype, a.business_objid, a.appyear, 1 as size_1,  
 			max((case 
-				when ai.intvalue > 100000000 then 4
-				when ai.intvalue >  15000000 then 3
-				when ai.intvalue >   3000000 then 2
+				when ai.intvalue >= 200 then 4
+				when ai.intvalue >= 100 then 3
+				when ai.intvalue >= 10 then 2
 				else 1 
 			end)) as size_2
 		from business_application a 
@@ -233,9 +233,9 @@ from (
 		select 
 			a.apptype, a.business_objid, a.appyear, 1 as size_1,  
 			max((case 
-				when ai.intvalue > 100000000 then 4
-				when ai.intvalue >  15000000 then 3
-				when ai.intvalue >   3000000 then 2
+				when ai.intvalue >= 200 then 4
+				when ai.intvalue >= 100 then 3
+				when ai.intvalue >= 10 then 2
 				else 1 
 			end)) as size_2
 		from business_application_task t 

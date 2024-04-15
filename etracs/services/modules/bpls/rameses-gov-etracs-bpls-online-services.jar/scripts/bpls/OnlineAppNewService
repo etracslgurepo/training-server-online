@@ -136,9 +136,11 @@ class OnlineAppNewService {
  			it.name = it.lob.name; 
  		}
 
- 		newapp.appinfos = oldapp.infos;
- 		newapp.appinfos.each{
- 			it.level = 0; 
+ 		newapp.appinfos = [];
+ 		oldapp.infos.groupBy{ it.objid }.each{ k,v-> 
+ 			def bi = v.first();
+ 			bi.level = 0; 
+ 			newapp.appinfos << bi; 
  		}
 
  		newapp.requirements = oldapp.requirements; 
@@ -146,6 +148,13 @@ class OnlineAppNewService {
  			it.reftype = it.ref.reftype; 
  			it.title = it.ref.title; 
  			it.step = it.ref.step;
+
+ 			if ( !it.refno ) 
+ 				it.refno = it.attachment?.refno;
+ 			if ( !it.dtissued ) 
+ 				it.dtissued = it.attachment?.dtissued;
+
+ 			it.completed = (it.refno ? true : false);  
  		}
 	}
 

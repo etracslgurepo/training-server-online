@@ -26,8 +26,9 @@ public class BPRuleInterceptor {
 	@Before(pattern="(BPInfoRuleService|BPRequirementRuleService).execute")
 	public void buildBPAssessmentFacts(def evt) { 
 		def o = evt.args[0];
-		if(!o.lobs)
+		if ( !o.lobs )
 			throw new Exception("Please provide at least one line of business");
+
 		def facts = [];
 		def currDate = dateSvc.getServerDate();
 		def dt = currDate;

@@ -45,4 +45,21 @@ public class BarangayListInterceptor {
 		}
 	}
 
+
+	@After(pattern="SyncService.resolveDataForPush", eval="#{ args[0]._schemaname == 'barangay' }")
+	public void resolveDataForPush( evt ) { 
+		def param = evt.args[0];
+
+		def list = []; 
+		if ( param.data instanceof List ) {
+			list = param.data; 
+		}
+		else if ( param.data instanceof Map ) {
+			list = [param.data]; 
+		}
+
+		list.each{ 
+			it.parentid = param.orgid; 
+		} 
+	} 
 } 

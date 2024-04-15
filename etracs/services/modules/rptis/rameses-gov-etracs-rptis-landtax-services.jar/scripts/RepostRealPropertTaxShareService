@@ -46,8 +46,6 @@ class RepostRealPropertTaxShareService
         println 'Building ' + param.receipttype + ' receipts to repost';
         if ('ONLINE'.equalsIgnoreCase(param.receipttype)) {
             em.insertReceiptToRepost(param);
-            em.deleteRptSharesToRepost(param);
-            em.deleteCashReceiptSharesToRepost(param);
         } else {
             def eors = em_eor.getReceiptsToRepost(param);
             eors.each {eor ->
@@ -72,6 +70,30 @@ class RepostRealPropertTaxShareService
     public def getReceiptsToRepost() {
         return em_repost.where('1=1').orderBy('receiptdate').list();
     }
+
+    @ProxyMethod
+    public def getReceipts() {
+        return em.getReceipts();
+    }
+
+    @ProxyMethod
+    public def deleteCashReceiptShares(params) {
+        println 'Deleting Receipt Shares: ' + params.receiptid;
+        return em.deleteCashReceiptSharesToRepostByReceiptId(params);
+    }
+
+    @ProxyMethod
+    public def getRPTPayments() {
+        return em.getRPTPayments();
+    }
+
+    @ProxyMethod
+    public def deleteRptShares(params) {
+        println 'Deleting RPT Payment Shares: ' + params.rptpaymentid;
+        return em.deleteRptSharesToRepostByPaymentId(params);
+    }
+
+
 
     @ProxyMethod
     public void postShare(item) {

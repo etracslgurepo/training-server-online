@@ -33,3 +33,13 @@ from lob
 	inner join psic_subclass sc on sc.code = lob.psicid 
 	inner join psic_class c on c.code = sc.classid
 order by sc.description, lob.name 
+
+
+[findBusinessApp]
+select a.*, 
+	oa.approvedappno, oa.contact_name, 
+	oa.contact_email, oa.contact_mobileno, oa.partnername
+from business_application a 
+	inner join business b on b.objid = a.business_objid 
+	inner join online_business_application oa on oa.objid = a.objid 
+where a.objid = $P{objid} 

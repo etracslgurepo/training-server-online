@@ -13,6 +13,9 @@ class BusinessApplicationWorkflowInterceptor {
 	@ActiveDB('online_bpls_renewal_builder')
 	def app_builder; 
 
+	@Context 
+	def ctx; 
+
 
 	@After( pattern="BusinessApplicationWorkflowService.notifyChangeAppState") 
 	public void afterNotifyChangeAppState( evt ) {
@@ -46,20 +49,80 @@ class BusinessApplicationWorkflowInterceptor {
 		data.objid = 'SEQ'+ new java.rmi.server.UID(); 
 		data.refid = app.objid; 
 		data.state = 0;
-
+		
 		data.to = app.contact.email; 
-		data.subject = 'Online Business Renewal For Payment'; 
 
-		def href = "https://filipizen.com/partner/"+ app.partnername +"/bpls/businessbilling"; 
-		data.message = """ 
-			Your online business renewal application <b>${app.approvedappno}</b> has been approved for payment.<br/> 
-			To make payment, go to <a href="${href}"> Filipizen.com </a>.
-		""".toString(); 
+		app.apptype = app.apptype.toString().toUpperCase();
+
+		def billSvc = dynaSvc.lookup('OnlineBusinessBillingService');
+		def checksum = billSvc.buildCheckSum( app.objid, app.approvedappno, data.to ); 
+
+		def href = new StringBuilder();
+		href.append( ctx.conf.get('filipizen_server_scheme')).append('://'); 
+		href.append( ctx.conf.get('filipizen_server_host')).append('/'); 
+		href.append( 'partners/').append( app.partnername ); 
+		href.append( '/bpls/billing/').append( app.approvedappno ); 
+		href.append( '?c=').append( checksum ); 
+
+		def templateid = 'online-bpls-payment-approval'; 
+    def template = dynaEm.lookup('sys_email_template').find([ objid: templateid ]).first();
+    if ( template ) { 
+        def templateEngine = new groovy.text.SimpleTemplateEngine(); 
+        def templateData = [href: href.toString(), app: app];
+        if ( template.subject ) { 
+            data.subject = templateEngine.createTemplate( template.subject ).make( templateData ); 
+            data.subject = ( data.subject ? data.subject.toString() : null ); 
+        } 
+        if ( template.message ) { 
+            data.message = templateEngine.createTemplate( template.message ).make( templateData );
+            data.message = ( data.message ? data.message.toString() : null ); 
+        } 
+    }
+
+ 		if ( !data.subject ) {
+			data.subject = generateSubject( app ); 
+		}
+		if ( !data.message ) {
+			data.message = generateMessage( app, href ); 
+		}
 
 		dynaEm.lookup('sys_email_queue').create( data ); 
 	}
 
 	void sendSMS( app ) { 
 
+	}
+
+
+	def generateSubject( app ) {
+		if ( app.apptype == 'RENEW') {
+			return 'Online Business Renewal For Payment'; 
+		}
+		return 'Online Business For Payment';
+	}
+
+	def generateMessage( app, href ) {
+		return """ 
+
+<br>
+<b>Hi ${app.contact.name ? app.contact.name : ''}!</b> 
+<br><br>
+<span style="font-size:1.2em;">
+  We are pleased to inform you that your online business ${app.apptype=='RENEW' ? 'renewal' : ''} application 
+  with the reference <b>${app.approvedappno}</b> has received approval for payment processing.
+
+  <br><br>
+  To proceed with the payment, please visit or click &nbsp;
+  <a href="${href}" style="font-size:1.12em;"> filipizen.com </a>
+
+  <br><br>
+  There, you'll find a secure payment portal to complete the necessary transactions. 
+
+  <br><br><br>
+  Thank you for using Filipizen!
+  <br><br>
+</span>
+
+		""".toString(); 
 	}
 }

@@ -156,7 +156,7 @@ class FAASService
 		createFaas(faas)
 		insertSketch(info, faas)
 		return faas
-	}	
+	}
 
 
 	@ProxyMethod
@@ -492,7 +492,7 @@ class FAASService
 
 	void updateImprovementLandRpuIds(faas){
         if (!'land'.equalsIgnoreCase(faas.rpu.rputype)) return
-		if (!util.isTrue(var.faas_improvement_auto_update_land_reference)) return
+		if (util.isFalse(var.faas_improvement_auto_update_land_reference)) return
 
         def fland = em_faas_list.select('objid,rpuid,pin').find([objid: faas.objid]).first()
         fland.pin += '%'
@@ -1175,8 +1175,10 @@ class FAASService
             pf.prevadministrator = it.administrator?.name 
             pf.prevav = numSvc.format('#,##0.00', it.totalav)
             pf.prevmv = numSvc.format('#,##0.00', it.totalmv)
-            pf.prevareasqm = numSvc.format('#,##0.00', it.totalareasqm)
-            pf.prevareaha = numSvc.format('#,##0.000000', it.totalareaha)
+            def totalareasqm = it.totalareasqm + getAdditionalArea(faas, pf)
+            def totalareaha = totalareasqm / 10000
+            pf.prevareasqm = numSvc.format('#,##0.00', totalareasqm)
+            pf.prevareaha = numSvc.format('#,##0.000000', totalareaha)
             pf.preveffectivity = it.effectivityyear
             pf.prevtaxability = util.isTrue(it.taxable) ? 'TAXABLE' : 'EXEMPT'
             prevfaases << pf 
@@ -1205,7 +1207,7 @@ class FAASService
 		pf.totalareaha = newfaas.rpu.totalareaha 
 		pf.effectivityyear = newfaas.effectivityyear 
 		pf.taxable = newfaas.rpu.taxable
-		newfaas.previousfaases  = buildPreviousFaases([objid:newid], [pf])
+		newfaas.previousfaases  = buildPreviousFaases([objid:newid, rputype: newfaas.rpu.rputype], [pf])
 
 		newfaas.state 			= STATE_INTERIM
 		newfaas.parentfaasid    = null 
@@ -1425,9 +1427,16 @@ class FAASService
     }
 
 
-		void updateLguInfo(faas) {
-			faas.lguid = faas.rp.lguid
-			faas.originlguid = (faas.originlguid ? faas.originlguid : env.ORGID )
-		}
+    void updateLguInfo(faas) {
+        faas.lguid = faas.rp.lguid
+        faas.originlguid = (faas.originlguid ? faas.originlguid : env.ORGID )
+    }
+
+    def getAdditionalArea(faas, prevfaas){
+        if (!'bldg'.equalsIgnoreCase(faas.rputype)) return 0;
+
+        def bldgrpu = em_faas.findBldgTotalAdditionalArea([objid: prevfaas.prevrpuid])
+        return bldgrpu && bldgrpu.area ? bldgrpu.area : 0
+    }
 }
 

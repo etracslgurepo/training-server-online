@@ -105,7 +105,11 @@ public class BusinessApplicationRenewInterceptor {
 		app.business =  b;
         app.lobs = lobSvc.getActiveLobs([businessid:b.objid]);
         app.appinfos = infoSvc.getActiveAppInfos([businessid:b.objid]);
+        app.appinfos.each{
+        	it.remove('objid');
+        }
         app.lobs.each {
+        	it.remove('objid');
 			it.assessmenttype = 'RENEW';
 		}	
 	}

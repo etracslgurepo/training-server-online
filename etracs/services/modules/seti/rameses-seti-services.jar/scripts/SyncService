@@ -17,8 +17,12 @@ class SyncService {
 	@DataContext(dynamic=true)
 	def db;
 
-        @Env
-        def env;
+    @Env
+    def env;
+
+    @Service
+    def self; 
+
 
 	/****************************************************
 	* This pulls data from the sync server 
@@ -47,23 +51,35 @@ class SyncService {
 	****************************************************/
 	@ProxyMethod
 	public void push( def o ) {
-		if( !o._schemaname ) throw new Exception("Please provide a _schemaname");
-		def orgid = orgSvc.getRoot().objid;
-		def em = db.lookup( o._schemaname );
+		if ( !o._schemaname ) throw new Exception("Please provide a _schemaname");
+
+		def org = orgSvc.getRoot(); 
+		def orgid = org.objid;
+		def orgclass = org.orgclass; 
+
 		o._start = 0;
 		o._limit = 10;
-		while(true) {
+
+		while ( true ) {
 			def list = localQrySvc.getList( o );
-			if(!list) break;
+			if ( !list ) break;
+
+			def p = [_schemaname: o._schemaname, data: list, orgid: orgid, orgclass: orgclass]; 
+			self.resolveDataForPush( p ); 
+
 			list.each {
 				it.orgid = orgid;
 			}
-			def  p = [_schemaname: o._schemaname, data: list ];
+
 			persistenceSvc.batchSave( p );
 			o._start += o._limit;
 		}
 	}
 
+	@ProxyMethod
+	public void resolveDataForPush( param ) { 
+		// param: _schemaname, data, orgid, orgclass
+		// 
+		// To be implemented via interceptors
+	}
 }
-
-

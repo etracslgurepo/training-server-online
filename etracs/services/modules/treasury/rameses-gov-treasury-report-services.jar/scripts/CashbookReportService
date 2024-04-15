@@ -206,7 +206,7 @@ class CashbookReportService {
 			data.info.TOPERIOD = MDY.format( dateSvc.add( params.todate, '-1d' ));  
 			data.info.PERIODCOVERED = ''+ data.info.FROMPERIOD +' to '+ data.info.TOPERIOD; 
 		} 
-		return [reportdata: data, info: data.info]; 
+		return [reportdata: [items: data.items], info: data.info]; 
 	}
 
 	void buildDateFilter( params ) { 
@@ -215,11 +215,13 @@ class CashbookReportService {
 			if ( !params.date ) throw new Exception('date parameter is required'); 
 
 			params.fromdate = YMD.parse( params.date.toString() ); 
+			params.fromdate = new java.sql.Date( params.fromdate.time ); 
 			params.todate   = dateSvc.add( params.fromdate, '1d' ); 
 		}
 		else if ( params.period?.code == 'monthly' ) { 
 			def strdate = ''+ params.year +'-'+ params.month.index +'-01';
 			params.fromdate = YMD.parse( strdate );  
+			params.fromdate = new java.sql.Date( params.fromdate.time ); 
 			params.todate   = dateSvc.add( params.fromdate, '1M' ); 
 		} 
 		else {

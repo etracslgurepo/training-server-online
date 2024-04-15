@@ -15,7 +15,7 @@
 			out.print( constraint.var.name );
 		}
 		else if(constraint.field.multivalued==1) {
-			out.print( "\".*-"+ constraint.listvalue*.key.join("-|-") + "-.*\"" );
+			out.print( "\".*-"+ constraint.listvalue*.key.join("-.*|.*-") + "-.*\"" );
 		}
 		else {
 			out.print( "\""+ constraint.listvalue*.key.join("|") + "\"" );

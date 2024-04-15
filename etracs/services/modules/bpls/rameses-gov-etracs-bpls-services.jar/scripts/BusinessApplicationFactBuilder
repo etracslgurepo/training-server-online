@@ -9,9 +9,14 @@ public class BusinessApplicationFactBuilder {
 	@DataContext("lob_lobattribute")
 	def lobAttr;
 
+	@ActiveDB( dynamic=true )
+	def dyna_ADB;
+
 	@ProxyMethod
 	public void build(def app, def facts) {
 		def fapp = new BPApplication( app );
+		fapp.dyna_ADB = dyna_ADB; 
+
 		facts << fapp;
 
 		if( app.business?.address ) {
@@ -23,6 +28,10 @@ public class BusinessApplicationFactBuilder {
 			app.lobs?.each {
 				//we need to retrieve lob to be absolutely sure.
 				def lobInfo = lobEm.find([ objid: it.lobid ]).first();
+				if ( !lobInfo ) {
+					println '\n[ERROR] Unable to find LOB record '+ it; 
+				}
+
 				def oLOB = new LOB();
 				oLOB.objid = it.lobid;
         		oLOB.lobid = it.lobid;

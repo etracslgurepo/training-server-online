@@ -46,3 +46,33 @@ from business_application_info bai
 	left join businessvariable v on v.objid = bai.attribute_objid 
 where bai.applicationid = $P{applicationid} 
 order by bai.activeyear, bai.type, bai.attribute_name 
+
+
+[findPreviousAV]
+select t0.*, 
+	(case when t0.gross then t0.gross else t0.capital end) as av 
+from ( 
+	select 
+		prevapp.objid, prevapp.appyear, prevapp.apptype,  
+		(
+			select decimalvalue 
+			from business_application_info 
+			where applicationid = prevapp.objid 
+				and attribute_objid = 'GROSS' 
+				and lob_objid = $P{lobid} 
+		) as gross, 
+		(
+			select decimalvalue 
+			from business_application_info 
+			where applicationid = prevapp.objid 
+				and attribute_objid = 'CAPITAL' 
+				and lob_objid = $P{lobid} 
+		) as capital
+	from business_application ba 
+		inner join business_application prevapp on (
+			prevapp.business_objid = ba.business_objid and 
+			prevapp.appyear = (ba.appyear - 1) and 
+			prevapp.apptype in ('NEW','RENEW') 
+		)
+	where ba.objid = $P{applicationid} 
+)t0 

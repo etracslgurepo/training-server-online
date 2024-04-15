@@ -347,13 +347,15 @@ public class MiscRYSettingService
             em_misc.save(setting)
 
             setting.lgus.each{
-                em_rysettinglgu.save(it)
+                if (!em_rysettinglgu.find([rysettingid: it.rysettingid, lguid: it.lguid]).first()) {
+                    em_rysettinglgu.save(it)
+                }
             }
 
             setting.levels.each{lvl -> 
                 saveAssessLevel(lvl)
-                lvl.ranges.each{ saveRange(it) }
             }
+            setting.ranges.each{ saveRange(it) }
 
             setting.miscitemvalues.each{
                 saveMiscItemValue(it)

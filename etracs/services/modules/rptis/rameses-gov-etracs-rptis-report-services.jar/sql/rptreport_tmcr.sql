@@ -3,18 +3,19 @@ select ry from landrysetting order by ry desc
 
 [getTmcrSimplified]
 SELECT
-	b.name AS barangay, pc.code AS classcode, 
+	b.name AS barangay, pc.code AS classcode, m.name as municipality,
 	f.state,  f.memoranda, f.owner_name, f.owner_address, 
 	f.administrator_name, f.administrator_address,
 	r.rputype, f.tdno, f.titleno, f.txntype_objid, ft.displaycode as txntype_code,
-	rp.cadastrallotno, rp.section, rp.surveyno, rp.blockno, 
+	rp.cadastrallotno, rp.section, rp.surveyno, rp.blockno, rp.parcel,
 	r.fullpin, r.totalareasqm, r.totalareasqm, r.totalav, r.totalmv 
 FROM faas f
 	INNER JOIN rpu r ON f.rpuid = r.objid 
 	INNER JOIN realproperty rp ON f.realpropertyid = rp.objid
 	inner join faas_txntype ft on f.txntype_objid = ft.objid 
-	INNER JOIN propertyclassification pc ON r.classification_objid = pc.objid 
-	INNER JOIN barangay b ON rp.barangayid = b.objid 
+	INNER JOIN propertyclassification pc ON r.classification_objid = pc.objid	
+	INNER JOIN barangay b ON rp.barangayid = b.objid
+	left join municipality m on b.parentid = m.objid
 WHERE rp.ry = $P{ry}
   AND rp.barangayid = $P{barangayid} 
   AND f.state IN ('CURRENT', 'CANCELLED')
@@ -26,16 +27,17 @@ order by  rp.pin, r.suffix, f.tdno
 
 [getTmcrList2]
 SELECT
-	b.name as barangay, rp.barangayid, rp.section, rp.blockno, 
-	r.fullpin, rp.surveyno, f.titleno, r.totalareasqm,
+	b.name as barangay, rp.barangayid, rp.section, rp.blockno, m.name as municipality,
+	r.fullpin, rp.surveyno, f.titleno, r.totalareasqm, rp.parcel,
 	 pc.code, f.owner_name, f.tdno, f.rpuid, r.rputype,
 	 f.txntype_objid, ft.displaycode as txntype_code
 FROM faas f
 	INNER JOIN rpu r ON f.rpuid = r.objid 
 	INNER JOIN realproperty rp ON f.realpropertyid = rp.objid
 	inner join faas_txntype ft on f.txntype_objid = ft.objid 
-	INNER JOIN propertyclassification pc ON r.classification_objid = pc.objid 
+	INNER JOIN propertyclassification pc ON r.classification_objid = pc.objid	
 	INNER JOIN barangay b ON rp.barangayid = b.objid 
+	left join municipality m on b.parentid = m.objid
 WHERE rp.ry = $P{ry}
   AND rp.barangayid = $P{barangayid} 
   AND f.state IN ('CURRENT', 'CANCELLED')
@@ -52,7 +54,8 @@ FROM faas f
 	INNER JOIN realproperty rp ON f.realpropertyid = rp.objid
 	inner join faas_txntype ft on f.txntype_objid = ft.objid 
 	INNER JOIN propertyclassification pc ON r.classification_objid = pc.objid 
-	INNER JOIN barangay b ON rp.barangayid = b.objid 
+	INNER JOIN barangay b ON rp.barangayid = b.objid
+	left join municipality m on b.parentid = m.objid
 WHERE rp.ry = $P{ry}
   AND rp.barangayid = $P{barangayid} 
   AND f.state = 'CURRENT'
@@ -69,7 +72,8 @@ FROM faas_previous pf
 	INNER JOIN realproperty rp ON f.realpropertyid = rp.objid
 	inner join faas_txntype ft on f.txntype_objid = ft.objid 
 	INNER JOIN propertyclassification pc ON r.classification_objid = pc.objid 
-	INNER JOIN barangay b ON rp.barangayid = b.objid 
+	INNER JOIN barangay b ON rp.barangayid = b.objid
+	left join municipality m on b.parentid = m.objid
 WHERE pf.faasid = $P{faasid}
   and f.state = 'CANCELLED'
   ${rputypefilter}

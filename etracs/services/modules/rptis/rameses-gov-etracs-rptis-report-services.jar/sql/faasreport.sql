@@ -38,10 +38,16 @@ SELECT
 	f.prevtdno,
 	f.ryordinanceno,
 	f.ryordinancedate,
-	fl.trackingno 
+	fl.trackingno,
+	e.type AS entitytype,
+	ei.gender as gender,
+	ej.orgtype as orgtype
 FROM faas f
 	INNER JOIN faas_list fl ON f.objid = fl.objid 
-	INNER JOIN faas_txntype ft on f.txntype_objid = ft.objid 
+	INNER JOIN faas_txntype ft on f.txntype_objid = ft.objid
+	LEFT JOIN entity e ON f.taxpayer_objid = e.objid
+	LEFT JOIN entityindividual ei ON f.taxpayer_objid = ei.objid
+	LEFT JOIN entityjuridical ej ON f.taxpayer_objid = ej.objid
 WHERE f.objid = $P{objid}
 
 
@@ -124,7 +130,6 @@ select
 	inner join propertyclassification pc on r.classification_objid = pc.objid 
 where r.objid=$P{landrpuid}
 order by f.dtapproved desc
-
 
 [getSignatories]
 select 

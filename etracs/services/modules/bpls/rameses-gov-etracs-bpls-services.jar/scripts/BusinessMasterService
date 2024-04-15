@@ -45,9 +45,9 @@ public class BusinessMasterService {
 		lgucode = lgucode.replace("-", "");	
 
 		def YM = new java.text.SimpleDateFormat('yyyy-MM');
-		def arr = YM.format( dateSvc.getServerDate() ); 
+		def arr = YM.format( dateSvc.getServerDate() ).split('-'); 
 		def prefix = "B" + lgucode + arr[0] + arr[1];
-		return (prefix + seqSvc.getNextFormattedSeries( prefix )).toString();		
+		return (prefix + seqSvc.getNextFormattedSeries( prefix )).toString(); 
 	}
 
 	/**********************************************************

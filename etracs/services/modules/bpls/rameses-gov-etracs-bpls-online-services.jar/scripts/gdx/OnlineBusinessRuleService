@@ -13,6 +13,7 @@ class OnlineBusinessRuleService {
 		resolveAddress( param.address ); 
 
 		def map = buildApp( param ); 
+		map.onlineapplication = [objid: 'onlineapplication-getInfos'];  
 		map.infos = [];
 		map.appinfos = [];
 		map.assessmentinfos = [];
@@ -41,6 +42,7 @@ class OnlineBusinessRuleService {
 		resolveAddress( param.address ); 
 
 		def app = buildApp( param ); 
+		app.onlineapplication = [objid: 'onlineapplication-getRequirements']; 
 
 		def reqRuleSvc = dynaSvc.lookup('BPRequirementRuleService'); 
 		def ruleRes = reqRuleSvc.execute( app ); 

@@ -20,7 +20,7 @@ class FaasMiscReportInterceptor
 	@Service('FAASReportService')
 	def faasReportSvc 
 
-	def MAX_ITEM_ROWS = 15
+	def MAX_ITEM_ROWS = 10
 
 
 	@After(pattern="FAASReportService.getReportData", eval="#{result.rpu.rputype=='misc'}")

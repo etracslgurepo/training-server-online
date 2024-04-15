@@ -684,3 +684,16 @@ from faas f
 where faf.faas_objid = $P{faasid}
 order by fa.txnno desc 
 
+
+
+[findBldgTotalAdditionalArea]
+select 
+	sum(bfa.decimalvalue) AS area 
+from bldgflooradditionalparam bfa
+	inner join rptparameter p on bfa.param_objid = p.objid 
+	inner join bldgflooradditional ba on bfa.bldgflooradditionalid = ba.objid 
+	inner join bldgfloor bf on ba.bldgfloorid = bf.objid 
+	inner join bldgadditionalitem bi on ba.additionalitem_objid = bi.objid 
+where bfa.bldgrpuid = $P{objid}
+and bi.addareatobldgtotalarea =  1 
+and p.name like '%AREA%'

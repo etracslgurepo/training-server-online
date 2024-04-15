@@ -35,7 +35,7 @@ order by a.appyear, a.txndate
 
 [getRedFlags]
 select * from ( 
-	select caseno, message, dtfiled 
+	select caseno, message, dtfiled, blockaction  
 	from business_redflag 
 	where businessid= $P{businessid} 
 		and resolved = 0 
@@ -43,7 +43,7 @@ select * from (
 
 	union all 
 
-	select caseno, message, dtfiled 
+	select caseno, message, dtfiled, blockaction  
 	from business_redflag 
 	where businessid = $P{businessid} 
 		and resolved = 0 
@@ -90,8 +90,8 @@ from (
 	having sum(t1.iflag) > 0 
 )t2 
 	inner join business_application ba on ba.business_objid = t2.business_objid 
-	left join business_application_info cap on (cap.applicationid = ba.objid and cap.lob_objid = t2.lob_objid and cap.attribute_objid = 'CAPITAL') 
-	left join business_application_info gro on (gro.applicationid = ba.objid and gro.lob_objid = t2.lob_objid and gro.attribute_objid = 'GROSS') 
+	left join business_application_info cap on (cap.applicationid = ba.objid and cap.lob_objid = t2.lob_objid and cap.attribute_objid = 'DECLARED_CAPITAL') 
+	left join business_application_info gro on (gro.applicationid = ba.objid and gro.lob_objid = t2.lob_objid and gro.attribute_objid = 'DECLARED_GROSS') 
 where ba.appyear = t2.appyear 
 	and ba.txndate = t2.txndate 
 order by t2.txndate 

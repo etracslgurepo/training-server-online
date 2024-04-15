@@ -74,6 +74,8 @@ public class BPAssessmentRuleService  {
 		actions.addCommand( "add_requirement", new AddRequirement(request:request, BR: br));
 		actions.addCommand( "change_business_account", new ChangeAccount(request:request, BA:ba));
 		actions.addCommand( "print_test", new PrintTest());
+		
+		actions.addCommand( "execute_script", new ExecuteScript( request:request ));
 		return actions;
 	}
 

@@ -52,7 +52,29 @@ class CancelledFAASSyncDataInterceptor
         cancelSync.schedule(data)
     }   
 
+    @After(pattern="CancelledFAASService.resendToProvince", index=50000) 
+    public void resendToProvince( evt ) {
+        def cancelledfaas = evt.result 
+        if ('DRAFT'.equalsIgnoreCase(cancelledfaas.state)) {
+            mainSyncSvc.createDataForSync(getDataForSync(cancelledfaas, 'CANCELLEDFAAS-FORAPPROVAL'))
+        } else if (cancelledfaas.online) {
+            mainSyncSvc.createDataForSync(getDataForSync(cancelledfaas, 'CANCELLEDFAAS-ONLINE-APPROVED'))
+        } else {
+            mainSyncSvc.createDataForSync(getDataForSync(cancelledfaas, 'CANCELLEDFAAS-MANUAL-APPROVED'))
+        }
+    }   
 
+    @After(pattern="CancelledFAASService.resendToMunicipality", index=50000) 
+    public void resendToMunicipality( evt ) {
+        def cancelledfaas = evt.result 
+        if ('DRAFT'.equalsIgnoreCase(cancelledfaas.state)) return;
+        
+        if (cancelledfaas.online) {
+            mainSyncSvc.createDataForSync(getDataForSync(cancelledfaas, 'CANCELLEDFAAS-ONLINE-APPROVED'))
+        } else {
+            mainSyncSvc.createDataForSync(getDataForSync(cancelledfaas, 'CANCELLEDFAAS-MANUAL-APPROVED'))
+        }
+    }   
 
     /*---------------------------------------------------------
     *

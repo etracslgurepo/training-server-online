@@ -1,23 +1,23 @@
 <schema adapter="main">
 	<element tablename="faas_list">
 		<field name="objid" primary="true"/>
-		<field name="state" />
+		<field name="state" caption="State" />
 		<field name="tdno" searchable="true" caption="TD No."/>
 		<field name="utdno" />
 		<field name="datacapture" type="boolean" />
-		<field name="titleno" />
+		<field name="titleno" caption="Title No." />
 		<field name="rputype" />
 		<field name="txntype_objid" />
 		<field name="taxpayer_objid" />
 		<field name="owner_name"  searchable="true" caption="Owner"/>
-		<field name="owner_address" />
+		<field name="owner_address" caption="Owner Address" />
 		<field name="administrator_name" />
 		<field name="administrator_address" />
 		<field name="pin"  searchable="true" caption="PIN" />
 		<field name="displaypin"  searchable="true" caption="PIN" />
 		<field name="ry" />
 		<field name="classification_objid" />
-		<field name="classcode" />
+		<field name="classcode" caption="Class" />
 		<field name="effectivityyear" type="integer" />
 		<field name="effectivityqtr" type="integer" />
 		<field name="cancelreason" />
@@ -41,9 +41,14 @@
 		<field name="originlguid" />
 		<field name="trackingno" />
 		<field name="fullpin" expr="displaypin" />
+		<field name="iscurrentlandref" expr="0" caption="Current Land?" type="boolean"/>
 		<complex name="taxpayer" ref="entity" jointype="many-to-one" 
 			required="false" includefields="entityno">
 			<key field="taxpayer_objid" target="objid" /> 
+		</complex>
+		<complex name="rpu" ref="rpu" jointype="many-to-one" 
+			required="false" includefields="rpumasterid">
+			<key field="rpuid" target="objid" /> 
 		</complex>
 	</element>
 </schema>

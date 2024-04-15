@@ -23,7 +23,7 @@ FROM (
 	  AND rp.ry = $P{ry}
 	  AND f.dtapproved >= $P{startdate} AND f.dtapproved < $P{enddate}
 
-	  union 
+	  UNION ALL
 
 	  SELECT 
 	  	2 as idx, 

@@ -1,21 +1,15 @@
 import com.rameses.annotations.*;
-import com.rameses.server.BootLoader;
-import com.rameses.util.*;
 import java.io.*;
+import com.rameses.util.*;
 import java.rmi.server.*;
 import java.util.zip.*;
-
 
 class JasperReportZipService  {
 	
 	@Service("JasperReportService")
 	def jasperSvc;
 
-
-	String getOutputReportPath() {
-		return BootLoader.getOutputDirPath() +"/"; 
-	}
-
+	String outputReportPath = "/apps/server/output/";
 
 	@ProxyMethod
 	public def generate( def o ) {

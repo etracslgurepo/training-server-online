@@ -22,6 +22,7 @@ SELECT
 	rl.totalav,
 	rl.cadastrallotno,
 	rl.blockno,
+	rl.owner_name,
 	rl.administrator_name,
 	f.administrator_address, 
 	case when m.objid is not null then m.name else c.name end as lguname, 

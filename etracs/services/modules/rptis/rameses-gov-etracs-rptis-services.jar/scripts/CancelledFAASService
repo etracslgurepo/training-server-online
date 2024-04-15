@@ -378,6 +378,12 @@ class CancelledFAASService
     ----------------------------------------------------------------------------------------------*/
     @ProxyMethod
     public void postRemoteApproval(entity) {
+        if (
+            entity.state == 'APPROVED' &&
+            entity.originlguid != entity.lguid 
+        ) {
+            em.save(entity)
+        }  
         approve(entity)
         
         em_task.where('refid = :objid and enddate is null', entity).delete()
@@ -387,6 +393,16 @@ class CancelledFAASService
         }
 
         em_signatory.save(entity.signatory)
+    }
+
+    @ProxyMethod
+    public def resendToProvince(entity){
+        return open(entity)
+    }
+
+    @ProxyMethod
+    public def resendToMunicipality(entity){
+        return open(entity)
     }
 
 }

@@ -545,7 +545,7 @@ class RPTCompromiseService {
 					.update([lastyearpaid:compromise.endyear, lastqtrpaid:compromise.endqtr])
 
 		//delete paid ledger items 
-		em_rptledger_item.where('year <= :endyear', compromise).delete() 
+		em_rptledger_item.where('parentid = :rptledgerid AND year <= :endyear', compromise).delete() 
 
 		//post credit 
 		def c = [:]

@@ -39,3 +39,22 @@ where receiptid in (
 
 [findRemainingCount]
 select count(*) as remaining from cashreceipt_rpt_share_forposting_repost
+
+
+[getRPTPayments]
+select distinct rptpaymentid, rp.receiptno 
+from cashreceipt_rpt_share_forposting_repost c 
+inner join rptpayment rp on c.rptpaymentid = rp.objid 
+
+[deleteRptSharesToRepostByPaymentId]
+delete from rptpayment_share 
+where parentid = $P{rptpaymentid}
+
+[getReceipts]
+select distinct receiptid, cr.receiptno 
+from cashreceipt_rpt_share_forposting_repost c
+inner join cashreceipt cr on c.receiptid = cr.objid 
+
+[deleteCashReceiptSharesToRepostByReceiptId]
+delete from cashreceipt_share 
+where receiptid = $P{receiptid}

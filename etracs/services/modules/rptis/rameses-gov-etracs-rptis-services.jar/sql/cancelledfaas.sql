@@ -61,6 +61,7 @@ SELECT
 	r.totalareaha AS faas_totalareaha,
 	r.totalmv AS faas_totalmv,
 	r.totalav AS faas_totalav,
+	r.taxable AS faas_taxable,
 	b.objid AS barangayid, 
 	b.name as barangay, 
 	ctr.code AS reason_code,

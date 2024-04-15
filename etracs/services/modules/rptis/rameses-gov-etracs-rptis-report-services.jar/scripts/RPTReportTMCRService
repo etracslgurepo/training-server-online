@@ -96,12 +96,12 @@ class RPTReportTMCRService
 
 	def getTmcrFields(){
 		return '''
-			f.objid, b.name AS barangay, pc.code AS classcode, 
+			f.objid, b.name AS barangay, pc.code AS classcode, m.name AS municipality,
 			f.txntype_objid, ft.displaycode as txntype_code,
 			f.state,  f.memoranda, f.owner_name, f.owner_address, 
 			f.administrator_name, f.administrator_address, 
 			r.rputype, f.tdno, f.titleno, 
-			rp.cadastrallotno, rp.section, rp.surveyno, rp.blockno, r.ry,  
+			rp.cadastrallotno, rp.section, rp.surveyno, rp.blockno, rp.parcel, r.ry,  
 			r.fullpin, r.totalareasqm, r.totalareaha, r.totalav, r.totalmv 
 		'''
 	}
