@@ -9,7 +9,10 @@ class JasperReportZipService  {
 	@Service("JasperReportService")
 	def jasperSvc;
 
-	String outputReportPath = "/apps/server/output/";
+	String getOutputReportPath() {
+		def dir = com.rameses.server.BootLoader.getOutputDir(); 
+		return dir.getCanonicalPath(); 
+	}
 
 	@ProxyMethod
 	public def generate( def o ) {

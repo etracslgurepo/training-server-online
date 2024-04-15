@@ -13,12 +13,26 @@ class JasperReportService  {
 	@Context
 	def appContext;
 
-	String outputReportPath = "/apps/server/output/";
-	String templatePath = "/apps/server/templates/";
-	String customPath = "/apps/server/templates/custom/";
-
 	@Service(dynamic=true)
 	def dSvc;
+
+
+	String getTemplatePath() {
+		def dir = com.rameses.server.BootLoader.getTemplatesDir(); 
+		return dir.getCanonicalPath(); 
+	}
+
+	String getCustomPath() {
+		def dir = com.rameses.server.BootLoader.getTemplatesDir(); 
+		dir = new java.io.File( dir, "custom" ); 
+		return dir.getCanonicalPath(); 
+	}
+
+	String getOutputReportPath() {
+		def dir = com.rameses.server.BootLoader.getOutputDir(); 
+		return dir.getCanonicalPath(); 
+	}
+
 
 	@ProxyMethod
 	public def generateReport( def o ) {

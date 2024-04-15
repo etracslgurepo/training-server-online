@@ -4,7 +4,10 @@ import java.util.Calendar;
 
 class ReportOutputCleaner {
 	
-	String output_dir_path = "/apps/server/output";
+	String getOutputReportPath() {
+		def dir = com.rameses.server.BootLoader.getOutputDir(); 
+		return dir.getCanonicalPath(); 
+	}
 
 
 	@Schedule(interval=5, timeUnit="MINUTES")
@@ -17,7 +20,7 @@ class ReportOutputCleaner {
 
 		def purgetime = cal.getTimeInMillis();
 
-		def dir = new File( output_dir_path ); 
+		def dir = new File( getOutputReportPath()); 
 		dir.listFiles().each{ o-> 
 			try {
 				if ( o.lastModified() < purgetime ) {

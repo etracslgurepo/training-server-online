@@ -12,7 +12,12 @@ class JasperReportEmailService  {
 	@XConnection(dynamic=true)
 	def connDb;
 
-	String outputReportPath = "/apps/server/output/";
+
+	String getOutputReportPath() {
+		def dir = com.rameses.server.BootLoader.getOutputDir(); 
+		return dir.getCanonicalPath(); 
+	}
+
 
 	@ProxyMethod
 	@Async
