@@ -2,4 +2,4 @@
 ## GDX Attachment Config
 ## 
 provider=conf
-host=107.21.113.74:90
+host=${gdx_proxy_server_ip}:8500
