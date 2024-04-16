@@ -21,6 +21,8 @@ class OnlineBusinessRegistrationService {
 	@Service 
 	def self;
 
+	@Context 
+	def appCtx;
 
 	@ProxyMethod
 	public void emailTrackingNo( data ) {
@@ -36,6 +38,13 @@ class OnlineBusinessRegistrationService {
 		if ( !data.filipizen_group ) {
 			data.filipizen_group = System.getProperty("filipizen_group"); 
 		} 
+
+		def http_scheme = appCtx.conf.get('filipizen_server_scheme'); 
+		if ( !http_scheme ) http_scheme = 'https'; 
+
+		def http_host = appCtx.conf.get('filipizen_server_host'); 
+		if ( !http_host ) http_host = 'filipizen.com';  
+
 
 		def req = [ to: data.contact.email ];
 		req.connection = "bpls-email-server"; 
@@ -61,7 +70,7 @@ class OnlineBusinessRegistrationService {
 
   <br><br><br>
   To view your application, please visit or click &nbsp;
-  <a href="https://www.filipizen.com/partners/${data.filipizen_group}/bpls/newbusiness" style="font-size:1.12em;">
+  <a href="${http_scheme}://${http_host}/partners/${data.filipizen_group}/bpls/newbusiness" style="font-size:1.12em;">
     filipizen.com
   </a>
 
