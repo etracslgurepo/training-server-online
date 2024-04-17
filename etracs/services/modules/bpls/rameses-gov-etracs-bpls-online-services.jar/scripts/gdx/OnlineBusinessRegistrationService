@@ -45,6 +45,14 @@ class OnlineBusinessRegistrationService {
 		def http_host = appCtx.conf.get('filipizen_server_host'); 
 		if ( !http_host ) http_host = 'filipizen.com';  
 
+		def cloudSvc = dynaSvc.lookup('partner/CloudEncryptService', 'cloud-server'); 
+		def cloudRes = cloudSvc.encrypt([ values: [ data.trackingno, data.contact.email ]]);
+		if ( cloudRes?.error ) {
+			println '[CloudEncryptService] failed to encrypt caused by '+ cloudRes.error; 
+			return; 
+		}
+
+		def encKey = cloudRes.value;
 
 		def req = [ to: data.contact.email ];
 		req.connection = "bpls-email-server"; 
@@ -70,7 +78,7 @@ class OnlineBusinessRegistrationService {
 
   <br><br><br>
   To view your application, please visit or click &nbsp;
-  <a href="${http_scheme}://${http_host}/partners/${data.filipizen_group}/bpls/newbusiness" style="font-size:1.12em;">
+  <a href="${http_scheme}://${http_host}/partners/${data.filipizen_group}/bpls/newbusiness/${data.trackingno}?c=${encKey}" style="font-size:1.12em;">
     filipizen.com
   </a>
 
