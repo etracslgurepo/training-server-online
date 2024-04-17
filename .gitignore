@@ -8,14 +8,13 @@ _tmp
 /_client
 /_custom
 /_tools
+/bin/env.conf
 /etracs/fileserver
-/etracs/output
 /etracs/output
 /etracs/reportcache
 /etracs/report-files
 /etracs/templates/custom
 /etracs/web/resources/downloads/modules/custom
 /custom-template
-/bin/env.conf
 **/resources/platform/etracs255-platform/**
 zzz-custom
