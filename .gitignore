@@ -11,8 +11,8 @@ _tmp
 /bin/env.conf
 /etracs/fileserver
 /etracs/output
-/etracs/reportcache
 /etracs/report-files
+/etracs/reportcache
 /etracs/templates/custom
 /etracs/web/resources/downloads/modules/custom
 /custom-template
