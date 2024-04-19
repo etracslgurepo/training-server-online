@@ -2,4 +2,6 @@
 
 title Apply-LGU-Data Script
 
-mysql -u root -p  < set-lgu-data.sql
+mysql -u root -p -P3306 < set-lgu-data.sql
+
+pause
