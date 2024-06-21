@@ -17,9 +17,6 @@ class OnlinePaymentOrderService {
 	@Env
 	def env;
 
-	@Context 
-	def appCtx;
-
 	private def getPaymentOrderService(def conn) {
 		if ( conn==null || conn=="default" )	{
 			return dynaSvc.lookup("PaymentOrderService");
@@ -119,12 +116,6 @@ class OnlinePaymentOrderService {
 		def fgroup = System.getenv("filipizen_group"); 
 		if ( !fgroup ) throw new Exception("filipizen_group ENV variable is not set");
 
-		def http_scheme = appCtx.conf.get('filipizen_server_scheme'); 
-		if ( !http_scheme ) http_scheme = 'https'; 
-
-		def http_host = appCtx.conf.get('filipizen_server_host'); 
-		if ( !http_host ) http_host = 'filipizen.com';  
-
 		def svc = dynaSvc.lookup('PersistenceService');
 		def po = svc.read([ _schemaname: 'paymentorder', objid: param.objid ]);
 		if ( !po ) throw new Exception("'"+ param.objid +"' payment order not found"); 
@@ -149,7 +140,7 @@ class OnlinePaymentOrderService {
 
 	<br><br><br>
 	To pay, please visit or click &nbsp;&nbsp;
-	<a href="${http_scheme}://${http_host}/partners/${fgroup}/po/${po.txncode}?c=${po.checksum}" style="font-size:1.3em;">
+	<a href="https://www.filipizen.com/partners/${fgroup}/po/${po.txncode}?c=${po.checksum}" style="font-size:1.3em;">
 		filipizen.com
 	</a>
 
