@@ -40,4 +40,9 @@ running the ETRACS application.
    mysql -u root -p -f  <  10-patch-eor.sql
 
 
+8. Patch the "etracs" database 
+
+   mysql -u root -p -f  <  11-patch-eor.sql
+
+
 DONE !!!
