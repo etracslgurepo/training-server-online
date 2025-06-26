@@ -1,37 +1,42 @@
 import com.rameses.annotations.*
-import com.rameses.util.*
-import com.rameses.common.*
-
 
 class EPaymentPartnerService   {
 
+    @Service( dynamic=true )
+    def dynaSvc; 
 
-    @Service(value='epayment/QueryService', connection="cloud-server")
-    def querySvc; 
-
-    @Service("DateService")
-    def dateSvc;
+    @DataContext( dynamic=true )
+    def dynaEm;
 
     @DataContext("paymentpartner")
     def pmtPartnerEm;
 
-    //this method will be intercepted by the other modules based on the txntype 
+
     @ProxyMethod
-    public def syncPaymentPartner() {
-        def m = [_schemaname: "payment_partner"];
-        m.where = ["1=1"];        
-        def list = querySvc.getList( m );    
+    public def syncPaymentPartners() {
+        def cloudQuerySvc = dynaSvc.lookup('epayment/QueryService', 'cloud-server');
+
+        def param = [_schemaname: "payment_partner"];
+        param.select = 'objid,code,name'; 
+        param.where = ["1=1"]; 
+        
+        def list = cloudQuerySvc.getList( param ); 
+        def em = dynaEm.lookup('paymentpartner'); 
+
         list.each {
-            def partner = pmtPartnerEm.find( [objid: it.objid] ).first();
-            if(!partner) {
+            def findPK = [ objid: it.objid ]; 
+            def partner = em.find( findPK ).first();
+            if ( partner ) { 
+                em.find( findPK ).update( it ); 
+            }
+            else { 
                 def p = [:];
-                p.objid = it.objid;
-                p.name = it.name;
-                p.code = it.code;
+                p.putAll( it );
                 p.indexno = it.code;
-                pmtPartnerEm.create( p );
+                em.create( p );
             }
         }
+        return list; 
     }
 
 }

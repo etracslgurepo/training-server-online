@@ -1,119 +1,111 @@
-import com.rameses.annotations.*
-import com.rameses.util.*
-import com.rameses.common.*
+import com.rameses.annotations.*;
+import com.rameses.common.*;
+import com.rameses.util.*;
 
+class EORManualPostService {
 
-class EORManualPostService   {
+    @Service( dynamic=true )
+    def dynaSvc; 
 
-	@Service("DateService")
-	def dateSvc;
-
-    @DataContext("eor_manual_post")	
-    def manualPostEm;
-
-    @Service("EPaymentService")
-    def epaymentSvc;
-
-    @Service(value="epayment/CloudPaymentSupportService", connection="cloud-server")
-    def cloudSvc;
-
-    @DataContext("epayment_plugin")
-    def txnTypeEm;
-
-    @DataContext("eor_paymentorder") 
-    def paymentOrderEm;
-
-    @DataContext("eor_paymentorder_paid") 
-    def paidOrderEm;
-
-    @DataContext("eor_paymentorder_cancelled") 
-    def cancelledOrderEm;
-
-    @DataContext("paymentpartner")
-    def payPartnerEm;
-
-    @DataContext("eor_payment_error")
-    def errorEm;
-
-    @Service("EPaymentNotificationService")
-    def notifySvc;
+    @DataContext( dynamic=true ) 
+    def dynaEm;
 
     @Env
     def env;
 
-    @ProxyMethod
-    public def post( def o ) {
-        //find first is the payment order exists
-        def pmo = paymentOrderEm.find( [objid: o.paymentorderno ]).first();
-        if(!pmo) {
-            pmo = paidOrderEm.find( [objid: o.paymentorderno ] ).first();
-            if(pmo) throw new Exception("Payment order is already paid");
 
-            pmo = cancelledOrderEm.find( [objid: o.paymentorderno ] ).first();
-            if(pmo) throw new Exception("Payment order is already cancelled");
+    @DataContext("eor_manual_post")	
+    def manualPostEm;
+
+
+    @ProxyMethod
+    public def post( param ) {
+        validateUnsetParam('paymentorderno', param.paymentorderno);
+        validateUnsetParam('paymentorderno', param.amount);
+
+        def findById = [ objid: param.paymentorderno ];
+
+        def poEm = dynaEm.lookup('eor_paymentorder'); 
+        def po = poEm.find( findById ).first();
+        if ( !po ) {
+            poEm = dynaEm.lookup('eor_paymentorder_paid'); 
+            po = poEm.find( findById ).first();
+            if ( po ) throw new Exception("Payment order is already paid");
+
+            poEm = dynaEm.lookup('eor_paymentorder_cancelled'); 
+            po = poEm.find( findById ).first();
+            if ( po ) throw new Exception("Payment order is already cancelled");
 
             throw new Exception("Payment order does not exist.");
         }    
-        if(pmo.amount!=o.amount) throw new Exception("Amount specified does not match with the payment order");
-        if(pmo.txntype!=o.txntype) throw new Exception("txntype specified does not match with the payment order");
+        if ( po.amount != param.amount ) 
+            throw new Exception("Amount specified does not match with the payment order");
 
-        if( !payPartnerEm.find([objid: o.paymentpartnerid]).first() ) {
-            throw new Exception("Pay partner specified does not exist");
+
+        validateUnsetParam('paymentpartnerid', param.paymentpartnerid);
+
+        def payPartnerEm = dynaEm.lookup('paymentpartner'); 
+        if ( !payPartnerEm.find([ objid: param.paymentpartnerid ]).first()) {
+            throw new Exception("'"+ param.paymentpartnerid +"' pay partner does not exist");
         }
 
-        //check first it already exists in the error list.
-        def errd = errorEm.find( [paymentrefid: o.paymentorderno ]).first();
-        if(errd) throw new Exception("There is an entry in the errors list. Please resolve that first");
+        def errorEm = dynaEm.lookup('eor_payment_error'); 
+        def error = errorEm.find([ paymentrefid: param.paymentorderno ]).first();
+        if ( error ) throw new Exception("There is an entry in the errors list. Please resolve that first");
 
-        //this must save in the cloud first. If there is an error in the cloud, this should not save the manual posting.
-        o.createdby = [objid:env.USERID, name:env.FULLNAME];
-        o.dtcreated = dateSvc.getServerDate();
-        o.state = "POSTED";
-        o = manualPostEm.create( o );
+        param.dtcreated = dynaSvc.lookup('DateService').getServerDate();
+        param.createdby = [objid: env.USERID, name: env.FULLNAME];
+        param.txntype = po.txntype;
+        param.state = "POSTED";
 
-        /*
-        def z = [:];
-        z.paypartnerid = o.paymentpartnerid;
-        z.paymentrefid = o.paymentorderno;
-        //this is dummy just to satisfy requirements of payment
-        z.controlno = o.paymentorderno;
-        z.traceid = o.traceid;
-        z.tracedate = o.tracedate;
-        z.amount = o.amount;
-        def pay = cloudSvc.postPayment( z );
-        */
+        def pmt = manualPostEm.create( param );
+        pmt._type = 'eor_manual_post'; 
 
-        def m = [:];
-        m.paymentrefid = o.paymentorderno;
-        m.amount = o.amount;
-        m.txntype = o.txntype;
-        m.partnerid = o.paymentpartnerid;
-        m.traceid = o.traceid;
-        m.tracedate = o.tracedate;
-        epaymentSvc.postPayment( m );
+        def epaymentSvc = dynaSvc.lookup('EPaymentService'); 
+        epaymentSvc.postPayment( pmt );
 
-        //check if there are errors
-        def err = errorEm.find( [paymentrefid:o.paymentorderno ] ).first();
-        if( err ) {
-            notifySvc.send("epayment_error", [:]);
-            notifySvc.send("epayment", [:]);        
-            return [status: "error", objid: err.objid, errdetail: err.errdetail, laststate: err.laststate, paymentrefid: err.paymentrefid ];
+        error = errorEm.find([ paymentrefid: param.paymentorderno ]).first();
+        if ( error ) {
+            error._type = 'eor_payment_error';
+            error.status = 'error';
+
+            try {
+                def notifySvc = dynaSvc.lookup('EPaymentNotificationService');
+                notifySvc.send("epayment_error", [:]); 
+                notifySvc.send("epayment", [:]); 
+            } 
+            catch(Throwable t) {
+                t.printStackTrace(); 
+            }
+            finally { 
+                return error; 
+            }             
         }
         else {
-            return [status: "OK"];
+            return pmt; 
         }
-
     }
 
  	@ProxyMethod
-    public def open( def o ) {
-		return manualPostEm.find([objid: o.objid]).first();
+    public def open( param ) { 
+		return manualPostEm.find([ objid: param.objid ]).first(); 
     }
 
     @ProxyMethod
     public def getTxnTypes() {
-        return txnTypeEm.select("objid").limit(1000).list()*.objid;
+        def em = dynaEm.lookup('epayment_plugin'); 
+        return em.select("objid").limit(100).list().collect{ it.objid } 
     }
 
+    @ProxyMethod
+    public def getPaymentPartners() {
+        def em = dynaEm.lookup('paymentpartner'); 
+        return em.select("objid").limit(100).list().collect{ it.objid } 
+    }
 
+    void validateUnsetParam( name, value ) {
+        if ( !value ) {
+            throw new Exception("'"+ name +"' parameter is required");
+        }
+    }
 }

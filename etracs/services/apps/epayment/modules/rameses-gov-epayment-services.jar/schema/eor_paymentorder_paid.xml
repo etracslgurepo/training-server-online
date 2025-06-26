@@ -9,7 +9,7 @@
 		<field name="payer_name"  caption="Payer" searchable="true" indexed="true"/>
 		<field name="paidby" required="true" caption="PaidBy"/>
 		<field name="paidbyaddress" required="true" caption="PaidByAddress"/>
-		<field name="particulars" required="true" />
+		<field name="particulars" required="true" caption="Particulars" />
 		<field name="amount" type="decimal" required="true" caption="Amount"/>
 		<field name="expirydate" type="date" required="true" caption="ExpiryDate"/>
 		<field name="refid"  />

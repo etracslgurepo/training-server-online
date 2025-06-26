@@ -6,10 +6,10 @@
 		<field name="txntype" required="true" searchable="true" caption="Txn Type" indexed="true"/>
 		<field name="txntypename" required="true" caption="Txn Type"/>
 		<field name="payer_objid" />
-		<field name="payer_name"  caption="Payer" searchable="true" indexed="true"/>
-		<field name="paidby" required="true" caption="PaidBy"/>
+		<field name="payer_name"  caption="Payer" indexed="true"/>
+		<field name="paidby" required="true" searchable="true" caption="PaidBy" />
 		<field name="paidbyaddress" required="true" caption="PaidByAddress"/>
-		<field name="particulars" />
+		<field name="particulars" caption="Particulars"/>
 		<field name="amount" type="decimal" required="true" caption="Amount"/>
 		<field name="expirydate" type="date" required="true" caption="ExpiryDate"/>
 		<field name="refid"  />

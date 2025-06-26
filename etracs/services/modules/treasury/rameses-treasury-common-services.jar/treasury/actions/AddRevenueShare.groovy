@@ -1,12 +1,10 @@
 package treasury.actions;
 
+import com.rameses.osiris3.common.*;
 import com.rameses.rules.common.*;
 import com.rameses.util.*;
 import java.util.*;
 import treasury.facts.*;
-import com.rameses.osiris3.common.*;
-
-
 
 class AddRevenueShare implements RuleActionHandler  {
 
@@ -18,10 +16,7 @@ class AddRevenueShare implements RuleActionHandler  {
 			return; 
 		}
 
-		def payableaccount = params.payableaccount;
 		def refitem = params.refitem;
-		def org = params.org;
-
 		if ( refitem == null )
 			throw new Exception("Ref Item is required in AddRevenueShare action. Check the rule " + drools.rule.name );
 		if ( !refitem.account?.objid )
@@ -34,15 +29,21 @@ class AddRevenueShare implements RuleActionHandler  {
 		}
 
 		def payItemAcct = null; 
+
+		def org = params.org;
 		if ( org?.orgid ) { 
 			payItemAcct = ct.env.acctUtil.createAccountFactByOrg( refItemAcct.objid, org.orgid ); 
-			if ( !payItemAcct?.objid ) {
-				throw new Exception("No available payable account for org "+ org.orgid + " in AddRevenueShare action. Check the rule " + drools.rule.name);	
-			}
 		} 
 
+		def payableaccount = params.payableaccount;
 		if ( payableaccount?.key && payableaccount?.key != 'null' ) {
-			payItemAcct = ct.env.acctUtil.createAccountFact([ objid: payableaccount.key ]);	
+			if ( org?.orgid ) { 
+				payItemAcct = ct.env.acctUtil.createAccountFactByOrg( payableaccount.key, org.orgid ); 
+			} 
+			else {
+				payItemAcct = ct.env.acctUtil.createAccountFact([ objid: payableaccount.key ]);	
+			}
+
 			if ( !payItemAcct?.objid ) {
 				throw new Exception("No available payable account for org "+ org.orgid + " in AddRevenueShare action. Check the rule " + drools.rule.name);	
 			}
@@ -57,14 +58,14 @@ class AddRevenueShare implements RuleActionHandler  {
 
 		def rs = new RevenueShare();
 		rs.receiptitemid = refitem.refid;
-		rs.refitem = refItemAcct; 
 		rs.payableitem = payItemAcct; 
+		rs.refitem = refItemAcct; 
 		rs.amount  = amt;
 
 		if (!ct.result.sharing) {
-			ct.result.sharing = []
+			ct.result.sharing = [];
 		}
-
+	
 		ct.facts << rs;
 	}
 }

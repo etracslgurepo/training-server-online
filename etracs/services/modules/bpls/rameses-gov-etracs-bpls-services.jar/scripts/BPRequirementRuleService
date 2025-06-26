@@ -8,6 +8,9 @@ import bpls.actions.*;
 
 public class BPRequirementRuleService  {
 
+	@Service( dynamic=true )
+	def dynaSvc; 
+
 	@Resource("RuleService")	
 	def ruleSvc;
 
@@ -30,15 +33,24 @@ public class BPRequirementRuleService  {
 	}
 
 	@ProxyMethod
-	public def execute(def o) throws Exception {
+	public def execute(def o) throws Exception { 
+		def unexpiredList = o.unexpiredrequirements; 
+		if ( unexpiredList == null ) { 
+			unexpiredList = []; 
+		} 
+		
 		def request = [entity: o, requirements:[], facts:env.facts ]; 
 		request.actions = buildActions( request );
 		def grps = ruleDB.getRulegroups( [ruleset: RULESET] );
 		for( g in grps ) {
 			ruleSvc.execute( RULESET, request.facts, request.actions, g.name );
 		}
-		return [requirements:request.requirements];
-	}
-	
-}
 
+		request.requirements.each{ req-> 
+			def ul = unexpiredList.find{( it.reftype == req.reftype )} 
+			if ( ul ) req.putAll( ul ); 
+		}
+
+		return [requirements: request.requirements];
+	}
+}

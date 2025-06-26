@@ -2,6 +2,9 @@ import com.rameses.annotations.*;
 
 class OnlinePaymentOrderService {
 	
+	@Context 
+	def ctx; 
+
 	@XConnection( dynamic=true )
 	def dynaConn;
 
@@ -116,6 +119,10 @@ class OnlinePaymentOrderService {
 		def fgroup = System.getenv("filipizen_group"); 
 		if ( !fgroup ) throw new Exception("filipizen_group ENV variable is not set");
 
+		def urlHost = new StringBuilder();
+		urlHost.append( ctx.conf.get('filipizen_server_scheme')).append('://'); 
+		urlHost.append( ctx.conf.get('filipizen_server_host')); 
+
 		def svc = dynaSvc.lookup('PersistenceService');
 		def po = svc.read([ _schemaname: 'paymentorder', objid: param.objid ]);
 		if ( !po ) throw new Exception("'"+ param.objid +"' payment order not found"); 
@@ -140,7 +147,7 @@ class OnlinePaymentOrderService {
 
 	<br><br><br>
 	To pay, please visit or click &nbsp;&nbsp;
-	<a href="https://www.filipizen.com/partners/${fgroup}/po/${po.txncode}?c=${po.checksum}" style="font-size:1.3em;">
+	<a href="${urlHost}/partners/${fgroup}/po/${po.txncode}?c=${po.checksum}" style="font-size:1.3em;">
 		filipizen.com
 	</a>
 

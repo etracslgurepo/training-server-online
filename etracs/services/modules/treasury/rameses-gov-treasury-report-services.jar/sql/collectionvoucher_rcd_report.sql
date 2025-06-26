@@ -15,14 +15,37 @@ order by controldate, collectorname, controlno
 
 
 [getCollectionSummaries]
-select 
-	cvf.fund_title as particulars, cvf.amount
-from collectionvoucher_fund cvf 
-	inner join collectionvoucher cv on cv.objid = cvf.parentid 
-	inner join fund on fund.objid = cvf.fund_objid 
-where cvf.parentid = $P{collectionvoucherid} 
-	and cvf.fund_objid like $P{fundid}  
-order by cvf.parentid, fund.code, fund.title  
+select * 
+from ( 
+	select 
+		fund.title as particulars, t1.amount, 
+		fund.groupid as fund_groupid, 
+		fund.`system` as fund_system 
+	from ( 
+		select fundid, sum(amount) as amount 
+		from ( 
+			select ci.fundid, sum(ci.amount) as amount
+			from vw_remittance_cashreceiptitem ci 
+			where ci.collectionvoucherid = $P{collectionvoucherid} 
+			group by ci.fundid 
+			union all 
+			select ia.fund_objid as fundid, -sum(ci.amount) as amount     
+			from vw_remittance_cashreceiptshare ci 
+				inner join itemaccount ia on ia.objid = ci.refacctid 
+			where ci.collectionvoucherid = $P{collectionvoucherid} 
+			group by ia.fund_objid  
+			union all 
+			select ci.fundid, sum(ci.amount) as amount
+			from vw_remittance_cashreceiptshare ci 
+			where ci.collectionvoucherid = $P{collectionvoucherid} 
+			group by ci.fundid  
+		)t0 
+		group by fundid
+	)t1
+		inner join fund on fund.objid = t1.fundid 
+	where fund.objid like $P{fundid} 
+)t2 
+order by fund_groupid, fund_system desc, particulars 
 
 
 [getOtherPayments]

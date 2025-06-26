@@ -20,7 +20,6 @@ rule "set-deadline"
 		if( $date.after($deadline) ) {
 			TF.setExpired(true);
 		}
-		TF.printInfo();
 end
 
 rule "set-deadline-year"

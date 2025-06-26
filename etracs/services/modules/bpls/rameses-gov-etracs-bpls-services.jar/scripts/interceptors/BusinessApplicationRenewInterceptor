@@ -112,6 +112,8 @@ public class BusinessApplicationRenewInterceptor {
         	it.remove('objid');
 			it.assessmenttype = 'RENEW';
 		}	
+
+		app.unexpiredrequirements = reqSvc.getUnexpiredListForRenewal( app ); 
 	}
 
 	@Before(pattern="BusinessApplicationService.create", eval="#{args[0].apptype=='RENEW' && args[0].txnmode == 'ONLINE' }")

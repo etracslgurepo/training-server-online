@@ -64,7 +64,12 @@ class BusinessApplicationUnifiedForm3Service  {
         app.reg = reqList.find { 
             (it.reftype && it.reftype.matches( 'DTI|SEC|CDA' )) 
         }
-        app.ctcno = reqList.find{ it.reftype == 'CTC' }?.refno;
+
+        app.doc = [:]; 
+        reqList.findAll{( it.reftype )}.groupBy{ it.reftype }.each{ k,v-> 
+            app.doc[k.toLowerCase()] = v.first(); 
+        }
+
 
         //print TIN
         app.business.owner.tin = entityIdEm.find( [entityid: app.business.owner.objid, idtype:'TIN'] ).first()?.idno;

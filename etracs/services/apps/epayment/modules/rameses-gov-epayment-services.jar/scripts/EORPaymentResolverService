@@ -36,7 +36,7 @@ class EORPaymentResolverService {
         if ( !po.controlno ) throw new Exception("'controlno' parameter is required"); 
 
         def m = [ controlno: po.controlno, paymentrefid: po.objid ]; 
-        m.findBy = [ objid: po.objid, orgcode: env.ORGID ]; 
+        m.findBy = [ objid: po.objid, orgcode: env.ORGID.toString().replace('-','') ]; 
 
         return cloudSupportSvc.verifyPayment( m ); 
     } 

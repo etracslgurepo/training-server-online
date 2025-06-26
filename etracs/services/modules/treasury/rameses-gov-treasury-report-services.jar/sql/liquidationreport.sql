@@ -26,44 +26,82 @@ where cv.objid = $P{collectionvoucherid}
 
 
 [getRCDRemittances]
-select 
-  collectorid, collectorname, dtposted, txnno, sum(amount) as amount  
+select * 
 from ( 
   select 
-      r.collector_objid as collectorid, r.collector_name as collectorname, 
-      r.controlno as txnno, convert(r.controldate, DATE) as dtposted, rf.amount 
-  from remittance r 
-    inner join remittance_fund rf ON rf.remittanceid = r.objid   
-  where r.collectionvoucherid = $P{collectionvoucherid}   
-    and rf.fund_objid in ( 
-      select objid from fund where objid like $P{fundid}  
-      union 
-      select objid from fund where objid in (${fundfilter}) 
-    ) 
-)t1  
-group by collectorid, collectorname, dtposted, txnno 
-order by collectorid, collectorname, dtposted, txnno 
+    r.collector_objid as collectorid, 
+    r.collector_name as collectorname, 
+    r.controlno as txnno, 
+    convert(r.controldate, DATE) as dtposted, 
+    t1.amount  
+  from ( 
+    select remittanceid, fundid, sum(amount) as amount 
+    from ( 
+      select ci.remittanceid, ci.fundid, sum(ci.amount) as amount
+      from vw_remittance_cashreceiptitem ci 
+      where ci.collectionvoucherid = $P{collectionvoucherid} 
+      group by ci.remittanceid, ci.fundid 
+      union all 
+      select ci.remittanceid, ia.fund_objid as fundid, -sum(ci.amount) as amount     
+      from vw_remittance_cashreceiptshare ci 
+        inner join itemaccount ia on ia.objid = ci.refacctid 
+      where ci.collectionvoucherid = $P{collectionvoucherid} 
+      group by ci.remittanceid, ia.fund_objid  
+      union all 
+      select ci.remittanceid, ci.fundid, sum(ci.amount) as amount
+      from vw_remittance_cashreceiptshare ci 
+      where ci.collectionvoucherid = $P{collectionvoucherid} 
+      group by ci.remittanceid, ci.fundid  
+    )t0 
+    group by remittanceid, fundid
+  )t1
+    inner join remittance r on r.objid = t1.remittanceid 
+    inner join fund on fund.objid = t1.fundid 
+  where fund.objid in ( 
+    select objid from fund where objid like $P{fundid}  
+    union 
+    select objid from fund where objid in (${fundfilter}) 
+  ) 
+)t2 
+order by collectorname, dtposted, txnno 
 
 
 [getRCDCollectionSummary]
-select * from ( 
-  select  
-    cvf.fund_title as particulars, cvf.amount, 
-    case 
-        when cvf.fund_objid='GENERAL' then 1 
-        when cvf.fund_objid='SEF' then 2 
-        when cvf.fund_objid='TRUST' then 3 
-        else 100  
-    end as fundsortorder
-  from collectionvoucher_fund cvf  
-  where cvf.parentid = $P{collectionvoucherid} 
-    and cvf.fund_objid in ( 
-      select objid from fund where objid like $P{fundid} 
-      union 
-      select objid from fund where objid in (${fundfilter}) 
-    ) 
-)t1 
-order by t1.fundsortorder, t1.particulars 
+select * 
+from ( 
+  select 
+    fund.title as particulars, t1.amount, 
+    fund.groupid as fund_groupid, 
+    fund.`system` as fund_system
+  from ( 
+    select fundid, sum(amount) as amount 
+    from ( 
+      select ci.fundid, sum(ci.amount) as amount
+      from vw_remittance_cashreceiptitem ci 
+      where ci.collectionvoucherid = $P{collectionvoucherid} 
+      group by ci.fundid 
+      union all 
+      select ia.fund_objid as fundid, -sum(ci.amount) as amount     
+      from vw_remittance_cashreceiptshare ci 
+        inner join itemaccount ia on ia.objid = ci.refacctid 
+      where ci.collectionvoucherid = $P{collectionvoucherid} 
+      group by ia.fund_objid  
+      union all 
+      select ci.fundid, sum(ci.amount) as amount
+      from vw_remittance_cashreceiptshare ci 
+      where ci.collectionvoucherid = $P{collectionvoucherid} 
+      group by ci.fundid  
+    )t0 
+    group by fundid
+  )t1
+    inner join fund on fund.objid = t1.fundid 
+  where fund.objid in ( 
+    select objid from fund where objid like $P{fundid} 
+    union 
+    select objid from fund where objid in (${fundfilter}) 
+  ) 
+)t2 
+order by fund_groupid, fund_system desc, particulars 
 
 
 [getRCDOtherPayments]

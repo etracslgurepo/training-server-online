@@ -30,19 +30,19 @@ class RAAFReportService {
 		def collectorid = (params.collector? params.collector.objid: env.USERID);
 		def items = adb.getReportData([startdate: startdate, enddate: enddate, collectorid: collectorid]); 
 
-		def delitems = [];
-		def dmap = [enddate: enddate]; 
-		items.findAll{( it.iflag == 1 )}.each{ o-> 
-			dmap.controlid = o.controlid; 
-			def afd = adb.findLastDetail( dmap ); 
-			if ( afd?.issuedtoid.toString() != o.ownerid ) {
-				delitems << o; 
-			}
-		} 
-		items.removeAll( delitems ); 
-		delitems.clear(); 
+		// def delitems = [];
+		// def dmap = [enddate: enddate]; 
+		// items.findAll{( it.iflag == 1 )}.each{ o-> 
+		// 	dmap.controlid = o.controlid; 
+		// 	def afd = adb.findLastDetail( dmap ); 
+		// 	if ( afd?.issuedtoid.toString() != o.ownerid ) {
+		// 		delitems << o; 
+		// 	}
+		// } 
+		// items.removeAll( delitems ); 
+		// delitems.clear(); 
 
-		if ( !items ) throw new Exception('No record(s) found                  ');
+		// if ( !items ) throw new Exception('No record(s) found                  ');
 
 		items.eachWithIndex{ o,idx-> o.lineno = idx; } 
 
@@ -66,7 +66,9 @@ class RAAFReportService {
 	 		buildRAAFNonSerial( items, nonserials );		
 		}
 
-		if ( items.isEmpty()) throw new Exception('No record(s) found');
+		if ( items.isEmpty()) {
+			items << [:]; 
+		}
 
 		items.sort{ it.lineno } 	
 		items.each{

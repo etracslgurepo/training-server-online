@@ -7,5 +7,4 @@ public class LGUBarangay extends LGU {
 	public String getOrgClass() {
 		return ORG_CLASS; 
 	}
-
 }

@@ -4,11 +4,15 @@ import java.rmi.server.UID;
 
 class OnlineBusinessRuleService {
 
+	@Env 
+	def env; 
+
 	@Service( dynamic=true )
 	def dynaSvc; 
 
 	@ProxyMethod
 	public Map getInfos( Map param ) {
+		init();
 		validate( param, 'getInfos' );
 		resolveAddress( param.address ); 
 
@@ -38,6 +42,7 @@ class OnlineBusinessRuleService {
 
 	@ProxyMethod
 	public List getRequirements( param ) {
+		init();
 		validate( param, 'getRequirements' );
 		resolveAddress( param.address ); 
 
@@ -158,5 +163,11 @@ class OnlineBusinessRuleService {
 		}
 
 		return map;
+	}
+
+	void init() { 
+		if ( !env.CLIENTTYPE ) { 
+			env.CLIENTTYPE = 'gdx'; 
+		}
 	}
 } 

@@ -20,7 +20,7 @@ class OnlineBusinessPermitInterceptor {
 		else if ( res.applicationid ) {
 			def oapp = em.find([ objid: res.applicationid ]).select('objid,dtcreated,controlno,contact.*').first(); 
 			res.onlineapplication = oapp; 	
-		} 		
+		} 
 	} 
 
     @Before(pattern="JasperEmailQueueService.send", eval="#{args[0].reportid == 'business_permit'}", index=100)

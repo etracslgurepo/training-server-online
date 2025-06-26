@@ -16,4 +16,12 @@ public class BusinessLocation {
 		}
 	}
 
+	String toString() {
+		def buff = new StringBuilder(); 
+		buff.append( super.toString()).append(" ["); 
+		buff.append("type=").append( this.type ).append(", "); 
+		buff.append("barangayid=").append( this.barangayid ); 
+		buff.append("]"); 
+		return buff.toString();
+	}
 }

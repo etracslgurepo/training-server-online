@@ -111,17 +111,17 @@ class EORRemittanceService {
         if ( reminfo?.state.toString().toUpperCase() != 'DRAFT' ) 
             throw new Exception('EOR Remittance record must be in DRAFT state'); 
 
-        remFundEm.find([ remittanceid: findby.objid ]).list().each{
-            if ( !it.bankaccount?.objid ) 
-                throw new Exception('Assign a Bank Account to '+ it.fund?.title); 
-            if ( !it.bankaccount?.title ) 
-                throw new Exception('Assign a Bank Account Name to '+ it.fund?.title); 
+        // remFundEm.find([ remittanceid: findby.objid ]).list().each{
+        //     if ( !it.bankaccount?.objid ) 
+        //         throw new Exception('Assign a Bank Account to '+ it.fund?.title); 
+        //     if ( !it.bankaccount?.title ) 
+        //         throw new Exception('Assign a Bank Account Name to '+ it.fund?.title); 
 
-            if ( !it.validation?.refno ) 
-                throw new Exception('Add a Validation Ref No. to '+ it.fund?.title); 
-            if ( !it.validation?.refdate ) 
-                throw new Exception('Add a Validation Ref Date to '+ it.fund?.title); 
-        }
+        //     if ( !it.validation?.refno ) 
+        //         throw new Exception('Add a Validation Ref No. to '+ it.fund?.title); 
+        //     if ( !it.validation?.refdate ) 
+        //         throw new Exception('Add a Validation Ref Date to '+ it.fund?.title); 
+        // }
 
         def u = [ state: 'POSTED' ]; 
         u.dtposted = dateSvc.getServerDate();

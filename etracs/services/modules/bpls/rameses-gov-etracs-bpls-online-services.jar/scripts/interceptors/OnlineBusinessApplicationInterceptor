@@ -34,6 +34,24 @@ class OnlineBusinessApplicationInterceptor {
 		resolveData( evt ); 
 	} 
 
+
+	@After(pattern="BusinessApplicationService.open", index=1) 
+	public void afterOpen( evt ) {
+		def app = evt.result; 
+		if ( !app ) return; 
+
+		app.isonline = false; 
+
+		def em = dynaEm.lookup('online_business_application'); 
+		em.select('objid,state,control,dtcreated,contact.*');
+		
+		app.onlineapplication = em.find([ objid: app.objid.toString() ]).first(); 
+		if ( app.onlineapplication?.objid ) {
+			app.isonline = true; 
+		}
+	} 
+
+
 	void resolveData( evt ) {
 		def res = evt.result;
 

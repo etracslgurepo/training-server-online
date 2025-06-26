@@ -235,6 +235,7 @@ Thank you for your understanding and commitment to this process.
 			throw new Exception("This online business application record must be in OPEN state"); 
 
 		def orgid = dynaSvc.lookup("OrgService").getRoot()?.code; 
+		orgid = orgid.replace('-', '').trim();
 
 		def cloudSvc = dynaSvc.lookup("partner/CloudEncryptService", "cloud-server");
 		def cloudParam = [values: [ oapp.controlno, param.email ]]; 

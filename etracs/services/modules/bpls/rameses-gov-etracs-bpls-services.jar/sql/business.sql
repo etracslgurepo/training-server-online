@@ -130,3 +130,10 @@ from (
     group by businessid 
 )tmpc, business b 
 where b.objid=tmpc.businessid 
+
+
+[findCurrentAddress]
+select addr.* 
+from business b 
+    inner join business_address addr on addr.objid = b.address_objid 
+where b.objid = $P{businessid}

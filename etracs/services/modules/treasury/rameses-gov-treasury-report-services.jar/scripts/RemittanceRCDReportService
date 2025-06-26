@@ -44,11 +44,17 @@ class RemittanceRCDReportService {
 		def p = [ remittanceid: param.objid ]; 
 		if ( param.fund?.objid ) { 
 			p.fundid = param.fund.objid; 
+
 			def em = remfund_em.find([ remittanceid: p.remittanceid ]);
 			em.where('fund.objid = :fundid', [ fundid: p.fundid ]);
 			em.select('controlno,amount,totalcash,totalcheck,totalcr,cashbreakdown,fund.*'); 
 			def o = em.first(); 
-			if ( !o ) return [:]; 
+			if ( !o ) {
+				o = rcdfund_em.findDerivedRemittanceFund([ remittanceid: p.remittanceid, fundid: p.fundid ]); 
+				if ( !o ) return [:]; 
+
+				o.cashbreakdown = []; 
+			}
 
 			result.putAll( o ); 
 			rptdb = rcdfund_em; 
@@ -63,6 +69,21 @@ class RemittanceRCDReportService {
 		result.collectiontype.each { 
 			if ( it.formtype != 'serial' ) { 
 				it.formno = it.formno.toString() +' STUB #' + it.stubno; 
+			} 
+
+			def adjust_SeriesLength = ( it.af?.serieslength && it.af?.serieslength > 1 );
+			if ( adjust_SeriesLength ) {
+				it.fromseries = [ 
+					it.prefix, 
+					it.minseries.toString().padLeft( it.af.serieslength, '0'), 
+					it.suffix
+				].findAll{( it )}.join(''); 
+
+				it.toseries = [ 
+					it.prefix, 
+					it.maxseries.toString().padLeft( it.af.serieslength, '0'), 
+					it.suffix
+				].findAll{( it )}.join(''); 
 			} 
 		} 
 

@@ -3,6 +3,9 @@ import bpls.facts.*;
 
 public class BusinessApplicationFactBuilder {
 
+	@Env 
+	def env; 
+
 	@DataContext("lob")
 	def lobEm;
 	
@@ -16,6 +19,15 @@ public class BusinessApplicationFactBuilder {
 	public void build(def app, def facts) {
 		def fapp = new BPApplication( app );
 		fapp.dyna_ADB = dyna_ADB; 
+		fapp.online = false; 
+
+		if ( !fapp.txnmode ) { 
+			fapp.txnmode = 'ONLINE';
+		} 
+		
+		if ( env.CLIENTTYPE.toString() == 'gdx' ) {
+			fapp.online = true; 
+		}
 
 		facts << fapp;
 

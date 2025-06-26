@@ -34,3 +34,30 @@ delete from business_requirement where applicationid=$P{applicationid}
 
 [removeNonApplicationRequirements]
 delete from business_requirement where businessid=$P{businessid} and applicationid is null 
+
+
+[getUnexpiredListForRenewal]
+select r.* 
+from ( 
+	select 
+		rt.objid as reqtype, 
+		(
+			select r.objid 
+			from 
+				(select cast(NOW() as DATE) as rundate) dt 
+				inner join business b on b.objid = $P{businessid} 
+				inner join business_application a on ( 
+					a.business_objid = b.objid and a.appyear < $P{appyear} 
+						and a.apptype in ('NEW','RENEW','ADDITIONAL') 
+				) 
+				inner join business_requirement r on ( 
+					r.applicationid = a.objid and r.completed = 1 
+						and r.expirydate > dt.rundate 
+				) 
+			where r.reftype = rt.objid 
+			order by a.appyear desc, a.txndate desc 
+			limit 1 
+		) as requirementid 
+	from businessrequirementtype rt 
+)t0, business_requirement r 
+where r.objid = t0.requirementid 

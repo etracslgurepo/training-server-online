@@ -5,13 +5,20 @@ select
 	b.owner_name, b.owner_address_text as owner_address, 
 	lob.objid as lobid, lob.name as lobname, lob.classification_objid, 
 	tmp2.declaredcapital, tmp2.declaredgross, tmp2.capital, tmp2.gross, 
-	case 
+	(case 
+		when a.state='COMPLETED' then (
+			select plateno from business_permit 
+			where businessid=b.objid and activeyear=a.appyear and state='ACTIVE' 
+			order by version desc limit 1
+		) else null 
+	end) as plateno,   
+	(case 
 		when a.state='COMPLETED' then (
 			select dtissued from business_permit 
 			where businessid=b.objid and activeyear=a.appyear and state='ACTIVE' 
 			order by version desc limit 1
 		) else null 
-	end as dtissued  
+	end) as dtissued  
 from ( 
 	select 
 		applicationid, lobid, 

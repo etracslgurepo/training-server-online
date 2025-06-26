@@ -410,4 +410,46 @@ class EPaymentService   {
 
         return [objid: eor.objid, paymentrefid: eor.paymentrefid, status: 'success'];
     }
+
+
+    @ProxyMethod
+    public def rebill( param ) { 
+        if ( !param.objid ) throw new Exception('param.objid   parameter is required');
+
+        def eor = eorEm.find([ objid: param.objid ]).first();
+        if ( !eor ) throw new Exception("EOR record not found"); 
+
+        def po = poPaidEm.find([ objid: eor.paymentrefid ]).first(); 
+        if ( !po ) throw new Exception("Payment Order record not found"); 
+
+        def pluginSvc = findPluginSvc( eor.txntype ); 
+        if ( !pluginSvc ) throw new Exception("'"+ eor.txntype +"'  epayment_plugin record not found"); 
+
+        eor.receiptid = eor.objid; 
+
+        po.partnerid = eor.partnerid; 
+        po.tracedate = eor.tracedate; 
+        po.traceid = eor.traceid;
+        po.billdate = (po.tracedate ? po.tracedate : po.txndate);
+        po.allow_rebuild = true;
+
+        def bill = pluginSvc.verifyPayment( po );
+        if ( !bill ) bill = [:];
+
+        if ( bill.items ) {
+            bill.items.each{ 
+                it.parentid = eor.objid; 
+            }
+        }
+
+        if ( bill.sharing.toString().matches('true|1')) {
+            def shares = pluginSvc.generateShares( eor ); 
+            if ( shares ) { 
+                shares.each{ 
+                    it.parentid = eor.receiptid; 
+                } 
+            }  
+        } 
+        return bill; 
+    } 
 }

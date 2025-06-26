@@ -62,6 +62,9 @@ class LiquidationReportService  {
 		} 
 
 		data.remittances = liqreport.getRCDRemittances( params );
+		def remittedAmt = data.remittances.sum{( it.amount ? it.amount : 0.0 )} 
+		if ( remittedAmt ) data.amount = remittedAmt; 
+
 		data.collectionsummaries = liqreport.getRCDCollectionSummary( params );
 		data.remittedforms = []; 
 		data.nonserialremittances = []; 

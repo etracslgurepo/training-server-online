@@ -1,14 +1,28 @@
 [getCollectionTypes]
 select 
-	c.formtypeindexno, c.formno, c.formtype, c.controlid, c.stubno, 
-	min(c.series) as minseries, max(c.series) as maxseries, 
-	case when c.formtype = 'serial' then min(c.receiptno) else null end as fromseries, 
-	case when c.formtype = 'serial' then max(c.receiptno) else null end as toseries,
+	c.formtypeindexno, c.formno, c.formtype, c.controlid, 
+	c.stubno, afc.prefix, afc.suffix, afc.afunit_interval, 
+	afc.af_serieslength, min(c.series) as minseries, 
+	(case 
+		when afc.afunit_interval > 1
+			then max(c.series) + (afc.afunit_interval - 1)
+		else max(c.series) 
+	end) as maxseries, 	
+	(case 
+		when c.formtype = 'serial' then min(c.receiptno) 
+	end) as fromseries, 
+	(case 
+		when c.formtype = 'serial' then max(c.receiptno) 
+	end) as toseries,
 	sum(c.amount) - sum(c.voidamount) as amount 
 from vw_remittance_cashreceipt c 
+	inner join vw_af_control afc on afc.objid = c.controlid 
 where c.remittanceid = $P{remittanceid} 
-group by c.formtypeindexno, c.formno, c.formtype, c.controlid, c.stubno 
-order by c.formtypeindexno, c.formno, min(c.series) 
+group by 
+	c.formtypeindexno, c.formno, c.formtype, c.controlid, c.stubno, 
+	afc.prefix, afc.suffix, afc.afunit_interval, afc.af_serieslength  
+order by 
+	c.formtypeindexno, c.formno, min(c.series)
 
 
 [getCollectionSummaries]
