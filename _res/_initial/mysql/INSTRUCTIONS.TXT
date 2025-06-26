@@ -35,4 +35,9 @@ running the ETRACS application.
    mysql -u root -p -f  <  04-training_queue.sql
 
 
+7. Patch the "eor" database 
+
+   mysql -u root -p -f  <  10-patch-eor.sql
+
+
 DONE !!!
