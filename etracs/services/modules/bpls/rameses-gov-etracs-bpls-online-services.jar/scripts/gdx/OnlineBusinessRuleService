@@ -87,6 +87,12 @@ class OnlineBusinessRuleService {
 		if ( !param.tradename ) throw new Exception("'tradename'  parameter is required in "+ callingMethodName);
 		if ( !param.businessname ) throw new Exception("'businessname'  parameter is required in "+ callingMethodName);
 		if ( !param.address ) throw new Exception("'address'  parameter is required in "+ callingMethodName);
+
+		if ( param.orgtype instanceof String ) {
+			def orgtypeid = param.orgtype; 
+			param.orgtype = [ id: orgtypeid ];
+		} 
+
 		if ( !param.orgtype?.id ) throw new Exception("'orgtype.id'  parameter is required in "+ callingMethodName);
 		if ( !param.primarylob?.objid ) throw new Exception("'primarylob'  parameter is required in "+ callingMethodName);
 
