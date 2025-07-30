@@ -1,0 +1,12 @@
+import com.rameses.annotations.*
+
+class OnlineQrCodeInfoService {
+
+	@Service('QrCodeInfoService')
+	def svc; 
+
+	@ProxyMethod
+	public def getInfos(params) {
+		return svc.getInfos(params);
+	}
+}

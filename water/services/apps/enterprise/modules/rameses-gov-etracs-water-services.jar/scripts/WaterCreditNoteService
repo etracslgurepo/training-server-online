@@ -1,0 +1,112 @@
+import com.rameses.annotations.*;
+
+import water.facts.*;
+import com.rameses.util.*;
+import treasury.facts.*;
+import java.text.*;
+
+class WaterCreditNoteService {
+	
+	@Service("DateService")
+	def dateSvc;	
+
+	@Service("WaterPaymentService")
+	def pmtSvc;
+
+	@DataContext("water_abstract_billitem")
+	def abstractBillItemEm;
+
+	@DataContext("water_payment")
+	def pmtEm;
+
+	@DataContext("water_paymentitem")
+	def pmtItemEm;
+
+	@DataContext("water_bill")
+	def billEm;
+
+	@DataContext("vw_water_bill")
+	def vwBillEm;
+
+	@DataContext("water_billitem_subitem")
+	def subItemEm;
+
+	@DataContext("vw_water_txn")
+	def vwTxnEm;
+
+	@ProxyMethod
+	public def getPaymentInfo( def o ) {
+		return pmtSvc.getPaymentInfo( o );
+	}
+
+	def months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+
+	@ProxyMethod
+	public def create( def o ) {
+		if(!o.billid) throw new Exception("billid is required in WaterCreditNoteService.create");
+		if(!o.txnid) throw new Exception("txnid is required in WaterCreditNoteService.create");
+		if(!o.refno) throw new Exception("refno is required in WaterCreditNoteService.create");
+		if(!o.reftype) throw new Exception("reftype is required in WaterCreditNoteService.create");
+		if(!o.postingitems) throw new Exception("postingitems is required in WaterCreditNoteService.create")
+
+		def pmt = [:];
+		pmt.refid =  o.refid;
+		pmt.refno =  o.refno;
+		pmt.reftype =  o.reftype;
+		pmt.refdate =  (o.refdate==null) ? dateSvc.getServerDate() : o.refdate;
+		pmt.txnmode =  (o.txnmode==null) ? "ONLINE" : o.txnmode;
+		pmt.voided =  0;
+		pmt.posted = 1;
+		pmt.remarks =  o.remarks;
+		pmt.amount =  NumberUtil.round(o.amount);
+		pmt.billid = o.billid;
+		pmt.txnid = o.txnid;
+		pmt = pmtEm.create( pmt );
+
+		o.postingitems.each { pi->
+			pi.paymentid = pmt.objid;
+			pmtItemEm.create( pi );
+			abstractBillItemEm.find( [objid: pi.billitemrefid ] ).update( [amtpaid: "{amtpaid + :amt}"], [amt: pi.amount ] );
+		}
+		billEm.updateBillPayment( [billid: o.billid ] );
+		return pmt;
+	}
+
+	@ProxyMethod
+	public def findNote( def o ) {
+		def pmt = pmtEm.find( [objid: o.objid ] ).first();
+		pmt.bill = vwBillEm.find( [objid: pmt.billid] ).first();
+		pmt.billitems = pmtEm.getBillItems( [paymentid: pmt.objid ] );
+		pmt.billitems.each {
+			it.particulars = it.itemid + " - " + it.year + " " + months[it.month-1];
+		}
+
+		return pmt;	
+	}
+
+	@ProxyMethod
+	public def removeNote( def o ) {
+		def pmt = pmtEm.find( [objid: o.objid ] ).first();
+		def postItems = pmtItemEm.find( [paymentid: pmt.objid ] ).list();
+		postItems.each { pi->
+			abstractBillItemEm.find( [objid: pi.billitemrefid ] ).update( [amtpaid: "{amtpaid - :amt}"], [amt: pi.amount ] );
+		}
+		pmtItemEm.find( [paymentid: pmt.objid ] ).delete();
+		pmtEm.find( [objid: pmt.objid ] ).delete();
+		billEm.updateBillPayment( [billid: pmt.billid ] );	
+	}	
+
+
+
+	@ProxyMethod
+	public def postNote( def param ) {
+		def txnid = param.txnid; 
+		if ( !txnid ) throw new Exception('txnid is required'); 
+
+		def pmt = pmtEm.find([ txnid: txnid ]).select('billid').first(); 
+		if ( !pmt ) throw new Exception('payment does not exist'); 
+
+		pmtEm.find([ txnid: txnid ]).update([ posted: 1 ]); 
+		billEm.updateBillPayment([ billid: pmt.billid ]);	
+	}
+}

@@ -1,0 +1,15 @@
+<schema>
+	<element tablename="water_bill_cancelled" extends="water_abstract_bill">
+		<field name="objid" primary="true" prefix="WBTEMP"/>
+		<field name="billno" />
+		<field name="acctid" />
+		<field name="batchid" />
+		<field name="billgroupid" />
+		<field name="scheduleid" />
+		<field name="year" />
+		<field name="month" />
+		<field name="reader_objid" />
+		<field name="reader_name" />
+		<field name="readingdate" />
+	</element>
+</schema>

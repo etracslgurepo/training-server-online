@@ -1,0 +1,7 @@
+<schema>
+	<element tablename="water_account_for_correction">
+		<field name="objid" primary="true" />
+		<field name="errmsg" />
+	</element>
+</schema>	
+

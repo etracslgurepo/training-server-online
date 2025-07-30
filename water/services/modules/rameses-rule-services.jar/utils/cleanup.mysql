@@ -1,0 +1,16 @@
+SET FOREIGN_KEY_CHECKS = 0;
+DELETE FROM sys_rule;
+DELETE FROM sys_rule_action;
+DELETE FROM sys_rule_action_param;
+DELETE FROM sys_rule_actiondef;
+DELETE FROM sys_rule_actiondef_param;
+DELETE FROM sys_rule_condition;
+DELETE FROM sys_rule_condition_constraint;
+DELETE FROM sys_rule_condition_var;
+DELETE FROM sys_rule_deployed;
+DELETE FROM sys_rule_fact;
+DELETE FROM sys_rule_fact_field;
+DELETE FROM sys_rulegroup;
+DELETE FROM sys_ruleset_actiondef;
+DELETE FROM sys_ruleset_fact;
+SET FOREIGN_KEY_CHECKS = 1;

@@ -1,0 +1,18 @@
+<schema>
+	<element tablename="water_billschedule">
+		<field name="objid" primary="true" prefix="WTRBILLSKED"/>
+		<field name="groupid" />			
+		<field name="year" required="true"/>
+		<field name="month" required="true"/>
+		<field name="fromdate" required="true"/>
+		<field name="todate" required="true"/>
+		<field name="billdate" required="true"/>
+		<field name="billingduedate" />
+		<field name="discdate" />
+		<field name="readingdate" />
+		<field name="readingduedate" />
+		<field name="duedate" />
+		<field name="expirydate" required="true"/>		
+		<field name="monthname" expr="MONTH_ARRAY(month)" caption="From Month Name"/>
+	</element>
+</schema>

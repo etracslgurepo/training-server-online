@@ -1,0 +1,22 @@
+<schema>
+	<element tablename="water_meter">
+		<field name="objid" primary="true" prefix="WTRMTR"/>
+
+		<!-- active, defective . link to -->
+		<field name="state" defaultValue="ACTIVE" required="true" caption="State" 
+			lov="WATER_METER_STATE"/>
+		
+		<field name="serialno" required="true" indexed="true" caption="Serial No." searchable="true"/>
+		<field name="brand" required="true" indexed="true" caption="Brand"/>
+		<field name="capacity" required="true" type="integer" caption="Capacity" />
+		<field name="sizeid"  />
+		<field name="currentacctid"  />
+		<field name="customerowned"  />
+		
+		<field name="stocktype" defaultValue="STOCK" required="true" caption="Stock Type" 
+			lov="WATER_METER_STOCKTYPE"/>
+
+		<field name="supersededid"  />	
+	</element>
+</schema>
+

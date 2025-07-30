@@ -1,0 +1,57 @@
+import com.rameses.annotations.*;
+import java.rmi.server.*;
+
+class WaterBatchBillPersistenceInterceptor {
+
+	@DataContext("water_batch_bill_error")
+	def batchBillErrorEm;
+
+	@DataContext("water_batch_bill")
+	def batchBillEm;
+
+	@DataContext("water_bill")
+	def waterBillEm;
+
+	@DataContext("water_batch_bill_task")
+	def taskEm;
+
+	@DataContext("water_billgroup")
+	def billgroupEm;
+
+	@DataContext("water_bill_cancelled")
+	def cancelledBillEm;
+
+	@Before(pattern="PersistenceService.removeEntity", eval="#{args[0]._schemaname == 'water_batch_bill' }")
+	public void beforeRemove(def evt) {
+		def p = evt.args[0];
+		def refid = p.objid;
+
+		//update billgroup
+		def batch = batchBillEm.find( [objid: refid ] ).first();
+		billgroupEm.find( [objid: batch.billgroupid ] ).update( [currentbatchid: "{NULL}"] );
+
+		batchBillEm.find( [objid: refid] ).update( [taskid: "{NULL}" ] );
+		taskEm.find( [refid: refid] ).delete();
+		p.billgroupid = batch.billgroupid;
+
+		//we should also nullify the batchid for every cancelled bill
+		cancelledBillEm.voidBatch( [batchid: batch.objid ] );
+
+		if ( waterBillEm.find([ batchid: refid ]).select('objid').first()) { 
+			throw new Exception("Please run the 'Cancel All Bills' action first"); 
+		}
+
+		batchBillErrorEm.find([ batchid: refid ]).delete();
+	}
+	
+	@After(pattern="PersistenceService.removeEntity", eval="#{args[0]._schemaname == 'water_batch_bill' }")
+	public void afterRemove(def evt) {
+		def p = evt.args[0];
+		
+		//find previous batch and update billgroup
+		def prevBatch = batchBillEm.find( [billgroupid: p.billgroupid] ).orderBy("year DESC, month DESC").first();
+		if(prevBatch) {
+			billgroupEm.find( [objid: p.billgroupid ] ).update( [currentbatchid: prevBatch.objid ] );	
+		}
+	}
+}	

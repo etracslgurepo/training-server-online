@@ -1,0 +1,6 @@
+<schema>
+	<element tablename="water_billschedule_group">
+		<field name="objid" primary="true" visible="true"/>
+		<field name="description" />
+	</element>
+</schema>

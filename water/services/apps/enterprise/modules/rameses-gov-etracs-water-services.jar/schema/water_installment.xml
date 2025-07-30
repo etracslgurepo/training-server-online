@@ -1,0 +1,22 @@
+<schema>
+	<element tablename="water_installment" >
+		<field name="objid" primary="true" prefix="WPP"/>
+
+		<!-- state is OPEN or CLOSED-->
+		<field name="state" required="true"/>
+		<field name="paymentrefid" required="true"/>
+		<field name="downpaymentrate" type="decimal" required="true"/>
+		<field name="downpayment" type="decimal" required="true"/>
+		<field name="term" type="integer" required="true"/>
+		<field name="principal" type="decimal" required="true"/>
+		<field name="installmentamt" type="decimal" required="true"/>
+		<field name="startyear" required="true"/>
+		<field name="startmonth" />
+
+		<complex name="item" ref="water_itemaccount" jointype="many-to-one" required="true">
+			<key field="itemid" target="objid" />
+		</complex>
+	</element>
+</schema>		
+
+

@@ -1,0 +1,241 @@
+import com.rameses.annotations.*;
+
+import water.facts.*;
+import com.rameses.util.*;
+import treasury.facts.*;
+import java.text.*;
+
+class WaterInstallmentService {
+	
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("WaterCreditNoteService")
+	def creditNoteSvc;	
+
+    @Service("WaterBillingUtilService")
+	def utilSvc;
+
+	@DataContext("vw_water_txn")
+	def vwTxnEm;
+
+	@DataContext("water_installment")
+	def installmentEm;
+
+	@DataContext("vw_water_installment")
+	def vwInstallmentEm;
+
+	@DataContext("water_payment")
+	def pmtEm;
+
+	@DataContext("water_paymentitem")
+	def pmtItemEm;
+
+	@DataContext("water_txn_bill")
+	def txnBillEm;
+
+	@DataContext("water_txn_billitem")
+	def txnBillItemEm;
+
+	@DataContext("vw_water_account")
+	def vwAcctEm;
+
+	@DataContext("water_recurring_bill")
+	def recurringBillEm;
+
+	@DataContext("water_billitem")
+	def billItemEm;
+
+	@DataContext("vw_water_billitem")
+	def vwBillItemEm;
+
+	@DataContext("water_billitem_subitem")
+	def subItemEm;
+
+	@DataContext("water_bill")
+	def billEm;
+
+
+	@ProxyMethod
+	public def create( def  o ) {
+		if(!o.creditnote) throw new Exception("Please specify credit note in installment");
+		o.creditnote.remove("objid");
+		//load payment items
+		o.creditnote = creditNoteSvc.create( o.creditnote );
+		o.paymentrefid = o.creditnote.objid;
+		if(!o.state) o.state = 'OPEN';
+		installmentEm.create( o );
+	}
+
+	@ProxyMethod
+	public def addInstallment( def  o ) {
+		if(!o.billid) throw new Exception("billid is required in WaterTxnBillService.addInstallment");
+		if(!o.creditnote) throw new Exception("creditnote is required in WaterTxnBillService.addInstallment");
+		
+		def paymentrefid = o.creditnote.objid;
+		if( !paymentrefid ) {
+			def cr = pmtEm.create( o.creditnote );
+			paymentrefid = cr.objid;
+			o.creditnote.items.each {
+				txnBillItemEm.find( [objid: it.objid] ).update( [paymentid:  cr.objid, creditamt: "{amount}" ] );	
+			}
+		}
+
+		o.paymentrefid = paymentrefid;
+		o.itemid = o.item.objid;
+		def pp = installmentEm.create( o );
+		
+		assess( [billid: o.billid] );
+	}
+
+	@ProxyMethod
+	public def getList( def filter ) {
+		def str = filter[0];
+		def params = [:];
+		if( filter.size() > 1 ) {
+			params.putAll( filter[1] );
+		}
+
+		str += " AND (principal - amtpaid) > 0 ";
+		return vwInstallmentEm.where( str, params ).list();
+	}
+
+	@ProxyMethod
+	public def removeInstallment( def  o ) {
+		if(!o.objid) throw new Exception("billid is required in WaterTxnBillService.removeInstallment");
+		def inst = vwInstallmentEm.find( [objid: o.objid ] ).first();
+		def paymentid = inst.paymentrefid;
+		def crNote = pmtEm.find( [objid: paymentid ] ).first();		
+		pmtItemEm.find([paymentid: crNote.objid]).delete();
+		pmtEm.find( [objid: crNote.objid ] ).delete();
+		billEm.updateBillPayment( [billid: crNote.billid ] );
+	}
+ 
+	@ProxyMethod
+	public def findInstallment( def  o ) {
+		if(!o.objid) throw new Exception("objid is required in WaterTxnBillService.findInstallment");
+		return installmentEm.find( [objid: o.objid ] ).first();
+	}
+ 
+ 	//posting with related payment plans
+	@ProxyMethod
+	public def buildInstallmentItems( def o ) {
+		if(!o.txnid ) throw new Exception("txnid is required in WaterInstallmentService.buildInstallmentItems");
+		if(!o.acctid ) throw new Exception("acctid is required in WaterInstallmentService.buildInstallmentItems");
+
+		def rb = recurringBillEm.find( [acctid: o.acctid] ).first();
+		if(!rb ) {
+			rb = recurringBillEm.create( [objid: o.acctid, acctid: o.acctid ] );
+		}
+
+		def installmentList = vwInstallmentEm.find( [txnid: o.txnid] ).list();
+		installmentList.each { pp->
+			def term = pp.term;
+			def amt = pp.installmentamt;
+			def yr = pp.startyear;
+			def mon = pp.startmonth;
+			def bal = pp.principal;
+			(1..term).each { e->
+				def bi = [:];
+				bi.item = pp.item;
+				bi.itemid = pp.item.objid;
+				bi.billid = rb.objid;
+				bi.amount = (e < term) ? amt: bal;
+				bi.amtpaid = 0;
+				bi.year = yr;
+				bi.month = mon;
+				bi.installmentid = pp.objid;
+				bi.auto = 1;
+				bi.forwarded = 0;
+				bi.recurring = 1;
+				bi.uid = rb.acctid + "-" + bi.itemid + "-" + yr+ "-" + mon;
+				billItemEm.create( bi );
+				mon = mon + 1;
+				if( mon > 12 ) {
+					mon = 1;
+					yr = yr + 1;		
+				}
+				bal -= amt;
+			};
+		}
+	}
+
+
+	//This checks if there are installments for default. If there is we need to get the installment ids
+	@ProxyMethod
+	public def processDefault(def o) {
+		if(!o.acctid) throw new Exception("acctid is required in WaterInstallmentService.checkForDefault");
+		if(!o.billid) throw new Exception("billid is required in WaterInstallmentService.checkForDefault");
+
+		//check if there are installments not yet paid but has already been billed out 
+		//i.e. all billitems are not in the recurring bill anymore
+
+		//this will retrieve billitems from creditnote
+		def instList = vwInstallmentEm.find( [acctid: o.acctid ] ).where("reftype='compromise' AND state='OPEN' AND (principal - amtpaid > 0)").list();
+		def list = [];
+		instList.each { inst->
+			//check if there are entries in recurring bill. the recurring bill objid is equal to acctid 
+			def hasUnbilled = vwBillItemEm.find( [billid: o.acctid, installmentid: inst.objid ] ).exists();
+			if(!hasUnbilled) {
+				list << inst.objid;
+				//check total amt paid
+				def totalAmtPaid = inst.downpayment + inst.amtpaid;
+
+				def billItems = installmentEm.getBillItems( [paymentid: inst.paymentrefid ] );
+				def subItems = installmentEm.getSubItems( [paymentid: inst.paymentrefid ] );
+
+				billItems.each { bi->
+					def oldid = bi.remove("objid");
+					bi.billid = o.billid;
+					bi.item = [objid: bi.itemid];
+					bi.uid = bi.itemid + "-" + bi.year + "-" + bi.month;
+					bi = billItemEm.create( bi );
+
+					subItems.findAll{ it.billitemrefid == oldid }.each { si->
+						si.billitemrefid = bi.objid;
+						si.billid = o.billid;
+						si.item = [objid: si.itemid];
+						si.uid = si.type+"_"+bi.objid+"_COMP";
+						subItemEm.create( si );
+					}
+				}
+
+				def rr = utilSvc.buildPaymentItems( [billid: o.billid, refdate: o.refdate, amtpaid: totalAmtPaid, initial: false ] );
+
+				def pmt = [:];
+				pmt.refid =  inst.objid;
+				pmt.refno =  inst.refno;
+				pmt.reftype =  "compromise-payment";
+				pmt.refdate =  o.refdate;
+				pmt.txnmode =  "ONLINE";
+				pmt.voided =  0;
+				pmt.posted = 0;
+				pmt.amount =  NumberUtil.round( rr.items.sum{ it.amount } );
+				pmt.billid = o.billid;
+				pmt = pmtEm.create( pmt );
+
+				utilSvc.postPayment( [payment: pmt, postingitems: rr.postingitems ] );
+				billEm.updateBillPayment( [billid: o.billid ] );
+			}
+			installmentEm.find( [objid: inst.objid ] ).update( [state: 'CLOSED'] );
+		}
+
+		return list;
+
+	}
+
+
+	@ProxyMethod
+	public def revertDefault( def o ) {
+		if(!o.billid) throw new Exception("billid is required in WaterInstallmentService.revertDefault");
+		def pmt = pmtEm.find( [billid: o.billid ] ).where( "reftype = 'compromise-payment' ").first();
+		if( pmt ) {
+			installmentEm.find( [objid: pmt.refid ] ).update( [state: 'OPEN'] );
+			pmtItemEm.find( [paymentid: pmt.objid] ).delete();
+			pmtEm.find( [objid: pmt.objid ] ).delete();	
+		}
+	}
+	
+
+}
+

@@ -1,0 +1,20 @@
+import com.rameses.annotations.*; 
+
+class OnlineWaterBillingService {
+
+	@Service( dynamic=true )
+	def dynaSvc; 
+	
+	@ProxyMethod 
+	public def getBilling( def param ) {
+		def svc = dynaSvc.lookup('WaterEPaymentService');
+		def bill = svc.getBilling( param ); 
+		
+		def res = [:]; 
+		res.amount = bill.amount; 
+		res.info = bill;
+		res.info.txntype = 'water';
+		res.info.txntypename = 'Water'; 
+		return res; 
+	} 
+}

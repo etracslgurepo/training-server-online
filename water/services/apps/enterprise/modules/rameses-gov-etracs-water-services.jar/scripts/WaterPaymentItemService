@@ -1,0 +1,87 @@
+import com.rameses.annotations.*;
+
+import water.facts.*;
+import com.rameses.util.*;
+import treasury.facts.*;
+import java.text.*;
+
+class WaterPaymentItemService {
+	
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("WaterBillingUtilService")
+	def utilSvc;
+
+	@DataContext("water_bill")
+	def billEm;
+
+	@DataContext("vw_water_bill")
+	def vwBillEm;
+
+	@DataContext("vw_water_billitem")
+	def vwBillItemEm;
+
+	@DataContext("vw_water_billitem_subitem")
+	def vwSubItemEm;
+
+	@DataContext("water_abstract_billitem")
+	def abstractBillItemEm;
+
+	@DataContext(dynamic=true)
+	def em;
+
+	@DataContext("water_paymentitem")
+	def pmtItemEm;
+
+
+	def months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+
+	@ProxyMethod
+	public def getBillItemsForSelection( def  o ) {
+		if(!o.billid) throw new Exception("billid is required WaterPaymentService.getBillItemsForSelection");
+		def list = [];
+		if(o.show_fee) {
+			vwBillItemEm.find( [billid: o.billid ] ).where( "amount-amtpaid > 0").list().each {
+				def p =[objid:it.objid, year:it.year, month: it.month];
+				p.particulars = it.item?.title + " - " + it.year + " " + months[it.month-1];
+				p.amount = NumberUtil.round( it.amount - it.amtpaid );
+				list << p;			
+			};		
+		}
+		if(o.show_surcharge || o.show_interest ) {
+			vwSubItemEm.find( [billid: o.billid ] ).where( "amount-amtpaid > 0").list().each {
+				def p =[objid:it.objid, year:it.refyear, month: it.refmonth];
+				p.particulars = it.item?.title + " - " + it.refyear + " " + months[it.refmonth-1];
+				p.amount = NumberUtil.round( it.amount - it.amtpaid );
+				list << p;			
+			};
+		}
+		return list.sort{  (it.year * 12)+it.month };
+	}
+
+	@ProxyMethod
+	public def getItems( def o ) {
+		if(!o.paymentid) throw new Exception("paymentid is required WaterPaymentService.getItems");
+		def bitems = pmtItemEm.find( [paymentid: o.paymentid ] ).list();
+		def list = [];
+		bitems.each { pi->
+			def itm = null;
+			def bi = vwBillItemEm.find( [objid: pi.billitemrefid ] ).first();
+			if(bi) {
+				itm = [objid:bi.objid, year:bi.year, month: bi.month]; 
+				itm.particulars = bi.item?.title + " - " + bi.year + " " + months[bi.month-1];
+				itm.amount = pi.amount;
+			} 
+			else {
+				bi = vwSubItemEm.find( [objid: pi.billitemrefid ] ).first();
+				itm =[objid:bi.objid, year:bi.refyear, month: bi.refmonth];
+				itm.particulars = bi.item?.title + " - " + bi.refyear + " " + months[bi.refmonth-1];
+				itm.amount = pi.amount;
+			}	
+			list << itm;			
+		};
+		return list;
+	}
+
+}

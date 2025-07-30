@@ -1,0 +1,127 @@
+import com.rameses.annotations.*;
+
+import groovy.text.*;
+import java.util.regex.*;
+import com.rameses.osiris2.reports.*;
+import com.rameses.osiris3.sql.*;
+import groovy.lang.GroovyShell;
+import groovy.lang.Script;
+import org.codehaus.groovy.runtime.InvokerHelper;
+
+/* ****************************************
+* This service creates a message map containing the
+* ff fields: 
+*    
+****************************************** */
+class SysMessageTemplateService {
+	
+	@DataContext("sys_message_template")
+	def template;
+
+	@Service("SysReportDataService")
+	def reportDataSvc;
+
+	@Service("SysReportGeneratorService")
+	def reportGenSvc;
+
+	//If the report data returns a list only the first record will return
+	@ProxyMethod
+	public def getRender(def o ) {
+		if(!o.templateid) throw new Exception("templateid is required in SysMessageTemplateService.getRender");
+
+		if(!o.params) o.params = [:];
+		
+		def templateid = o.remove("templateid");
+
+		def temp = template.find( [objid: templateid ]).first();
+		if(!temp) throw new Exception("temp id " + templateid + " not found");
+		if(!temp.statement) throw new Exception("statement is required in sys_message_template");
+		if(!temp.subject) throw new Exception("subject is required in sys_message_template");
+		if(!temp.message) throw new Exception("message is required in sys_message_template");
+
+		def statement = temp.statement;
+		if(o.test == true ) statement = temp.testparams + "\n" + statement;
+
+		def rdata = reportDataSvc.getData( [statement: statement, params: o.params, querytype: 'SCRIPT' ] );
+	    if(!rdata) throw new Exception("No records processed");
+
+	    if( rdata instanceof Map ) {
+	    	if( rdata.containsKey("DATA") ) {
+	    		rdata = rdata.DATA;
+	    	}	
+	    }
+
+	    if(rdata instanceof List) {
+	    	//if it is a test return only one data assume the first
+	    	if( o.test == true ) {
+	    		rdata = [ rdata[0] ];
+	    	}
+	    }	
+	    else {
+	    	//convert to list so it wont error in the loop below
+	    	rdata = [rdata];
+	    };
+	    
+	    def subjectRenderer = null;
+	    def msgRenderer = null;
+	    def emailRenderer = null;
+	    def emailCopyRenderer = null;
+	    def mobilenoRenderer = null;
+	    def smsRenderer = null;
+
+	    def templateEngine = new groovy.text.GStringTemplateEngine();
+	    if( temp.subject ) subjectRenderer = templateEngine.createTemplate(temp.subject); 
+	    if( temp.message)  msgRenderer =  templateEngine.createTemplate(temp.message);
+	    if( temp.emailfield ) emailRenderer =  templateEngine.createTemplate(temp.emailfield);
+	    if( temp.emailcopyfield ) emailCopyRenderer = templateEngine.createTemplate(temp.emailcopyfield);
+	    if( temp.mobilenofield ) mobilenoRenderer =  templateEngine.createTemplate(temp.mobilenofield);
+	    if( temp.smstext ) smsRenderer =  templateEngine.createTemplate(temp.smstext);
+
+	    def result = [];
+	    rdata.each { d->
+	    	
+	    	//there are 2 ways you can access fields in your template parser. by specifying it.<field> or fields directly
+			def parm = [:];
+			parm.putAll(d);
+			parm.it = d;
+
+			def payload = [:];
+			payload.connection = (!o.connection) ? temp.connection : o.connection;
+			if(emailRenderer) {
+				payload.email = emailRenderer.make( parm )?.toString();
+				if(payload.email == "null") payload.email = null;
+			}
+			if(mobilenoRenderer) {
+				payload.mobileno = mobilenoRenderer.make( parm )?.toString(); 
+				if(payload.mobileno == "null") payload.mobileno = null;
+			}	
+			if( emailCopyRenderer ) payload.emailcopy = emailCopyRenderer.make( parm )?.toString();
+			if(subjectRenderer ) payload.subject = subjectRenderer.make( parm )?.toString();
+			if( msgRenderer) payload.message = msgRenderer.make( parm )?.toString();
+			if( smsRenderer ) payload.smstext = smsRenderer.make(parm)?.toString();
+
+			if( o.include_attachments == true ) {
+				if( d.attachments ) {
+					payload.attachments = [];
+					d.attachments.each { a->
+						def na = null;
+						if(!a.filename) {
+							na = reportGenSvc.buildAttachment( a );
+						}
+						else {
+							na = [title: a.title, filename: a.filename ];
+						}
+						payload.attachments << na;
+					}
+				}
+			}
+			
+			result << payload;
+	    }
+
+		return result;
+	}
+
+  
+}
+

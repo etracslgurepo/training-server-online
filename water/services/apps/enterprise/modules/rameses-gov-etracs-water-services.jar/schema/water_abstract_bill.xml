@@ -1,0 +1,7 @@
+<schema>
+	<element tablename="water_abstract_bill">
+		<field name="objid" primary="true" prefix="WTRBILL"/>
+	</element>
+</schema>
+
+

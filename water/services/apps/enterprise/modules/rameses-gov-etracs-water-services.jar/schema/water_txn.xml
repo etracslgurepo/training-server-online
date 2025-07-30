@@ -1,0 +1,16 @@
+<schema>
+	<element tablename="water_txn">
+		<field name="objid" primary="true" prefix="WTRTXN"/>
+		<field name="controlno" required="true"/>
+
+		<field name="txntypeid" required="true"/>
+		<field name="remarks" />
+		
+		<field name="acctid" />		
+		<field name="oldacctinfoid"/>
+		<field name="newacctinfoid"/>
+		<field name="taskid" />
+
+		<complex name="info"  serializer="default" required="false"/>
+	</element>
+</schema>

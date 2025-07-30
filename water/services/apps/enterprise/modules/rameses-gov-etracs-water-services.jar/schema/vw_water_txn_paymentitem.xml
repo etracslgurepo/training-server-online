@@ -1,0 +1,11 @@
+<schema>
+	<element tablename="vw_water_txn_paymentitem">
+
+		<field name="objid" primary="true"/>
+		<field name="paymentid"/>	
+		<field name="particulars"/>	
+		<field name="amount" type="decimal"/>	
+
+	</element>
+</schema>
+

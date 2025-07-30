@@ -1,0 +1,26 @@
+import com.rameses.annotations.*;
+
+public class WaterMenuService  {
+
+	@DataContext("water_txntype")
+	def txnTypeEm;
+
+	@Service("UserRoleService")
+    def roleSvc;
+
+	@ProxyMethod
+	public def getTxnItems( def o ) {
+		//def _roles = roleSvc.getUserRoles([:])*.key;
+		//if( !_roles.contains("PROCESSOR")  ) return [];
+
+		def roleStr = roleSvc.getRolesString([:]);
+
+ 		def list = txnTypeEm.where( "active=1 AND role IN (" + roleStr + ")" ).list().collect{ 
+			[objid:it.objid, guihandler:it.guihandler, title:it.title, handler:'water_txn', processname: it.processname, sortorder: it.sortorder, editableinfo: it.editableinfo  ] 
+		};	
+
+		return list.sort{ it.sortorder };
+	}
+
+
+}

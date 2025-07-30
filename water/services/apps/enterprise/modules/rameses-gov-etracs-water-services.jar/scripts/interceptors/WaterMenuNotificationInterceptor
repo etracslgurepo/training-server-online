@@ -1,0 +1,20 @@
+import com.rameses.annotations.*;
+
+class WaterMenuNotificationInterceptor {
+
+	@DataContext("vw_water_bill")
+	def vwBillEm;
+	
+	@After(pattern="MenuNotificationService.getCount", eval="#{ args[0].notificationid == 'water_bill_list:open' }" )
+	public void getForReadingCount(def evt) {
+		def o = evt.args[0];
+		def res = evt.result;
+
+		def cnt = vwBillEm.where(" state = 'OPEN' AND reading IS NULL ").select("c:{COUNT(*)}").val();
+		if(cnt ) {
+			res.count =  cnt;
+		}
+	}
+
+	
+}

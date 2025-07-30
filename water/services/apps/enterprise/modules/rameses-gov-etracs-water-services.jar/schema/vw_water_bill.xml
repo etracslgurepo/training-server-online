@@ -1,0 +1,91 @@
+<schema>
+	<element tablename="vw_water_bill">
+		<field name="objid" primary="true"/>
+		<field name="billno" caption="Bill No"  indexed="true"/>
+		<field name="acctno" caption="Acct No" indexed="true"/>
+		<field name="acctname" caption="Acct Name" searchable="true" indexed="true"/>
+
+		<field name="batchid" />
+		<field name="billdate" />
+		<field name="lasttxndate" />
+		<field name="validitydate" />
+		<field name="acctid" />
+		<field name="state" />
+		<field name="remarks" />
+		<field name="balanceforward" type="decimal" caption="Bal.Forward"/>
+		<field name="totalpayment" type="decimal" caption="Total Paid"/>
+		<field name="interest" type="decimal"  caption="Interest"/>
+		<field name="surcharge" type="decimal" caption="Surcharge"/>
+		<field name="penalty" expr="surcharge+interest" type="decimal" caption="Penalty"/>
+		<field name="amount" type="decimal" caption="Amount"/>
+		<field name="discount" type="decimal" caption="Discount"/>
+		<field name="txnmode" />
+		<field name="dtprinted" />
+		<field name="uid" />
+		<field name="year" caption="Year"/>
+		<field name="month" />
+		<field name="fromdate" type="date"/>
+		<field name="todate"  type="date"/>
+		<field name="discdate"  type="date"/>
+		<field name="duedate"  type="date"/>
+		<field name="expirydate"  type="date"/>
+		
+		<field name="billgroupid" />
+		<field name="scheduleid" />
+
+		<field name="owner_objid" />
+		<field name="owner_name" />
+		<field name="location_text" />
+		<field name="location_barangay_objid" />
+		<field name="location_barangay_name" />
+
+		<field name="contact_mobileno" />
+		<field name="contact_phoneno" />
+		<field name="contact_email" />
+
+		<field name="balance" type="decimal" caption="Balance"/>
+		<field name="monthname" expr="MONTH_ARRAY(month)" caption="Month"/>
+
+		<field name="meterid" />
+
+		<field name="meter_objid" />
+		<field name="meter_serialno" caption="Serial No"/>
+		<field name="meter_brand" />
+		<field name="meter_capacity" />
+		<field name="meter_sizeid" />
+		<field name="meter_customerowned" />
+		<field name="meter_stocktype" />
+		<field name="meter_state"  indexed="true" searchable="true" caption="Status"/>
+		<field name="meter_size_title" />
+		<field name="meter_size_objid" />
+		<field name="meter_supersededid" />
+
+
+		<field name="prevbillid" />
+		<field name="prevreading" caption="Prev.Reading"/>
+		<field name="reading" caption="Reading"/>
+		<field name="readingdate" type="date"/>
+		<field name="reader_objid" />
+		<field name="reader_name" />
+		<field name="volume" caption="Volume"/>
+		<field name="rate"  caption="Rate" type="decimal"/>
+		<field name="indexno" />
+
+		<field name="classification_objid" />
+		<field name="classification_name" />
+		<field name="units" />
+		<field name="metered" />
+
+		<field name="acctgroupid" />
+		<field name="acctgroup_name" searchable="true"/>
+		<field name="acctgroup_fullpath" searchable="true"/>
+		<field name="acctgroup_sortorder" />
+
+		<field name="name" />
+		<field name="readingduedate" />
+		<field name="billingduedate" />
+		<field name="acctstate" />
+		
+		<field name="schedulegroupid" />
+	</element>
+</schema>

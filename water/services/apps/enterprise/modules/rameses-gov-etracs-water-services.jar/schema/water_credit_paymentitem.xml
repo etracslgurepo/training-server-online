@@ -1,0 +1,11 @@
+<schema>
+	<element tablename="water_credit_paymentitem">
+		<field name="objid" primary="true" prefix="WTRCRDTPMTITM"/>
+
+		<field name="credititemid" />
+		<field name="billitemrefid" />
+		<field name="amount" type="decimal"/>
+		<field name="voidamount" type="integer"/>
+
+	</element>
+</schema>

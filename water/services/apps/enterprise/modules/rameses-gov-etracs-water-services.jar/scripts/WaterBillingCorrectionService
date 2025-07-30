@@ -1,0 +1,115 @@
+import com.rameses.annotations.*;
+import com.rameses.util.*;
+
+class WaterBillingCorrectionService {
+
+
+	@DataContext("water_bill")
+	def billEm;
+
+	@DataContext("water_payment")
+	def pmtEm;
+
+	@DataContext("vw_water_bill")
+	def vwBillEm;
+
+	@Service("WaterBillingService")
+	def billSvc;
+
+	@Service("WaterBillingUtilService")
+	def utilSvc;
+
+	@ActiveDB("water_bill_correction")
+	def billCorrEm;
+
+	@Service("DateService")
+	def dateSvc;
+
+	@DataContext("water_account_for_correction")
+	def forUpdateEm;
+
+	//This method will find the next 10 accounts in the water account for update list 
+	@ProxyMethod
+	public def processBatch() {
+		int batchSize = 1;
+		def list = forUpdateEm.where("errmsg IS NULL").limit(batchSize).list();
+		if(!list) return [status: "end"];
+
+		int count = 0;
+		int errcount = 0;
+		for( acct in list ) {
+			try {
+				process( [acctid: acct.objid ] );	
+				count+= 1;	
+			}
+			catch( Exception ex ) {
+				errcount += 1;
+				def e = ExceptionManager.instance.getOriginal( ex ); 
+				forUpdateEm.find([ objid: acct.objid ]).update( [errmsg: e.message ] );					
+			}
+			finally {
+				forUpdateEm.find([ objid: acct.objid ]).delete();	
+			}
+		}
+		return [status: "ok", count: count, errcount: errcount ];
+	}
+
+	/* -------------------------
+	bills are already created per month with appropriate readings. 
+	This wil post the items, apply payment and update totals.
+	move to the next bill run balance forward.  
+	------------------------- */
+	@ProxyMethod
+	public def process( def o ) {
+		if(!o.acctid) throw new Exception("acctid is required in WaterBillingCorrectionService.process")
+
+		def startTime = dateSvc.getServerDate();
+
+		//prepare and clear out all items first		
+		billCorrEm.removeAllCreditBillItems( [acctid: o.acctid ]);
+		billCorrEm.removeAllPaymentItems( [acctid: o.acctid ]);
+		billCorrEm.unpostAllPayments( [acctid: o.acctid ]);
+		billCorrEm.removeNonCashPayments( [acctid: o.acctid ]);
+		billCorrEm.removeAllBillSubItems( [acctid: o.acctid ]);
+		billCorrEm.removeAllBillItems( [acctid: o.acctid ]);
+		billCorrEm.removeAllAbstractBillItems( [acctid: o.acctid ]);
+		billCorrEm.updateBillsForUpdate( [acctid: o.acctid ]);
+		billCorrEm.updateBillValidityDate( [acctid: o.acctid ]);
+		billCorrEm.unpayBillItems( [acctid: o.acctid ]);
+
+		def bills = vwBillEm.find( [acctid: o.acctid ]).orderBy("year ASC, month ASC").list();
+		//check first all bills must be in order, i.e. no bills must jump a month
+
+		def lastBill = bills.last();
+		def firstBill = bills.first();
+
+		for(bill in bills ) {
+			if(!bill.validitydate) throw new Exception("bill does not have a validity date");
+			if(bill.prevbillid) {
+				billSvc.buildBalanceForward( [
+					prevbillid: bill.prevbillid, 
+					billid: bill.objid, 
+					billdate: bill.billdate] 
+				);
+			}
+			
+			//clear first items
+			billSvc.post( [billid: bill.objid ] );				
+			utilSvc.repostPayments( [billid:bill.objid, refdate: bill.validitydate ] );
+			if( bill != lastBill ) {
+				billEm.find( [objid: bill.objid ] ).update([state: 'CLOSED'] );				
+			}
+			else {
+				billEm.find( [objid: bill.objid ] ).update([state: 'POSTED'] );								
+			}
+		}
+
+		def endTime = dateSvc.getServerDate();
+
+		return [startTime: startTime, endTime: endTime, status: 'ok' ];
+
+	}
+
+
+}
+

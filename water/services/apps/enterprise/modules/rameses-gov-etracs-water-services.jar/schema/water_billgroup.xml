@@ -1,0 +1,23 @@
+<schema>
+	<element tablename="water_billgroup">
+		<field name="objid" primary="true" visible="true" searchable="true" indexed="true"/>
+		<field name="description" />
+		<field name="state" required="true"/>
+		<field name="tag"/>
+		<field name="schedulegroupid" searchable="true" indexed="true"/>
+		<field name="currentbatchid" caption="Current Batch ID"/>
+		<field name="reader_objid" />
+		<field name="reader_name" />
+		
+		<!--
+		<complex name="acctgroup" ref="water_acctgroup" jointype="many-to-one" required="false">
+			<key field="acctgroupid" target="objid" />		
+		</complex>
+		-->
+
+		<complex name="currentbatch" ref="vw_water_batch_bill" includefields="" jointype="many-to-one" required="false">
+			<key field="currentbatchid" target="objid" />		
+		</complex>
+
+	</element>
+</schema>

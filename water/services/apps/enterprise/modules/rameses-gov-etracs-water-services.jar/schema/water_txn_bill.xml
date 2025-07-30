@@ -1,0 +1,11 @@
+<schema>
+	<element tablename="water_txn_bill" extends="water_abstract_bill">
+		<field name="objid" primary="true" prefix="WTRTXNBILL" />
+		<field name="txnid" />
+		<field name="billno"/>
+		<field name="billdate" type="date"/>
+		<field name="amount" type="decimal" required="true"/>
+	</element>
+</schema>
+
+

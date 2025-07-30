@@ -1,0 +1,13 @@
+<schema>
+	<element tablename="sys_report_output_template">
+		<field name="objid" primary="true" />
+		<field name="parentid" required="true"/>
+		<field name="type" required="true"/>
+		<field name="template" required="true"/>
+		<field name="caption" required="true"/>
+		<complex name="options" serializer="default" type="object" />
+
+		<!-- Print type: 0 -per batch (default)  1-per record-->
+		<field name="printtype" type="integer" required="true"/>
+	</element>
+</schema>

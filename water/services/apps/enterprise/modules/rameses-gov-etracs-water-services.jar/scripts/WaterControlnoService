@@ -1,0 +1,49 @@
+import com.rameses.annotations.*;
+import com.rameses.functions.*;
+import com.rameses.util.*;
+
+class WaterControlnoService {
+	
+	@Service("ControlnoGeneratorService")
+	def controlNoSvc;
+
+	@Service("SequenceService")
+	def seqSvc;
+
+	@Service("Var")
+	def varSvc;
+
+	@Service("DateService")
+	def dateSvc;
+
+	@ProxyMethod
+	public def getNextNo( def o ) {
+		def pattern = o.pattern;
+		if( !o.pattern && o.varname) {
+			pattern = varSvc.get( o.varname );
+			if(!pattern) throw new Exception("Please provide an entry in sys_var named " + o.varname );
+		}
+		if(!pattern) throw new Exception("Please provide a pattern or varname in WaterControlnoService.getNextNo");
+
+		def xhandler = { pttn, n ->
+			if(pttn.startsWith("%")) {
+				return String.format( pttn, n );
+			}
+			else {
+				def df = new java.text.SimpleDateFormat( pttn );
+				if( o.txndate ) {
+					return df.format( o.txndate );
+				}
+				else {
+					return df.format( dateSvc.getServerDate()  );	
+				}
+			}
+			return ret;
+		}
+		if(o.prefix) pattern = o.prefix + pattern;
+		def spttn = controlNoSvc.formatNumber( pattern, xhandler, 0 );
+		def i = seqSvc.getNextSeries( spttn );
+		return controlNoSvc.formatNumber( pattern, xhandler, i ); 
+	}
+
+}

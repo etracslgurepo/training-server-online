@@ -1,0 +1,10 @@
+<schema>
+	<element tablename="water_batch_bill_error">
+		<field name="objid" primary="true" prefix="WBERR"/>
+		<field name="batchid" required="true"/>
+		<field name="acctid" required="true"/>
+		<field name="billid" />
+		<field name="message" required="true"/>
+	</element>
+</schema>		
+

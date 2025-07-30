@@ -1,0 +1,70 @@
+import com.rameses.annotations.*;
+import com.rameses.common.*;
+import com.rameses.services.extended.*;
+import com.rameses.util.Base64Cipher;
+import com.rameses.util.KeyGen;
+
+class QrCodeInfoService {
+	
+	@Context
+	def ctx;
+
+	@ProxyMethod
+	public def getInfos(params) {
+		return [];
+	}
+
+	@ProxyMethod
+	public def encode(params) {
+		def b64 = new Base64Cipher();
+		def random = KeyGen.generateAlphanumKey('',  10);
+		def prefix = random.substring(0,5);
+		def suffix = random.substring(5);
+		def retval = [:]
+		def encoded = b64.encode(params);
+		def len = encoded.length();
+		retval.data = encoded.substring(0, 5) + prefix + encoded.substring(5, len-5)  + suffix + encoded.substring(len-5);
+		return retval;
+	}
+
+	@ProxyMethod
+	public def getData(params) {
+		def retval = encode(params);
+		def host = params.host;
+		if ( !host ) {
+			def conf = (ctx ? ctx.conf : [:]); 
+			def f_host = conf.get('filipizen_server_host');
+			if ( f_host ) f_host = f_host.trim();
+
+			if ( f_host ) {
+				def f_scheme = conf.get('filipizen_server_scheme'); 
+				if ( !f_scheme ) f_scheme = 'http'; 
+
+				def buff = new StringBuilder();
+				buff.append( f_scheme ).append('://').append( f_host );
+				host = buff.toString();
+			}
+		}
+
+		if ( !host ) { 
+			host = 'https://www.filipizen.com'; 
+		}
+
+		def buff = new StringBuilder();
+		buff.append( host ).append('/qr?data=').append( retval.data.toString() ); 
+		return buff.toString();
+	}
+
+	@ProxyMethod
+	public def decode(params) {
+		if (!params.data) throw new Exception('data must be specified');
+		def len = params.data.length();
+		def data = params.data.substring(0,5) + params.data.substring(10, len - 10) + params.data.substring(len-5);
+		def b64 = new Base64Cipher();
+		def res = b64.decode(data, true);	
+		if (res instanceof Map || res instanceof List) {
+			return res; 
+		}
+		throw new Exception('Data is invalid.');
+	}
+}

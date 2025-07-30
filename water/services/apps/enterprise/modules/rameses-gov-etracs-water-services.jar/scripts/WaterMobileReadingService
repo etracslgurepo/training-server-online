@@ -1,0 +1,219 @@
+import com.rameses.annotations.*; 
+import com.rameses.util.*;
+
+class WaterMobileReadingService {
+	
+	@DataContext("vw_water_batch_bill")
+    def vwBatchBillEm;
+
+	@DataContext("vw_water_bill")
+    def vwBillEm;
+
+	@DataContext("water_bill")
+    def billEm;
+
+    @DataContext("vw_water_account")
+    def vwAcctEm;
+
+    @Service("WaterConsumptionService")
+    def waterConsumptionSvc;
+
+    @Service( dynamic=true )
+    def dynaSvc;
+
+    @Env 
+    def env; 
+
+	@ProxyMethod
+	public def getBatches( param ) {
+		if ( param == null ) param = [:]; 
+
+		vwBatchBillEm.debug = true; 
+
+		def arr = [
+			" reader.objid = :readerid AND task.state = :taskstate ", 
+			[ readerid: env.USERID, taskstate: 'for-mobile-reading' ]
+		]; 		
+		def em = vwBatchBillEm.select('objid,billgroupid,reader.*');
+		return em.where(arr[0], arr[1]).list(); 
+	}
+
+	@ProxyMethod
+	public def getBatchItems( def o ) {
+		// println 'getBatchItems ==> '+ o;
+		if(!o.batchid) throw new Exception("batchid is required");
+
+    	def batch = vwBatchBillEm.find([ objid: o.batchid ]).first();
+    	if ( !batch ) throw new Exception("batch " + o.batchid + " not found");
+
+    	if ( batch.reader?.objid.toString() != env.USERID ) 
+			throw new Exception("batch " + o.batchid + " is assigned to another reader");
+
+    	if( !batch.task?.state.toString().matches('.*mobile-reading') )
+    		throw new Exception("Batch must be in mobile reading state. Current state is " + batch.task.state );
+
+    	def billList = null;	
+    	if( o.start !=null ) {
+    		if(!o.limit) o.limit = 20;
+
+    		int _start = o.start.toInteger();
+    		int _limit = o.limit.toInteger();
+    		billList = vwBillEm.find( [batchid: o.batchid ] ).list(_start,_limit);
+    	}
+    	else {
+    		billList = vwBillEm.find( [batchid: o.batchid ] ).list();    	
+    	}
+
+    	billList.each { b->
+    		def acct = vwAcctEm.find( [objid: b.acctid ] ).first();
+    		b.acctgroup = acct.acctgroup.fullpath;
+    		b.tags = acct.tags?.join("|");
+
+    		def clz = b.remove("classification");
+    		b.classificationid = clz.objid;
+    	}
+    	return billList;
+
+	}
+
+	@ProxyMethod
+	public def uploadReadings( def param ) {
+		def items = null; 
+		if ( param instanceof List ) {
+			items = param;
+		}
+		else if ( param instanceof Map ) {
+			items = param.items; 
+		}
+
+		if ( !items )
+			throw new Exception('please provide the items to be uploaded');
+
+		items.each { b->
+			uploadReading( b ); 
+		}
+		return [status: "ok"];
+	}
+
+	@ProxyMethod
+	public def uploadReading( def o ) {
+		// println 'uploadreading (o) ==> '+ o;
+		if ( !o.batchid ) throw new Exception("batchid is required"); 
+		if ( !o.acctno ) throw new Exception("acctno is required");
+
+		if ( o.prevreading == null) 
+			throw new Exception("prevreading is required");  
+		if ( o.reading == null) 
+			throw new Exception("reading is required");  
+		if ( o.volume == null) 
+			throw new Exception("volume is required");  
+
+
+		def bill = vwBillEm.find([ batchid: o.batchid, acctno: o.acctno ]).first();
+		if ( !bill ) throw new Exception("Bill not found for " + o.acctno );
+
+		if ( o.rate ) {
+			def m = [:];
+			m.prevreading = o.prevreading;
+			m.reading = o.reading;
+			m.volume = o.volume;
+			m.rate = o.rate;
+			billEm.find([ objid: bill.objid ]).update( m );
+
+			// enable auto posting for this particular bill 
+			def billSvc = dynaSvc.lookup('WaterBillingService'); 
+			billSvc.post([ billid: bill.objid ]); 
+		} 
+		else {
+			def m = [:];
+			m.billid = bill.objid;
+			m.prevreading = o.prevreading;
+			m.reading = o.reading;
+			m.volume = o.volume;
+			waterConsumptionSvc.update( m );
+		}
+
+		def em = vwBillEm.find([ objid: bill.objid ]);
+		em.select('volume,rate,duedate'); 
+		return em.first(); 
+	}
+
+
+	@ProxyMethod
+	public def compute( def param ) {
+		// println '\n\n== compute (param) ==> '+ param;
+		if (!param.batchid) throw new Exception("batchid is required"); 
+		if (!param.acctno) throw new Exception("acctno is required");
+
+		if ( param.prevreading == null) 
+			throw new Exception("prevreading is required");  
+		if ( param.reading == null) 
+			throw new Exception("reading is required");  
+		if ( param.volume == null) 
+			throw new Exception("volume is required");  
+
+		def o = param; 
+
+		def bill = vwBillEm.find([ batchid: o.batchid, acctno: o.acctno ]).first();
+		if (!bill) throw new Exception("Bill not found for " + o.acctno );
+
+		def toNumber = { val-> 
+			if ( val == null ) return null;
+			else if ( val instanceof Number ) return val; 
+
+			return new BigDecimal( val.toString()); 
+		}
+
+		param.prevreading = toNumber( param.prevreading );
+		param.reading = toNumber( param.reading );
+		param.volume = toNumber( param.volume );
+
+		def m = [:];
+		m.billid = bill.objid;
+		m.prevreading = o.prevreading;
+		m.reading = o.reading;
+		m.volume = o.volume;
+		
+		def res = waterConsumptionSvc.compute( m );
+
+		def em = vwBillEm.find([ objid: bill.objid ]);
+		def billInfo = em.select('duedate,state,rate,balance').first(); 
+		if ( billInfo ) { 
+			res.duedate = billInfo.duedate; 
+			res.balance = billInfo.balance; 
+
+			if ( !billInfo.state.toString().toUpperCase().matches('OPEN')) { 
+				res.balance -= ( res.rate ? res.rate : 0 ); 
+			}
+		}
+
+		def qrData = [ 
+			batchid: param.batchid, acctno: param.acctno, 
+			refid: bill.objid, reftype: 'water_bill' 
+		];
+		res.qrcode = generateQrCode( qrData ); 
+		return res; 
+	} 
+
+
+	def generateQrCode( data ) {
+		def qrCodeSvc = null; 
+		try {
+			qrCodeSvc = dynaSvc.lookup("QrCodeInfoService"); 
+		} 
+		catch(Throwable t) {
+			println '[error] '+ t.message;
+		} 
+
+		if ( qrCodeSvc == null ) return; 
+
+		data.orgcode = env.ORGID;
+		if ( !data.orgcode ) {
+			def orgSvc = dynaSvc.lookup('OrgService', 'admin'); 
+			data.orgcode = orgSvc?.getRoot()?.objid; 
+		}
+
+		data.connection = "water";
+		return "qrcode:" + qrCodeSvc.getData( data ); 
+	} 
+}

@@ -1,0 +1,232 @@
+import com.rameses.annotations.*;
+
+import com.rameses.functions.*;
+import com.rameses.util.*;
+import java.rmi.server.*;
+import java.text.*;
+import treasury.facts.*;
+import water.facts.*;
+
+class WaterBatchBillingService {
+
+	@Service("DateService")
+	def dateSvc;
+	
+	@Service("WaterBillingService")
+    def billingSvc;
+
+	@Service("WaterBillScheduleService")
+    def billScheduleSvc;
+
+    @Service("WorkflowTaskService")
+    def taskSvc;
+
+    @DataContext("water_batch_bill")
+    def batchBillEm;
+
+ 	@DataContext("vw_water_batch_bill")
+    def vwBatchBillEm;
+
+    @DataContext("water_billgroup")
+    def billGrpEm;
+
+    @Service("WorkflowTaskService")
+	def wfSvc;
+
+	@DataContext("water_bill")
+    def billEm;
+
+    @Env
+    def env;
+
+
+	@DataContext("water_batch_bill_error")
+	def batchErrEm;
+
+    @ProxyMethod
+ 	public def create( def  o ) {
+ 		if(!o.billgroupid) throw new Exception("billgroupid is required");
+ 		def bg = billGrpEm.find( [objid: o.billgroupid ] ).first();
+
+ 		if(!bg.schedulegroupid) throw new Exception("Billgroup must have a schedule");
+ 		def billschedule = billScheduleSvc.getSchedule( [name:bg.schedulegroupid, year:o.year, month:o.month] );
+
+		o.objid = o.billgroupid + "-" + o.year + "-" + String.format( "%02d", o.month );
+ 		o.scheduleid = billschedule.objid;
+
+ 		o.createdby = [objid: env.USERID, name: env.FULLNAME ];
+ 		o.dtcreated = dateSvc.getServerDate();
+ 
+ 		def v = batchBillEm.create( o );
+ 		billGrpEm.find( [objid: o.billgroupid ] ).update([currentbatchid: v.objid]);
+
+ 		def m = [processname: "water_batch_bill"];
+ 		m.entityschemaname = "water_batch_bill";
+ 		m.refid = v.objid;
+ 		def t = taskSvc.start( m );
+
+ 		//update first all bills that do not have a batch
+		batchBillEm.updateUnbatchedBills( [batchno:v.objid, billgroupid:o.billgroupid, year: o.year, month:o.month ]);
+
+ 		return [objid: v.objid, taskid: t.taskid ];
+ 	}
+
+	@ProxyMethod 
+	public def getCreateBillsInBatchInfo( def o ) { 
+
+		batchBillEm.resolveLastBillGroupId([ billgroupid: o.billgroupid ]); 
+
+		def res = [:];
+		def accts = batchBillEm.getUnbilledAccounts([ billgroupid: o.billgroupid, year: o.year, month: o.month ]);
+		if ( !accts ) return res;
+		
+		res.accounts = accts;
+		
+		//get the billgroup schedulegroup to run the rules
+		def billgroup = billGrpEm.find([ objid: o.billgroupid ]).first();
+		def sp = [:];
+		sp.name = billgroup.schedulegroupid;
+		sp.year = o.year;
+		sp.month = o.month;
+		res.scheduleitem = billScheduleSvc.getSchedule( sp );
+		return res; 
+	}
+
+ 	@ProxyMethod
+	public def getOpenBillsInBatch( def o ) {
+		return billEm.find( [batchid: o.batchid, state: 'OPEN' ] ).select("objid").list();			
+	}
+
+	@ProxyMethod
+	public def getAllBillsInBatch( def o ) {
+		return billEm.find( [batchid: o.batchid ] ).select("objid").list();		
+	}
+
+	@ProxyMethod
+	public def getPostedBillsInBatch( def o ) {
+		return billEm.find( [batchid: o.batchid, state: 'POSTED' ] ).select("objid").list();	
+	}
+
+	//These methods are called by the worflow process
+	@ProxyMethod
+	public def checkUnbilledAccounts( def o ) {
+		if(!o.batchid) throw new Exception("batchid is required in WaterBatchBillingService.checkUnbilledAccounts"); 
+		def batch = vwBatchBillEm.find( [objid: o.batchid ] ).first();
+
+		def bcList = batchBillEm.getAccountsForBilling( [billgroupid: batch.billgroupid, year: batch.year, month:batch.month ] );	
+		if( bcList ) {
+			throw new Exception("There are still unbilled accounts as follows: " + bcList*.acctno.join(",") );
+		}
+	}
+
+	@ProxyMethod
+	public def checkUnpostedBills( def o ) {
+		if(!o.batchid) throw new Exception("batchid is required in WaterBatchBillingService.checkUpostedBills");
+		def r = billEm.find( [batchid: o.batchid ] ).where( " state = 'OPEN' ").select("c:{COUNT(*)}").val();		
+		if ( r > 0 ) throw new Exception("There are still unposted bills");
+	}
+
+	@ProxyMethod
+	public def checkUnprintedBills( def o ) {
+		if(!o.batchid) throw new Exception("batchid is required in WaterBatchBillingService.checkUnprintedBills");
+		def r = billEm.find( [batchid: o.batchid ] ).where( " dtprinted IS NULL ").select("c:{COUNT(*)}").val();
+		if(r > 0) throw new Exception("There are still unprinted bills");
+	}
+
+	//This method is called by WaterBatchBillModelin the billing part
+	@ProxyMethod
+	public def holdAccount( def o ) {
+		if( !o.acctid ) throw new Exception("acctid is required");
+		def m = [:];
+		m.processname = "water_account";
+		m.entityschemaname = "water_account";
+		m.action = "hold";
+		m.refid = o.acctid;
+		wfSvc.signal( m );
+	}
+
+	@ProxyMethod
+	public void createBill( def param ) {
+		try {
+			def updateBatchId = { batchid, acctid-> 
+				
+				def rec = batchBillEm.findBatchAccount([ batchid: batchid, acctid: acctid ]); 
+				if ( rec?.batchid && rec?.acctid ) {
+					if ( rec.lastbill == null ) rec.lastbill = [:]; 
+					
+					if ( !rec.lastbill.batchid && 
+						 rec.yearmonthindex == rec.lastbill.yearmonthindex && 
+						 rec.lastbill.state.toString().toUpperCase() == 'OPEN' ) { 
+
+						// mount the batchid since the last bill is manually added 
+						billEm.find([ objid: rec.lastbillid ]).update([ batchid: rec.batchid ]); 
+						return true;  
+					} 
+				} 
+				return false; 
+			}
+
+			if ( updateBatchId( param.batchid, param.acctid )) {
+				return; 
+			}
+
+			billingSvc.create( param ); 
+
+			// run the update once more time 
+			updateBatchId( param.batchid, param.acctid ); 
+		}
+		catch(Throwable ex) {
+			if( param.batchid ) {
+				def cause = ExceptionManager.getOriginal(ex); 
+				def err = [:];
+				err.batchid = param.batchid;
+				err.acctid = param.acctid;
+				err.message =  cause?.message;
+				batchErrEm.create( err );
+			}
+			else {
+				throw ex;
+			} 
+		}
+	}
+
+	@ProxyMethod
+	public void postBill( def param ) {
+		try {
+			billingSvc.post( param ); 	
+		}
+		catch(Throwable ex) {
+			if( param.batchid ) {
+				def cause = ExceptionManager.getOriginal(ex); 
+				def err = [:];
+				err.batchid = param.batchid;
+				err.acctid = param.acctid;
+				err.message =  cause?.message;
+				batchErrEm.create( err );
+			}
+			else {
+				throw ex;
+			} 
+		}
+	}
+
+	@ProxyMethod
+	public void unpostBill( def param ) {
+		try {
+			billingSvc.unpost( param ); 	
+		}
+		catch(Throwable ex) {
+			if( param.batchid ) {
+				def cause = ExceptionManager.getOriginal(ex); 
+				def err = [:];
+				err.batchid = param.batchid;
+				err.acctid = param.acctid;
+				err.message =  cause?.message;
+				batchErrEm.create( err );
+			}
+			else {
+				throw ex;
+			} 
+		}
+	}
+}

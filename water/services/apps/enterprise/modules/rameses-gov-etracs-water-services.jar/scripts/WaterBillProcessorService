@@ -1,0 +1,82 @@
+import com.rameses.annotations.*;
+
+
+class WaterBillProcessorService {
+
+	@XConnection('socketio')
+    def socketio;
+
+    @Service("DateService")
+    def dateSvc;
+
+    @Service("WaterBillingService")
+    def billService;
+
+	@DataContext("vw_water_bill")
+	def vwBillEm;
+
+	@Service("WaterBillingService")
+	def waterBillSvc;
+
+	@ProxyMethod
+	public def createBills( def o ) {
+		return [state: 0];
+	}
+
+
+	//STATUS : 0 = end   1 = continue
+	@ProxyMethod
+	public def processExpiredBills() {
+		def dt = dateSvc.getServerDate();
+		dt = new java.sql.Date( dt.getTime()); 
+
+		def list = vwBillEm.where("expirydate < :dt AND state = 'POSTED' AND acctstate = 'ACTIVE' ", [dt: dt]).limit(50).list();
+		if( list ) {
+			list.each { b->
+				def ent = [:];
+		        ent.acctid = b.acctid;
+		        ent.billtype = b.billtype;
+		        ent.year = b.year;
+		        ent.month = b.month + 1;
+		        if(ent.month>12) {
+		            ent.month = 1;
+		            ent.year = ent.year + 1;
+		        }
+		        ent.autopost = 1;
+		        billService.create(ent);
+			}
+			socketio.send( "water_bill_list:open", [status: 1 ] );	
+			return [status: 1, count: list.size() ];
+		}
+		else {
+			return [status: 0];		
+		}
+	}
+
+	@ProxyMethod
+	public def processUpdateBills() {
+		//process update bills should only be applicable if current date is within expirydate
+
+		def dt = dateSvc.getServerDate();
+		dt = new java.sql.Date( dt.getTime()); 
+
+		def list = vwBillEm.where("expirydate > :dt AND validitydate < :dt AND validitydate < expirydate AND state = 'POSTED' AND acctstate = 'ACTIVE' ", [dt: dt]).limit(50).list();
+		if(list ) {
+			list.each { b->
+				def p = [billid: b.objid];
+				p.txndate = dt;
+
+				//if currentdate is grreater than expirydate we have to use expiry instead otherwise it will throw error in billing
+				if(p.txndate.after(b.expirydate)) {
+					p.txndate = b.expirydate;
+				}
+		        billService.assess(p);
+			}
+			socketio.send( "water_bill_list", [status:1] );	
+			return [status: 1, count: list.size() ];	
+		}
+		else {
+			return [status: 0];
+		}
+	}
+}

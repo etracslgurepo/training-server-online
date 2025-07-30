@@ -1,0 +1,14 @@
+<schema>
+	<element tablename="water_acctgroup">
+		<field name="objid" primary="true" prefix="WTRORGUNIT"/>
+		<field name="rootid" required="true"/>
+		<field name="parentid" />
+		<field name="name" caption="Name"/>
+		<field name="title" caption="Title"/>
+		<field name="leftindex" type="integer"/>
+		<field name="rightindex" type="integer"/>
+		<field name="fullpath" searchable="true" indexed="true"/>
+		<field name="uid" />
+	</element>
+</schema>
+

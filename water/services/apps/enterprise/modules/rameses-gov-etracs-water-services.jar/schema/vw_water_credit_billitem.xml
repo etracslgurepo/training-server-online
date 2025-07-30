@@ -1,0 +1,15 @@
+<schema>
+	<element tablename="vw_water_credit_billitem">
+		<field name="objid" primary="true" />
+		<field name="billid" />
+		<field name="itemid" />
+		<field name="amount" />
+		<field name="amtpaid" />
+		<field name="remarks" />
+		<field name="uid" />
+		<field name="auto" />
+		<field name="forwarded" />
+		<field name="billdate" />
+		<field name="paymentid" />
+	</element>
+</schema>

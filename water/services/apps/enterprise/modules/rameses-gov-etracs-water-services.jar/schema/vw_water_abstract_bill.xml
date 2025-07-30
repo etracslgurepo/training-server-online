@@ -1,0 +1,12 @@
+<schema>
+	<element tablename="vw_water_abstract_bill">
+		<field name="objid" primary="true"/>
+		<field name="billno" />
+		<field name="billgroupid" />
+		<field name="billtype" />
+		<field name="year" />
+		<field name="month" />
+		<field name="particulars" />
+		<field name="amount" />
+	</element>
+</schema>		

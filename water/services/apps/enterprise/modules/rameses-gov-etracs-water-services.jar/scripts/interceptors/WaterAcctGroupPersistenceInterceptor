@@ -1,0 +1,111 @@
+import com.rameses.annotations.*;
+import java.rmi.server.*;
+
+class WaterAcctGroupPersistenceInterceptor {
+
+	@DataContext("water_acctgroup")
+	def acctGroupEm;
+
+	@Before(pattern="PersistenceService.create", eval="#{args[0]._schemaname == 'water_acctgroup' }")
+	public void beforeCreate(def evt) {
+		def p = evt.args[0];
+		if( p.parentid == null ) {
+			p.fullpath = p.name;
+			p.objid = "WTRAGRP" + new UID(); 
+			p.rootid = p.objid;
+			p.leftindex = 0;
+			p.rightindex = 1;
+		}
+		else {
+			def parent = acctGroupEm.find( [objid: p.parentid ]).first();
+			def idx = parent.rightindex;
+			acctGroupEm.find( [rootid: parent.rootid ] ).where( "leftindex >= :idx", [idx:idx] ).update( [leftindex: "{leftindex + 2}" ]);
+			acctGroupEm.find( [rootid: parent.rootid ] ).where( "rightindex >= :idx", [idx:idx] ).update( [rightindex: "{rightindex + 2}" ]);
+
+			p.rootid = parent.rootid;
+			p.leftindex = idx;
+			p.rightindex = p.leftindex + 1;
+			
+			def ol = acctGroupEm.find( [rootid: parent.rootid ]).where( "leftindex < :li AND rightindex > :ri", [li:p.leftindex, ri:p.rightindex]).select("fullpath").orderBy("leftindex").list();
+			p.fullpath = ol*.fullpath.join("/") + "/" + p.name;
+		}
+		p.uid = p.fullpath.hashCode();
+	}
+
+	@Before(pattern="PersistenceService.update", eval="#{args[0]._schemaname == 'water_acctgroup' }")
+	public void beforeUpdateAcctGroup(def evt) {
+		def p = evt.args[0];
+		def ol = acctGroupEm.find( [rootid: p.rootid ]).where( "leftindex < :li AND rightindex > :ri", [li:p.leftindex, ri:p.rightindex]).select("name").orderBy("leftindex").list();
+		p.fullpath = ol*.name.join("/") + "/" + p.name;
+		p.uid = p.fullpath.hashCode();
+	}
+
+	@After(pattern="PersistenceService.update", eval="#{args[0]._schemaname == 'water_acctgroup' }")
+	public void afterUpdateAcctGroup(def evt) {
+		def p = evt.args[0];
+		def list = acctGroupEm.find( [rootid:  p.rootid ] ).where("leftindex > :li AND rightindex < :ri", [li: p.leftindex, ri: p.rightindex]).list();
+		list.each { rr->
+			def ol = acctGroupEm.find( [rootid: p.rootid] ).select("name").where( "leftindex <= :li AND rightindex >= :ri", [li: rr.leftindex, ri: rr.rightindex] ).orderBy("leftindex").list();
+			def fpath = ol*.name.join("/");
+			def uid = fpath.hashCode();
+			acctGroupEm.find([objid: rr.objid ]).update( [fullpath: fpath, uid: uid ]);
+		}
+	}
+
+	@Before(pattern="PersistenceService.removeEntity", eval="#{args[0]._schemaname == 'water_acctgroup' }")
+	public void beforeRemoveAcctGroup(def evt) {
+		def p = evt.args[0];
+		def ou = acctGroupEm.find( [objid: p.objid] ).first();
+		p.rootid = ou.rootid;
+		acctGroupEm.find( [rootid: ou.rootid ] ).where( "leftindex > :ldx AND rightindex < :rdx", [ldx:ou.leftindex, rdx:ou.rightindex] ).delete();
+	}
+
+	@After(pattern="PersistenceService.removeEntity", eval="#{args[0]._schemaname == 'water_acctgroup' }")
+	public void afterRemoveAcctGroup(def evt) {
+		def p = evt.args[0];
+		reindex( [objid: p.rootid] );
+	}
+
+	private void reindex( def p ) {
+		def stack = new Stack();
+		int idx = 1;
+
+		def root = acctGroupEm.find( [objid: p.objid] ).first();
+		if(!root) return;
+		stack.push( [objid: root.objid, leftindex: (idx++) ] );
+		idx = scanChildren( stack, root.objid, idx );
+		def r = stack.pop();
+		r.rightindex = (idx++);
+		acctGroupEm.find([objid: r.objid ]).update([leftindex:r.leftindex, rightindex: r.rightindex]);
+
+		//rebuild full path
+		def list = acctGroupEm.find( [rootid:  p.objid ] ).where("NOT(parentid IS NULL)").list();
+		list.each { rr->
+			def ol = acctGroupEm.find( [rootid: p.objid] ).select("name").where( "leftindex <= :li AND rightindex >= :ri", [li: rr.leftindex, ri: rr.rightindex] ).orderBy("leftindex").list();	
+			def fpath = ol*.name.join("/");
+			acctGroupEm.find([objid: rr.objid ]).update( [fullpath: fpath ]);
+		}
+	}
+
+	private int scanChildren( def stack, def objid, int idx ) {
+		def items = acctGroupEm.find( [parentid: objid] ).orderBy("leftindex").list();
+		items.each { v->
+			stack.push( [objid: v.objid, leftindex: (idx++) ]  );
+			idx = scanChildren( stack, v.objid, idx );
+			def r = stack.pop();
+			r.rightindex = (idx++);
+			acctGroupEm.find([objid: r.objid ]).update([leftindex:r.leftindex, rightindex: r.rightindex]);
+		}
+		return idx;
+	}
+
+	@After(pattern="PersistenceService.doAction", eval="#{args[0]._schemaname == 'water_acctgroup' && args[0]._action == 'reindex'  }")
+	public void onReindex( def evt ) {
+		def p = evt.args[0];
+		reindex(p);
+	}
+	
+
+	
+
+}

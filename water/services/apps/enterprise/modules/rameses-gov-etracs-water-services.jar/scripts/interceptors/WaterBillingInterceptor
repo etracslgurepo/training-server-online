@@ -1,0 +1,69 @@
+import com.rameses.annotations.*;
+import java.rmi.server.*;
+
+class WaterBillingInterceptor {
+
+	@DataContext("water_meter")
+	def meterEm;
+
+	@DataContext("water_billgroup")
+	def billGrpEm;
+
+    @Service("WaterConsumptionService")
+    def consumptionSvc;
+
+	@After(pattern="WaterBillingService.beforeCreate")
+	public void beforeCreateBill ( def evt ) {
+		def p = evt.args[0];
+		def acct = evt.args[1];
+		def prevBill = evt.args[2];
+		def scheduleitem = evt.args[3];
+		def result = evt.result;
+
+		def prevreading = p.prevreading;
+		def reading = p.reading;
+		def volume = p.volume;
+
+		if ( acct.metered == 1 ) {
+			if( prevBill?.meterid == acct.meterid ) {
+				prevreading = prevBill.reading;
+			}
+			def meter = meterEm.find([ objid: acct.meterid ]).first(); 
+			if ( meter.state == 'DEFECTIVE') {
+				reading = prevreading;
+			}				
+		}
+
+		result.batchid = p.batchid;
+		result.prevreading = prevreading; 
+		result.reading = reading;
+		result.volume = volume;
+		result.reader = p.reader;
+
+		if( !p.reader ) {
+			def bg = billGrpEm.find( [objid: p.billgroupid ] ).first();
+			result.reader = bg?.reader;
+		}
+
+		result.readingdate = (p.readingdate!=null) ? p.readingdate :  scheduleitem.readingdate;
+		result.billgroupid = p.billgroupid;
+		result.state = "OPEN";
+	}
+
+
+	@After(pattern="WaterBillingService.afterCreate")
+	public void afterCreateBill ( def evt ) {
+		def acct = evt.args[1];
+		def bill = evt.args[2];
+		def scheduleitem = evt.args[3];
+
+		consumptionSvc.update( [ bill:bill, acct:acct, refdate: scheduleitem.todate, schedule: scheduleitem  ]);
+	}
+
+	@After(pattern="WaterBillingService.beforePost")
+	public void beforePost ( def evt ) {
+		def bill = evt.args[1];
+		if ( bill.volume == null) throw new Exception("Volume must be provided");
+	}
+
+}	

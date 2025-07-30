@@ -1,0 +1,353 @@
+import com.rameses.annotations.*;
+import com.rameses.functions.*;
+import com.rameses.util.*;
+
+class WaterTxnService {
+	
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("WaterControlnoService")
+	def controlNoSvc;
+
+	@Service("WaterBillingService")
+	def billingSvc;
+
+	@Service("WaterTxnBillService")
+	def txnBillSvc;
+
+	@Service("WaterBillingUtilService")
+	def billingUtilSvc;
+
+	@Service("WaterInstallmentService")
+	def installmentSvc;
+
+	@Service("Var")
+	def varSvc;
+
+	@Service("WorkflowTaskService")
+	def taskSvc;
+
+	@DataContext("water_account")
+	def acctEm;
+
+	@DataContext("vw_water_account")
+	def vwAcctEm;
+
+	@DataContext("water_account_info")
+	def acctInfoEm;
+
+	@DataContext("vw_water_account_info")
+	def vwAcctInfoEm;
+
+	@DataContext("water_txn")
+	def txnEm;
+
+	@DataContext("vw_water_txn")
+	def vwTxnEm;
+
+	@DataContext("water_txntype")
+	def txnTypeEm;
+
+	@DataContext("water_payment")
+	def pmtEm;
+
+	@DataContext("water_paymentitem")
+	def pmtItemEm;
+
+	@DataContext("water_bill_cancelled")
+	def cancelBillEm;
+
+	@DataContext("vw_water_bill")
+	def vwBillEm;
+
+	@DataContext("water_bill")
+	def billEm;
+
+	@DataContext("water_abstract_billitem")
+	def aBillitemEm;
+
+	@DataContext("water_txn_bill")
+	def txnBillEm;
+
+	@DataContext("vw_water_billitem_subitem")
+	def subitemEm;
+
+	@DataContext("water_txn_billitem")
+	def txnBillItemEm;
+
+	@DataContext("water_meter")
+	def meterEm;
+
+	
+
+	@DataContext("water_billitem")
+	def billItemEm;
+
+	@Env
+	def env;
+
+	@ProxyMethod
+	public def createNew( def o ) {
+		if(!o.txntype) throw new Exception("txntype is required in WaterTxnService.create");
+		def result = [:];
+		result.newacctinfo = [owner:[:], units: 1, meterstatus: 'ACTIVE'];
+		result.txntype = o.txntype;
+		result.txntypeid = o.txntype.objid;
+		if(o.txntype.objid.matches("CAPTURE.*")) {
+			result.txnmode = "CAPTURE";
+		}
+		else {
+			result.txnmode = "ONLINE";
+		}
+
+		return result;
+	}
+
+	@ProxyMethod
+	public def createRevision( def o ) {
+		if(!o.txntype?.objid ) throw new Exception("txntype is required in WaterTxnService.createRevision");
+		if(!o.acctno) throw new Exception("acctno is required in WaterTxnService.createRevision");
+
+		def acct = vwAcctEm.find( [acctno: o.acctno] ).first();
+		if(!acct) throw new Exception("Account not found for acctno " + o.acctno );
+
+		//check first if there is an ongoing transaction that is not closed yet. Do not propceed if there is.
+		def wtxn = vwTxnEm.find( [acctid: acct.objid ]).where("task.state <> 'end' ").first();
+		if(wtxn) {
+			throw new Exception("There is still pending " + wtxn.txntype.title +  " transaction for this account with app no " + wtxn.controlno + " . Please complete this transaction first" );
+		}
+
+
+		//last bill appilcable for payment plan, credit note and reconnection
+		def lastBill = null;
+		if( acct.lastbillid ) {
+			lastBill = vwBillEm.find( [objid: acct.lastbillid ] ).first(); 
+		}
+
+		//validate account before loading
+		if( acct.task.state == 'end' ) { 
+   			throw new Exception("Account is already closed");
+ 		}
+		else if( o.txntype.objid == 'RECONNECTION' ) {
+			if( acct.task.state != 'disconnected' ) 
+            	throw new Exception("Account is not disconnected. Please check current state of account");
+		}
+		else if( o.txntype.objid == 'DISCONNECTION' ) {
+			if( acct.task.state == 'disconnected' ) 
+            	throw new Exception("Account is already disconnected. Please check current state of account");
+		}		
+			
+		def result = [:];
+		result.account = acct;
+		result.acctid = acct.objid;
+		result.oldacctinfoid = acct.acctinfoid;
+		result.oldacctinfo = vwAcctInfoEm.find( [objid: acct.acctinfoid ] ).first();
+		
+		if( !o.txntype.objid.toString().matches('CREDITNOTE|COMPROMISE') ) {
+			result.newacctinfo = vwAcctInfoEm.find( [objid: acct.acctinfoid ] ).first();
+
+			if( o.txntype.objid == 'DISCONNECTION' ) {
+				result.newacctinfo.meterstatus = 'DISCONNECTED'; 
+			} 
+			else if( o.txntype.objid == 'RECONNECTION' ) { 
+				result.newacctinfo.meterstatus = 'ACTIVE'; 
+			}			
+		}
+
+		result.txnmode = "ONLINE";
+		result.txntype = o.txntype;
+		result.txntypeid = o.txntype.objid;
+		return result;
+	}
+
+
+	@ProxyMethod
+	public def saveCreate( def o ) {
+		if(!o.txntypeid) throw new Exception("txntypeid is required in WaterTxnService.create");
+		
+		def tt = txnTypeEm.find( [objid: o.txntypeid ] ).first();
+		o.controlno = controlNoSvc.getNextNo( [pattern: tt.controlnopattern] );
+
+		def oldAcctInfo = null;
+		if( o.oldacctinfoid ) oldAcctInfo = vwAcctInfoEm.find( [objid: o.oldacctinfoid ] ).first();
+
+		//check txntype requirements. check if o.oldacctinfo is not empty for comparison
+		if( oldAcctInfo && tt.editableinfo ) {
+			def errs = [];
+			if( "owner".matches(tt.editableinfo) ) {
+				if( oldAcctInfo.owner == o.newacctinfo.owner ) errs << "Owner";	
+			}
+			if( "acctgroup".matches(tt.editableinfo) ) {
+				if( oldAcctInfo.acctgroupid == o.newacctinfo.acctgroupid ) errs << "Account Group";	
+			}
+			if( "location".matches(tt.editableinfo) ) {
+				if( oldAcctInfo.location.text == o.newacctinfo.location.text ) errs << "Location";	
+			}
+			if( "meter".matches(tt.editableinfo) ) {
+				if( oldAcctInfo.meterid == o.newacctinfo.meterid ) errs << "Meter";	
+			}
+			if( "classification".matches(tt.editableinfo) ) {
+				if( oldAcctInfo.classificationid == o.newacctinfo.classificationid ) errs << "Classification";	
+			}			
+			if( "tags".matches(tt.editableinfo) ) {
+				if( oldAcctInfo.tags == o.newacctinfo.tags ) errs << "Tags";	
+			}						
+			if( "units".matches(tt.editableinfo) ) {
+				if( oldAcctInfo.units == o.newacctinfo.units ) errs << "Units";	
+			}									
+			if(errs) throw new Exception("Please change " + errs.join(","));
+		}
+
+		if(o.newacctinfo) {
+			//save acctinfo with blank infos except dirty data
+			o.newacctinfo.remove("objid");
+			def newacctinfo = acctInfoEm.create( o.newacctinfo );
+			o.newacctinfoid = newacctinfo.objid;
+		}
+
+		def txn = txnEm.create( o );
+		
+		//start the process
+		def mt = [:];
+		mt.processname = tt.processname;
+		mt.entityschemaname = "water_txn";
+		mt.refid = txn.objid;
+		mt.assignee = [objid:env.USERID, name:env.FULLNAME];
+		def tsk = taskSvc.start( mt );
+
+		//auto assign the task immediately
+		taskSvc.assignToMe( [taskid: tsk.taskid, processname: mt.processname, entityschemaname: mt.entityschemaname ] );
+
+		return vwTxnEm.find([ objid: txn.objid ]).first();
+	}
+
+	@ProxyMethod
+	public void checkUnpaidBalance( def o ) {
+		if(!o.txnid ) throw new Exception("txnid is required in WaterTxnService.checkHasBill");
+		def txn = vwTxnEm.find( [objid: o.txnid ] ).first();
+
+		//find the account and check the last bill
+		def bill = vwBillEm.find( [acctid: txn.acctid ] ).where("state <> 'CLOSED' ").first();
+		if( bill && bill.balance > 0 ) {
+			throw new Exception("There is still unpaid balance. Please have this paid in full"); 
+		}
+	}
+
+	@ProxyMethod
+	public void validateHasBill( def o ) {
+		if(!o.txnid ) throw new Exception("txnid is required in WaterTxnService.validateHasBill");
+		def txn = vwTxnEm.find( [objid: o.txnid ] ).first();
+		if(!txn.billid) {
+			throw new Exception("There must be a bill")	
+		}
+	}
+
+	@ProxyMethod
+	public def checkHasBill( def o ) {
+		if(!o.txnid ) throw new Exception("txnid is required in WaterTxnService.checkHasBill");
+		def txn = vwTxnEm.find( [objid: o.txnid ] ).first();
+		if(txn.billid) {
+			return [hasbill: true];
+		}
+		else {
+			return [hasbill:false];
+		}
+	}
+
+	@ProxyMethod
+	public def createAccount( def na ) {
+		if(!na.acctno) {
+			def pattern = varSvc.get("water_account_acctno");
+			if(!pattern) throw new Exception("Please add acctno pattern entry in var: water_account_acctno" );
+			na.acctno = controlNoSvc.getNextNo( [pattern: pattern] );
+		};
+		
+		def newacct = acctEm.create( na );
+		if(na.txnid ) {
+			txnEm.find( [objid: na.txnid ] ).update( [acctid: newacct.objid ] );
+		}
+		return newacct;
+	}
+
+	//ACCOUNT RELATED WORKFLOWS
+	//activate account is for capture and new accounts
+	@ProxyMethod
+	public def activateAccount( def o ) {
+		if(!o.txnid) throw new Exception("Txn id is required in WaterTxnService.activateAccount");
+		if(!o.action) throw new Exception("action is required in WaterTxnService.activateAccount")
+		def txn = vwTxnEm.find( [objid: o.txnid ] ).first();
+		def newAcctInfo = vwAcctInfoEm.find( [objid: txn.newacctinfoid ] ).first();
+		
+		//create account if account does not yet exist
+		def acct = [:];
+		acct.acctno = newAcctInfo.acctno;
+		acct.acctinfoid = newAcctInfo.objid;
+		acct.txnid = txn.objid;
+		acct = createAccount( acct );
+
+		//set the acctid of accountinfo to account, and meter to current account, and acctinfoid to account 
+		acctInfoEm.find( [objid: newAcctInfo.objid ] ).update( [acctid: acct.objid , acctno: acct.acctno ] );
+
+		if( newAcctInfo.meterid ) {
+			meterEm.find( [objid: newAcctInfo.meterid ] ).update( [currentacctid: acct.objid, state: newAcctInfo.meterstatus ] );
+		}
+
+		//add an entry for recurring bill
+		installmentSvc.buildInstallmentItems( [txnid: txn.objid, acctid: acct.objid ] );
+		//start the process
+		def mt = [:];
+		mt.processname = "water_account";
+		mt.entityschemaname = "water_account";
+		mt.refid = acct.objid;
+		mt.action = o.action;
+		mt.assignee = o.createdby;
+		taskSvc.start( mt );
+	}	
+
+
+	@ProxyMethod
+	public def signalAccount(  def o ) {
+		if(!o.txnid) throw new Exception("Txn id is required in signalAccount");
+		if(!o.action) throw new Exception("action is required in signalAccount");
+		def txn = vwTxnEm.find( [objid: o.txnid ] ).first();
+
+		//signal the task to disconnect it
+		def m = [:];
+		m.processname = "water_account";
+		m.entityschemaname = "water_account";
+		m.refid = txn.acctid;
+		m.assignee = [ objid: env.USERID, name: env.FULLNAME ];
+		m.action = o.action;
+		taskSvc.signal( m );
+	}
+
+	@ProxyMethod
+	public def buildInstallmentItems ( def o ) {
+		if(!o.txnid) throw new Exception("Txn id is required in buildInstallmentItems");
+		def txn = vwTxnEm.find( [objid: o.txnid ] ).first();
+
+		//add recurring bills if there are any
+		installmentSvc.buildInstallmentItems( [txnid: txn.objid, acctid: txn.acctid ] );
+	}
+
+	@ProxyMethod
+	public def applyChanges( def o ) {
+		if(!o.txnid) throw new Exception("Txn id is required in WaterTxnService.applyChanges");	
+		def txn = vwTxnEm.find( [objid: o.txnid ] ).first();
+
+		acctEm.find( [objid: txn.acctid ] ).update( [acctinfoid: txn.newacctinfoid ] );
+
+		//update also the meter
+		def oldInfo =  vwAcctInfoEm.find( [objid: txn.oldacctinfoid ] ).first();		
+		def newInfo =  vwAcctInfoEm.find( [objid: txn.newacctinfoid ] ).first();		
+
+		if( oldInfo.meterid != newInfo.meterid ) {
+			meterEm.find( [objid: oldInfo.meterid ] ).update( [currentacctid: "{NULL}"] );
+			meterEm.find( [objid: newInfo.meterid ] ).update( [currentacctid: txn.acctid ] );
+		}
+		// if(  oldInfo.meterstatus != newInfo.meterstatus ) {
+		// 	meterEm.find( [objid: newInfo.meterid ] ).update( [state: newInfo.meterstatus ] );	
+		// }
+	}
+} 

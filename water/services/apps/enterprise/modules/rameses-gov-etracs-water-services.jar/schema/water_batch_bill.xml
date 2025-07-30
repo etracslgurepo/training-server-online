@@ -1,0 +1,17 @@
+<schema>
+	<element tablename="water_batch_bill">
+		<field name="objid" primary="true" prefix="WTRBATCHBILL"/>
+		<field name="state" />
+		<field name="billgroupid"  required="true"/>
+		<field name="scheduleid"  required="true"/>
+		<field name="reader_objid" required="true"/>
+		<field name="reader_name"  required="true"/>
+		<field name="readingdate" />
+		<field name="createdby_objid" />
+		<field name="createdby_name" />
+		<field name="dtcreated" />
+		<field name="taskid" />
+	</element>
+</schema>
+
+

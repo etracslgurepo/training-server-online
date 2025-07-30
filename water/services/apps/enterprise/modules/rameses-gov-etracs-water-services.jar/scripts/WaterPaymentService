@@ -1,0 +1,305 @@
+import com.rameses.annotations.*;
+import com.rameses.util.*;
+import java.text.*;
+import treasury.facts.*;
+import water.facts.*;
+
+class WaterPaymentService {
+	
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("WaterBillingUtilService")
+	def utilSvc;
+
+	@DataContext("water_credit_billitem")
+	def creditBillitemEm;
+
+	@DataContext("water_payment")
+	def pmtEm;
+
+	@DataContext("water_paymentitem")
+	def pmtItemEm;
+
+	@DataContext("water_discountitem")
+	def discountItemEm;
+
+	@DataContext("water_billitem_subitem")
+	def subItemEm;
+
+	@DataContext("water_abstract_billitem")
+	def abstractBillItemEm;
+
+	@DataContext("water_bill")
+	def billEm;
+
+	@DataContext("water_account")
+	def acctEm;
+
+	@DataContext("water_credit_paymentitem")
+	def creditPmtItemEm;
+
+	def months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+
+	//this will return items (cashreceipt items ) and billitems (for viewing) and postingitems (for posting)
+	@ProxyMethod
+	public def getPaymentInfo( def o ) {
+		if(!o.txndate) o.txndate = dateSvc.getServerDate(); 
+
+		if(o.billid) {
+			//do nothing
+		}
+		else if( o.billno ) {
+			def vbill = billEm.find( [billno: o.billno ] ).select("objid").first();
+			if(!vbill) throw new Exception("Bill not found having no. " + o.billno );
+			o.billid = vbill.objid;
+		}	
+		else if( o.acctid || o.acctno ) {
+			def f2 = [:];
+			if(o.acctid) f2.objid = o.acctid;
+			else if(o.acctno) f2.acctno = o.acctno; 
+			def acct = acctEm.find( f2 ).select("acctno,lastbillid").first();
+			if(!acct.lastbillid) 
+				throw new Exception("Account " + acct.acctno + " does not have an associated last bill ");
+			o.billid = acct.lastbillid;
+		} 
+
+		//check bill first before attempting to pay
+		def bill = billEm.findBill( [billid: o.billid ] );
+		if(!bill) throw new Exception("Bill not found");
+		if(!bill.acctstate?.matches("active|pending|hold|disconnected"))
+			throw new Exception("Account must be in pending,active,hold or disconnected state. Please contact administrator");
+
+		//format dates first so we can properly evaluate. i want to use dates instead of numbers bec. its easier to read and infer
+		def sdf = new SimpleDateFormat( "yyyy-MM-dd" );
+		def txndate = null;
+		if(o.txndate instanceof Date ) {
+			txndate = sdf.parse( sdf.format(o.txndate));
+		}
+		else {
+			txndate = sdf.parse( o.txndate.toString() );
+		}
+
+		if(!bill.validitydate) throw new Exception("bill validity date is not set");
+		if(!bill.duedate) throw new Exception("bill due date is not set");
+
+		def duedate = sdf.parse( sdf.format(bill.duedate));
+		def validitydate = sdf.parse( sdf.format(bill.validitydate));
+		def expirydate = sdf.parse( sdf.format(bill.expirydate));
+
+		// check if there are payments already made after this bill. 
+		// If there are throw an error to be corrected by the administrator
+
+		// def hasEnsuingPayments = pmtEm.find( [billid: o.billid] ).where("refdate > :refdate", [refdate: txndate ] ).exists(); 	
+		// if ( hasEnsuingPayments ) throw new Exception("There are payments made after this date. Please contact the administrator");
+
+		if( bill.state == 'CLOSED' ) {
+			throw new Exception("Bill is already closed. Please refer to another bill");	
+		}
+		else if( bill.state == 'OPEN' ) {
+			//just accept the payments
+		}
+		else {
+			if( txndate.after(duedate)) {
+				//if txndate after due date and validity date is not yet updated, rebill
+				if( validitydate != expirydate ) {
+					utilSvc.updateBill( [billid: bill.objid, refdate: txndate ] );
+					billEm.find( [objid: bill.objid ] ).update( [validitydate: expirydate] ); 
+					bill = billEm.findBill( [billid: bill.objid ] ); 
+				}
+			}
+			else {
+				//if validiity date is already updated, we need to back track  
+				if( validitydate == expirydate ) {
+					utilSvc.rollbackBill( [billid: bill.objid, refdate: duedate ] );
+					billEm.find( [objid: bill.objid ] ).update( [validitydate: duedate] );	
+					bill = billEm.findBill( [billid: bill.objid ] );
+				} 
+			}
+		}
+		boolean amountSpecified = true;
+		if(!o.amtpaid) {
+			o.amtpaid = bill.balance;
+			amountSpecified = false;
+		}	
+		def retval = [:];
+		def b = utilSvc.buildPaymentItems( [billid: o.billid, refdate: txndate, amtpaid: o.amtpaid, amountSpecified: amountSpecified ] );
+
+		return [
+			billitems: b.billitems.sort{ it.sortorder },
+			postingitems: b.postingitems,
+			items: b.items.sort{ it.sortorder }
+		];
+	}
+
+	@ProxyMethod
+	public def postPayment( def o ) {
+		if(!o.billid) throw new Exception("billid is required in WaterPaymentService.postPayment");
+		if(!o.amount) throw new Exception("amount is required in WaterPaymentService.postPayment");
+
+		if(!o.refdate) o.refdate = o.receiptdate;
+		if(!o.refno) o.refno = o.receiptno;
+		if(!o.refid) o.refid = o.objid;
+		if(!o.reftype) o.reftype = "cashreceipt";
+
+		def pmt = [:];
+		pmt.refid =  o.refid;
+		pmt.refno =  o.refno;
+		pmt.reftype =  o.reftype;
+		pmt.refdate =  o.refdate;
+		pmt.txnmode =  o.txnmode;
+		pmt.voided =  0;
+		pmt.posted = 0;
+		pmt.remarks =  o.remarks;
+		pmt.amount =  o.amount;
+		pmt.billid = o.billid;
+		if(o.payer) pmt.payer = o.payer;
+		if(o.paidby) pmt.paidby = o.paidby;
+		if(o.paidbyaddress) pmt.paidbyaddress = o.paidbyaddress;
+		pmt = pmtEm.create( pmt );
+
+		// before building payments correct the billing first 
+		// to account for daily billing for water plugin only
+		utilSvc.rollbackBill( [billid: o.billid, refdate: o.refdate] );
+		utilSvc.updateBill( [billid: o.billid, refdate: o.refdate] );
+
+		def rr = utilSvc.buildPaymentItems( [billid: o.billid, refdate: o.refdate, amtpaid: o.amount ] );
+		utilSvc.postPayment( [payment: pmt, postingitems: rr.postingitems ] );
+		billEm.updateBillPayment( [billid: o.billid ] );
+
+		// if ( true ) throw new Exception('stop');
+		return pmt;
+	}
+
+	@ProxyMethod
+	public def voidPayment( def o ) {
+		if(!o.objid ) throw new Exception("objid is required in WaterPaymentService.voidPayment");
+
+		def pmt = pmtEm.find( [objid: o.objid ] ).first();
+		if(!pmt) throw new Exception("payment not found for  WaterPaymentService.voidPayment");
+
+		def pmtItems = pmtItemEm.find( [paymentid:pmt.objid] ).list();
+		pmtItems.each { pi->
+			if(pmt.posted==1) abstractBillItemEm.find( [objid: pi.billitemrefid ] ).update( [amtpaid: "{amtpaid - :amt}"], [amt: pi.amount ] );
+			discountItemEm.find( [paymentid: pmt.objid ] ).delete();
+			pmtItemEm.find([objid: pi.objid ]).delete();				
+		}
+		def creditItems = creditBillitemEm.find( [paymentid: pmt.objid] ).list();
+		creditItems.each { ci->
+			def creditPmtItems = creditPmtItemEm.find( [credititemid: ci.objid ] ).list();
+			creditPmtItems.each { cpi->
+				//reverse the amount paid
+				abstractBillItemEm.find( [objid: cpi.billitemrefid ] ).update( [amtpaid: "{amtpaid - :amt}"], [amt: cpi.amount ] );
+				abstractBillItemEm.find( [objid: cpi.credititemid ] ).update( [amount: "{amount - :amt}"], [amt: cpi.amount ] );
+				creditPmtItemEm.find( [objid: cpi.objid ]).delete();
+			};
+			creditBillitemEm.find( [objid: ci.objid ]).delete();
+		}
+
+		if(pmt.txnmode == "ONLINE") {
+			pmtEm.find( [objid: pmt.objid ] ).update( [voided: 1, posted: 0 ] );
+		}
+		else {
+			pmtEm.find( [objid: pmt.objid ] ).delete();
+		}
+		billEm.updateBillPayment( [billid: pmt.billid ] );		
+		return [ billid: pmt.billid ];
+	}
+
+	@ProxyMethod
+	public def revertVoidPayment( def o ) {
+		throw new Exception("Water revert void payment is not yet supported");
+
+		def pmt = pmtEm.find( [objid: o.objid ] ).first();
+		if(!pmt) pmt = pmtEm.find( [refid: o.receiptid ] ).first();	
+		pmtEm.find( [objid: pmt.objid ] ).update( [voided: 0 ] );
+		def pmtItems = pmtItemEm.find( [paymentid:pmt.objid] ).list();
+		pmtItems.each { pi->
+			abstractBillItemEm.find( [objid: pi.billitemrefid ] ).update( [amtpaid: "{amtpaid - :amt}"], [amt: pi.voidamount ] );
+			pmtItemEm.find( [objid: pi.objid ]).update( [amount:pi.voidamount, voidamount: 0]);		
+		}
+		def creditItems = creditBillitemEm.find( [paymentid: pmt.objid] ).list();
+		creditItems.each { ci->
+			//delete credit payment items
+			def creditPmtItems = creditPmtItemEm.find( [credititemid: ci.objid ] ).list();
+			creditPmtItems.each { cpi->
+				creditPmtItemEm.find( [objid: cpi.objid ]).delete();
+			};
+			creditBillitemEm.find( [objid: ci.objid ]).update( [amount: 0 ] );
+		}	
+	}
+
+	@ProxyMethod
+	public void unpostPayment( def o ) {
+		if(!o.paymentid  ) {
+			throw new Exception("paymentid or payments parameter is required in  WaterPaymentService.unpostPayments")
+		}
+		utilSvc.unpostPayment( [ paymentid: o.paymentid ] );
+	}	
+
+	@ProxyMethod
+	public void repostPayment( def o ) {
+		if(!o.paymentid ) {
+			throw new Exception("paymentid or payments parameter is required in  WaterPaymentService.repostPayment")
+		}
+		utilSvc.postPayment( [ paymentid: o.paymentid ] );
+	}	
+
+	@ProxyMethod
+	public void reapplyPayment( def o ) {
+		if(!o.billid) throw new Exception("Please specify billid");		
+		def bill = billEm.findBill( [billid: o.billid ] );
+		def duedate  = bill.duedate;
+
+		//unpost first all payments and remove all payment items
+		pmtEm.find( [billid: o.billid ] ).update( [posted: 0 ] );
+		pmtEm.find( [billid: o.billid ] ).list().each { pmt->
+			pmtItemEm.find( [paymentid: pmt.objid ]).delete();
+			discountItemEm.find( [paymentid: pmt.objid ] ).delete();
+		} 
+
+		//remove all credit items and associated credit payment items
+		creditBillitemEm.find( [billid: o.billid ]).list().each { ci->
+			def creditPmtItems = creditPmtItemEm.find( [credititemid: ci.objid ] ).list();
+			creditPmtItems.each { cpi->
+				abstractBillItemEm.find( [objid: cpi.billitemrefid ] ).update( [amtpaid: "{amtpaid - :amt}"], [amt: cpi.amount ] );
+				abstractBillItemEm.find( [objid: cpi.credititemid ] ).update( [amount: "{amount - :amt}"], [amt: cpi.amount ] );
+				creditPmtItemEm.find( [objid: cpi.objid ]).delete();
+			};
+		}
+		creditBillitemEm.find( [billid: o.billid ] ).delete();
+
+		//update all amtpaid to zero
+		abstractBillItemEm.find( [billid: o.billid ] ).update( [amtpaid: 0 ] );
+
+		def _postPayment = { pmt->
+			def res = utilSvc.buildPaymentItems( [billid: o.billid, amtpaid: pmt.amount, refdate: pmt.refdate ] );
+			utilSvc.postPaymentItems( [paymentid: pmt.objid, refdate: pmt.refdate, billid: o.billid, postingitems: res.postingitems ] );
+			pmtEm.find( [objid: pmt.objid ] ).update( [posted: 1 ] );
+		}
+		//post all payments before due date
+		if( duedate ) {
+			//remove all items after due date. example for penalties
+			subItemEm.find( [billid: o.billid ] ).where( "billdate >= :duedate", [duedate: duedate ] ).delete();
+			def pmtList = pmtEm.find( [billid: o.billid ] ).where( "refdate <= :duedate", [duedate: duedate] ).orderBy("refdate ASC").list();
+			pmtList.each { pmt->
+				_postPayment( pmt );
+			}
+			//fire billing rules after after due date
+			def d2 = DateUtil.add( duedate, '1d'); 
+			utilSvc.updateBill( [billid: o.billid, refdate: d2 ] );
+			pmtList = pmtEm.find( [billid: o.billid ] ).where( "refdate >= :duedate", [duedate: d2] ).orderBy("refdate ASC").list();
+			pmtList.each { pmt->
+				_postPayment( pmt );
+			}
+		}
+		else {
+			def pmtList = pmtEm.find( [billid: o.billid ] ).orderBy("refdate ASC").list();
+			pmtList.each {
+				_postPayment( pmt );	
+			}
+		}
+		billEm.updateBillPayment( [billid: o.billid ] );	
+	}
+
+}

@@ -1,0 +1,165 @@
+import com.rameses.annotations.*;
+
+import water.facts.*;
+import com.rameses.util.*;
+import treasury.facts.*;
+import java.text.*;
+
+class WaterTxnBillService {
+	
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("RuleExecutorService")
+	def ruleSvc;
+
+	@DataContext("vw_water_txn")
+	def vwTxnEm;
+
+	@DataContext("vw_water_installment")
+	def vwInstallmentEm;
+
+	@DataContext("water_payment")
+	def paymentEm;
+
+	@DataContext("water_txn_bill")
+	def txnBillEm;
+
+	@DataContext("water_txn_billitem")
+	def txnBillItemEm;
+
+	@DataContext("vw_water_account")
+	def vwAcctEm;
+
+	//called by workflow 
+	@ProxyMethod
+	public def create(def o) {
+		if(!o.txnid) throw new Exception("txnid is required in WaterTxnBillService.create")
+		def txn = vwTxnEm.find( [objid: o.txnid] ).first();
+		if(!txn) throw new Exception("txn not found in WaterTxnBillService.create");
+		def b = [:];
+		b.txnid = o.txnid;
+		b.billno = txn.controlno;
+		b.billdate = dateSvc.getServerDate();
+		b.amount = 0;
+		def bill = txnBillEm.create(b);
+		assess( [billid: bill.objid ]);
+		return bill;
+	}
+
+
+	@ProxyMethod
+	public void assess( def o ) {
+		if(!o.billid) throw new Exception("billid is required in WaterTxnBillService.assess");
+		def bill = txnBillEm.find( [objid: o.billid ] ).first();
+		def txn = vwTxnEm.find( [objid: bill.txnid ] ).first();
+		if(!txn) throw new Exception("txn not found in WaterTxnBillService.assess");
+
+		//clear all generated billitems first before running this routine
+		txnBillItemEm.find( [billid: o.billid ]).where("auto = 1").delete();
+
+		def facts = [];
+		facts << new TransactionDate( dateSvc.getServerDate() );
+		facts << new WaterTxn( txn );
+		
+		def installment = vwInstallmentEm.find( [txnid: txn.objid ] ).first();
+		if(installment) {
+			facts << new Installment( installment );
+		};
+
+		//feed also existing billitems if any so it wont trigger again
+		def bitems = txnBillItemEm.find( [billid: o.billid ] ).list();
+		bitems.each { bi->
+			def xbi = new BillItem( acctid: bi.itemid, amount: bi.amount);
+			xbi.input = true;
+			facts << xbi;
+		}
+
+		ruleSvc.execute( "waterbilling", facts, null, null );
+
+		def billItems = facts.findAll{ it instanceof BillItem  };
+		if(!billItems) throw new Exception("There must be at least one billitem. Please check transaction billing rules");
+		def dt = dateSvc.getServerDate();
+
+		billItems.findAll{ it.input==false }.each {
+			def bi = it.toMap();
+			bi.billid = txn.billid;
+			bi.auto = 1;
+			bi.forwarded = 0;
+			bi.billdate = dt;
+			bi.unit = 'EA';
+			bi.unitrate = 1;
+			bi.creditamt = 0;
+			txnBillItemEm.create( bi );
+		}
+
+		txnBillEm.updateBillTotals( [billid: o.billid ] );
+	}
+
+	@ProxyMethod
+	public def findBill(def o ) {
+		if(!o.billid) throw new Exception("billid is required in WaterTxnBillService.findBill");
+		return txnBillEm.find( [objid: o.billid ] ).first();		
+	}
+
+
+	@ProxyMethod
+	public void clearBillItems( def o ) {
+		if(!o.billid) throw new Exception("billid is required in WaterTxnBillService.assess");
+		txnBillItemEm.find( [billid: o.billid ]).where("auto = 0").delete();
+		txnBillEm.updateBillTotals( [billid: o.billid ] );
+	}
+
+	@ProxyMethod
+	public void addBillItem( def o ) {
+		if(!o.billid) throw new Exception("billid is required in WaterTxnBillService.addBillItem");
+		o.auto = 0;
+		o.forwarded = 0;
+		o.amtpaid = 0;
+		o.creditamt = 0;
+		o.uid = o.itemid;
+		txnBillItemEm.create( o );
+		txnBillEm.updateBillTotals( [billid: o.billid ] );
+	}
+  
+	@ProxyMethod
+	public void removeBillItems( def o ) {
+		if(!o.billid) throw new Exception("billid is required in WaterTxnBillService.removeBillItems");
+		if(!o.items) throw new Exception("items is required in WaterTxnBillService.removeBillItems");
+		def list = txnBillItemEm.where( "objid IN ('"  +   o.items*.objid.join("','")    + "') AND auto=0 "   ).list();
+		list.each {
+			if(it.installmentid) throw new Exception("Items under installment cannot be removed. Remove installment first");
+			txnBillItemEm.find( [objid: it.objid ] ).delete();
+		}
+		txnBillEm.updateBillTotals( [billid: o.billid ] );
+	}
+
+	@ProxyMethod
+	public def getBillItems( def o ) {
+		if(!o.billid) throw new Exception("billid is required in WaterTxnBillService.getBillItems");
+		def items = txnBillItemEm.find( [billid: o.billid ] ).list();
+		items.each {
+			it.particulars = it.item.title;
+			it.installment = (it.installmentid!=null);
+			it.balance = it.amount - (it.creditamt ? it.creditamt : 0.0);
+		}
+		return items;
+	}
+
+
+	@ProxyMethod
+	public def cancelBill(def o ) {
+		if(!o.billid) throw new Exception("billid is required in WaterTxnBillService.cancelBill");
+		txnBillItemEm.find( [billid: o.billid ]).delete();
+		txnBillEm.find( [objid: o.billid ]).delete(); 	
+	}
+
+
+	@ProxyMethod
+	public def validatePayment(def o) {
+		if(!o.txnid) throw new Exception("txnid is required in WaterTxnBillService.validatePayment");
+		def txn = txnEm.find( [objid: o.txnid] ).first();
+		throw new Exception("validating if payment order is paid");
+	}
+
+}

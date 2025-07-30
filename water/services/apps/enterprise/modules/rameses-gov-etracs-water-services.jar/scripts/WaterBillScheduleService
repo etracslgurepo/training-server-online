@@ -1,0 +1,97 @@
+import com.rameses.annotations.*;
+import treasury.facts.*;
+import water.facts.*;
+
+class WaterBillScheduleService {
+
+	@Service("RuleExecutorService")
+	def ruleSvc;
+
+	@Service(value="HolidayService", connection="enterprise")
+	def holidaySvc;
+
+	@Service("DateService")
+	def dateSvc;
+
+	@DataContext("water_billschedule")
+	def skedEm;	
+
+	@DataContext( dynamic=true )
+	def dynaEm;
+
+	@ProxyMethod 
+	public def getSchedule( p ) {
+		if( !p.name && !p.billgroupid) throw new Exception("name or billgroupid is required in getSchedule");
+		if( !p.year ) throw new Exception("year is required in getSchedule");
+		if( !p.month ) throw new Exception("month is required in getSchedule");
+		if( !p.day) p.day = 1;
+		if( p.year<2000) throw new Exception("Year must be greater than 2000 in WaterBillScheduleService.getSchedule.");
+
+		if(!p.name) {
+			def billGroupEm = dynaEm.lookup('water_billgroup'); 
+			def bg = billGroupEm.find( [objid: p.billgroupid ] ).first();
+			if(!bg) throw new Exception("billgroup not found");
+			if(!bg.schedulegroupid) throw new Exception("schedulegroupid must be set in billgroup");
+			p.name = bg.schedulegroupid; 
+		}
+
+		def facts = [];
+		facts << new WaterBillSchedule( name: p.name, year: p.year, month : p.month, day: p.day );
+
+		//include holidays
+		facts << new HolidayFact(  
+			handler: { dt->
+				def h = holidaySvc.lookup(dt);
+				return (h!=null);
+			}
+		);
+
+		ruleSvc.execute( "waterbillingschedule", facts, null, null );
+
+		def billingPeriod = facts.find{ it instanceof WaterBillSchedule };
+		if(!billingPeriod) throw new Exception("There are no schedule rules that match the criteria");
+
+		def m = billingPeriod.toMap();
+
+		if(!m.billdate) throw new Exception("billdate is required in billing schedule rule");
+		m.name = p.name;
+		def df = new java.text.SimpleDateFormat("yyyy-MM");
+		m.objid = m.name + "-" + df.format( m.billdate );
+		m.groupid = m.name;
+
+		def sked = skedEm.find( [groupid: m.name, year: m.year, month: m.month ] ).first();
+		if( !sked ) {
+			sked = skedEm.create( m );
+			sked =  skedEm.find([objid: sked.objid ]).first();
+		}
+		return sked;	
+	}
+
+	@ProxyMethod
+	public def getCurrentBillMonth( def p ) {
+		if(!p.name && !p.billgroupid) throw new Exception("name or billgroupid is required in getCurrentBillMonth");
+
+		def currDate = dateSvc.getBasicServerDate();
+
+		p.year = dateSvc.getServerYear();
+		p.month = dateSvc.getServerMonth();
+
+		def sked = getSchedule( p );
+		def todate = sked.todate;
+		//compare with todate
+		if( currDate.before(todate) || currDate.equals(todate) ) {
+			p.year = sked.year;
+			p.month = sked.month - 1;
+			if(p.month <= 0) {
+				p.month = 12;
+				p.year = p.year - 1;
+			}		
+			return getSchedule( p );
+		}
+		else {
+			return sked;
+		}
+	}
+
+
+}

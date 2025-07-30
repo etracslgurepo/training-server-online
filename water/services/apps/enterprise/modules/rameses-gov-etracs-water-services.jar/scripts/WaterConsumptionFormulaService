@@ -1,0 +1,142 @@
+import com.rameses.annotations.*; 
+import com.rameses.util.*;
+
+class WaterConsumptionFormulaService {
+	
+	
+	@DataContext("sys_rule")
+	def sysRuleEm;
+
+	@DataContext("sys_rulegroup")
+	def ruleGroupEm;
+
+	@ActiveDB("rule")
+	def ruleEm;
+
+
+	//returns java script formula
+	@ProxyMethod
+	public def getFormula( def o ) {
+
+		def ruleGroups = ruleGroupEm.where( " ruleset = 'waterconsumption' ").orderBy("sortorder").list();
+		def rules = sysRuleEm.where(" ruleset = 'waterconsumption' AND state = 'DEPLOYED' ").orderBy("salience DESC").list();
+
+		def list = [];	
+		ruleGroups.each { rg->
+			list.addAll( rules.findAll{ it.rulegroup == rg.name }.collect{ [objid: it.objid, name:it.name] } );
+		}
+
+		list.each { r->
+			r.conditions = ruleEm.getRuleConditions( [objid: r.objid ] );
+			r.conditions.each { rc->
+				rc.constraints = ruleEm.getRuleConditionConstraints( [objid: rc.objid ] );
+			}
+			r.actions =  ruleEm.getRuleActions( [objid: r.objid ] );
+			r.actions.each { ra->
+				ra.params = ruleEm.getRuleActionParams( [objid: ra.objid ]  )
+			}
+		}
+
+
+		def ruleList = [];
+
+		list.each {
+			def r = [:];
+			r.conditions = [];
+			r.vars = [];
+			r.actions = [];
+
+			it.conditions.each { rc->
+				rc.constraints.each { c->
+					def str = "param." + c.fieldname;
+					if( rc.fact.objid == 'water.facts.WaterAccountTag' ) str = "param.tags";
+					 
+					if( c.datevalue ) {
+						r.conditions << str + ' ' + c.operator.symbol + ' ' + c.datevalue; 
+					}
+					else if( c.decimalvalue ) {
+						r.conditions << str + ' ' + c.operator.symbol + ' ' + c.decimalvalue; 
+					}
+					else if( c.intvalue ) {
+						r.conditions << str + ' ' + c.operator.symbol + ' ' + c.decimalvalue; 
+					}
+					else if( c.stringvalue ) {
+						if( c.operator.symbol == 'matches' ) {
+							r.conditions << str + ".match('" + c.stringvalue +"')"; 
+						}
+						else {
+							r.conditions << str + ' ' + c.operator.symbol + "'" + c.decimalvalue + "'"; 
+						}
+					}
+					else if( c.listvalue ) {
+						c.listvalue = ruleEm.serializer.read( c.listvalue );  
+						r.conditions << str + ".match('.*" + c.listvalue*.key.join("|") + ".*')";
+					}	
+
+					//add vars
+					if( c.varname ) {
+						r.vars << "let " + c.varname + " = param." + c.fieldname + ";";
+					}
+				}
+			} 	
+
+			it.actions.each { ra->
+				ra.params.each { a->
+					if( a.exprtype == "range" ) {
+						def listvalue = ruleEm.serializer.read( a.listvalue ); 
+						def var = ruleEm.serializer.read( a.var );
+						def rlist = []; 
+						listvalue.each { lv->
+							def sfrom = null;
+							def sto = null;
+							if( lv.from )  sfrom = var.name + ((a.rangeoption==0)? ">=" : ">") + " " + lv.from;
+							if( lv.to ) sto = var.name + ((a.rangeoption==0)? "<" : "<=")+ " " + lv.to;
+							def sresult = "{ return " + lv.value + "; }";
+
+							if( !lv.from && lv.to ) {
+								rlist << "if(" + sto + ")" + sresult;
+							}
+							else if( lv.from && lv.to) {
+								rlist << "if(" + sfrom + " && " + sto + ")" + sresult;
+							}
+							else if( lv.from && !lv.to ) {
+								rlist << "if(" + sfrom + ")" + sresult;
+							}
+						}
+						r.actions << rlist.join(";");
+					}
+					else if( a.exprtype == 'expression' ) {
+						if(ra.actiondef.objid == 'water.actions.ChangeVolume' ) {
+							r.actions << "param.volume = " + a.expr;
+						}
+						else {
+							r.actions << " return " +  a.expr.replaceAll("def", "let") + ";";	
+						}
+					} 
+				}
+			}
+
+			ruleList << r;
+		}
+
+		
+		def buff = new StringBuilder();
+		buff.append( "( function(param) { ");
+		ruleList.each {
+			buff.append( "if ( " + it.conditions.join("&&") + "){ ");
+			it.vars.each { v->
+				buff.append( v );
+			}
+			it.actions.each { a->
+				buff.append( a );
+			}
+			buff.append( "}");
+		}
+		buff.append( "})");
+		return [formula: buff.toString()];
+
+	}
+
+
+
+}

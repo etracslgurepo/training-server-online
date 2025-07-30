@@ -1,0 +1,257 @@
+import com.rameses.annotations.*;
+import net.sf.jasperreports.engine.*;
+import net.sf.jasperreports.engine.util.*;
+import com.rameses.osiris2.reports.*;
+import java.io.*;
+import com.rameses.util.*;
+import java.rmi.server.*;
+import java.net.*;
+import net.sf.jasperreports.engine.util.*;
+import java.nio.file.*;
+
+class SysReportGeneratorService  {
+
+	@Service("SysReportService")
+	def reportSvc; 
+
+	@Service("SysReportTemplateService")
+	def templateSvc;
+
+	@Service("Var")
+	def varSvc;
+
+	@DataContext("sys_report_template")
+	def reportTemplateEm;
+
+	@Service
+	def self;
+
+	String outputReportPath = "/apps/server/output";
+
+	@ProxyMethod
+	public def buildFileId( def p ) {
+		def b64 = new Base64Cipher();
+		def arr = [];
+		p.each { k,v->
+			arr << k+"="+v;	
+		}
+		def qryStr = arr.join( "&" );
+		return b64.encode( qryStr ).replaceAll("[+/]", "-").replaceAll("=", "").replaceAll( "\r\n", "~" ); 
+	}
+
+	private def formatFilename( def o ) {
+		String destFilename = outputReportPath;
+		
+		if(o.filepath) {
+			if(!o.filepath.startsWith("/")) destFilename += "/";
+			destFilename += o.filepath;
+			def path = java.nio.file.Paths.get(destFilename); 
+			java.nio.file.Files.createDirectories(path);
+		}
+			
+		if(!destFilename.endsWith("/")) destFilename += "/";
+
+		def ext = o.extension;
+		if(!ext) ext = ".pdf";
+		if(!ext.startsWith(".")) ext = "." + ext;
+		
+		return destFilename + Encoder.MD5.encode( o.fileid ) + ext;
+	}
+
+	@ProxyMethod
+	public def buildWebUrl( def o ) {
+		if(!o.reportid) throw new Exception("reportid is required in buildWebUrl");
+		if(!o.params) throw new Exception("params is required in buildWebUrl");
+
+		def webUrl = varSvc.get( "sys_report_weburl" );
+		if(!webUrl) throw new Exception("Please specify sys_report_weburl value in the system variables");
+		if(!webUrl.endsWith("/")) webUrl += "/";
+
+		def ext = o.extension;
+		if(!ext) ext = ".pdf";
+		if(!ext.startsWith(".")) ext = "." + ext;
+
+		def p = [:];
+		p.reportid = o.reportid;
+		p.putAll( o.params );
+
+		def fileid = buildFileId( p ) + ext;
+		def filename = formatFilename( [fileid: fileid, filepath: o.filepath ] );
+
+		//DO NOT MAKE THIS ASYNC
+		generate( [reportid: o.reportid, params: o.params, filename: filename ] );
+
+		def channel = System.getenv().channel;
+		def surl = webUrl + channel; 
+		if( o.filepath ) {
+			def fpath = o.filepath;
+			if( !fpath.startsWith("/") ) fpath = "/" + fpath;
+			surl = surl + fpath; 
+		}
+		if(!surl.endsWith("/")) surl = surl + "/";
+ 		return surl + fileid;
+	}
+
+	@ProxyMethod
+	public def buildAttachment( def o ) {
+		if(!o.reportid) throw new Exception("reportid is required in buildAttachment");
+		if(!o.params) throw new Exception("params is required in buildAttachment");
+		if(!o.context) o.context = "default";
+		if(!o.title) o.title = o.reportid;
+
+		def context = o.remove("context");
+		if(!o.fileid) o.fileid = "TMP" + new UID();
+
+		def filename = formatFilename( [fileid: o.fileid, filepath: context + "/attachments/"+o.reportid ] );
+
+		def parm = [reportid: o.reportid, params: o.params, filename: filename ];
+		if( o.filters ) parm.filters = o.filters;
+
+		//DO NOT MAKE THIS ASYNC. IT IS VERY DIFFICULT TO TRACE
+		generate( parm );
+
+		if(!o.title.endsWith(".pdf")) o.title = o.title + ".pdf";
+		return [ filename: filename, title: o.title ];
+	}	
+
+	@ProxyMethod
+	public def decodeFile( def fileid ) {
+		def b64 = new Base64Cipher();
+		if(fileid.endsWith(".pdf")) fileid = fileid.substring( 0, fileid.lastIndexOf(".") );
+		def qryStr = b64.decode( fileid );
+		def map = [:];
+		def rows = qryStr.split("&").each {
+		    def arr = it.split("=");
+		    map.put( arr[0], arr[1] ); 
+		};
+		def p = [:];
+		p.reportid = map.remove("reportid");
+		p.parameters = map;
+		return p;
+	}
+
+	@ProxyMethod
+	public def requestWebDoc( def o ) {
+		if(!o.fileid) throw new Exception("fileid is required in requestWebDoc");
+		
+		def fileid = o.fileid;
+
+		if(fileid.startsWith("/")) fileid = fileid.substring(1);
+		def filepath = null;
+		if(fileid.contains("/")) {
+		    filepath = fileid.substring(0, fileid.lastIndexOf("/") );
+		    fileid = fileid.substring( fileid.lastIndexOf("/")+1 );
+		}
+		//we will just get the last path of the specified url bec. we cant assure the full path is the same
+		def p = decodeFile( fileid );
+
+		if(filepath) p.filepath = filepath;	
+		return buildWebUrl( p );
+	}
+
+
+	@ProxyMethod
+	public def generate( def  o ) {
+		if( !o.reportid ) throw new Exception("reportid is required in SysReportGeneratorService.generate");
+		if( !o.params ) throw new Exception("params is required in SysReportGeneratorService.generate");
+		if( !o.filename ) throw new Exception("filename is required in SysReportGeneratorService.generate");
+		
+		def reportid = o.reportid;
+		def params = o.params;
+
+		if(!reportid) throw new Exception("reportid required in SysReportGenetarorService.generate"); 
+		
+		def reportDef = reportSvc.findReportDef( [name: reportid ] );
+		if( !reportDef.template ) {
+			return [status:"error", message: "template is not specified in report " + reportid, errno: 100 ];
+		}	
+		def data = reportSvc.getReportData( [name:reportDef.name, params: params, filters: o.filters ] );
+		if(!data) {
+			return [status:"error", message: "No records found matching the criteria", errno: 101 ];			
+		}
+
+		def header = [:];
+		if( reportDef.reportheader ) {
+            header = reportSvc.getReportHeaders( [name: reportDef.reportheader ] );    
+        }
+
+		if( data instanceof Map ) {
+			if( data.containsKey("HEADER") ) header.putAll( data.remove("HEADER"));
+			if( data.containsKey("DATA") ) data = data.remove("DATA");
+		}
+
+		def tmpSrc = [
+			getResources: { id->
+				return templateSvc.getResources([name:id]);
+			},
+			getContent: { id->
+				return templateSvc.getContent([name:id]);
+			}
+		] as SysReportTemplateSource;	
+
+		def tmp = reportTemplateEm.find([name: reportDef.template]).first();
+		
+		def getRootPath = { _fpath ->
+			String _spath = "/report-files";
+			File ff = new File( _spath + "/" + _fpath );
+			if( !ff.exists() ) {
+				_spath = "/report-templates";
+			}
+			return _spath;
+		}
+		
+		//check first if file exists in report files. If not exist use /report-templates
+		def spath = getRootPath( tmp.filepath );
+
+		def tp = new SysReportTemplate( spath, tmp.filepath );
+		def jReport = tp.getReport(tmpSrc);
+
+		String ctx = tmp.filepath.substring(0, tmp.filepath.lastIndexOf("/"));
+		def classLoader = new CustomClassLoader( templateSvc, ctx, { vv->
+			String rpath = getRootPath(vv);
+			return (new File( rpath +"/" + vv)).toURI().toURL();	 
+		} ); 
+		 
+		def report_params = [:];
+		report_params.putAll( header );
+		report_params.REPORT_CLASS_LOADER = classLoader;
+
+		def jasperFile = JasperFillManager.fillReport( jReport, report_params, new ReportDataSource( data ) );
+
+		String tmpFilename = o.filename + "~";
+		JasperExportManager.exportReportToPdfFile(jasperFile, tmpFilename );
+
+		File rfile = new File( tmpFilename );
+		rfile.renameTo( new File(o.filename) );
+		return o.filename; 
+	}	
+
+}
+
+public class CustomClassLoader extends ClassLoader {
+	
+	def reportTemplate;
+	String context;
+	def handler;
+	
+	public CustomClassLoader( def tp, def ctx, def h ) {
+		super();
+		reportTemplate = tp;
+		context = ctx;
+		handler = h;
+	}
+
+	public URL getResource(String name) { 
+		String fpath = name;
+		if( context ) {
+			if(!context.endsWith("/")) {
+				fpath = context + "/" + name;
+			}
+			else {
+				fpath = context + name;
+			}
+		}
+		return handler( fpath );
+    }
+}
+

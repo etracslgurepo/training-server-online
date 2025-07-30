@@ -1,0 +1,20 @@
+<schema>
+	<element tablename="water_billitem" extends="water_abstract_billitem">
+		<field name="objid" primary="true" prefix="WTRBILLITM"/>
+
+		<!-- This is not required because this is also being used by recurring bill items -->
+		<field name="year" />
+		<field name="month" />
+		<field name="duedate" type="date"/>
+
+		<!-- indicator for items created by installment-->
+		<field name="installmentid"/>
+
+		<!-- 
+		marker when a bill where this item is associated is cancelled. 
+		If true, update billid to recurring billid. If not true, then 
+		we simply delete it 
+		-->		
+		<field name="recurring"/>
+	</element>
+</schema>

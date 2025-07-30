@@ -1,0 +1,8 @@
+<schema>
+	<element tablename="water_tag">
+		<field name="objid" primary="true" visible="true" searchable="true"/>
+		<field name="description"/>
+	</element>
+</schema>
+
+

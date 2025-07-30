@@ -1,0 +1,44 @@
+<schema>
+	<element tablename="vw_water_batch_bill">
+		<field name="objid" primary="true" visible="true" caption="Batch No" searchable="true"/>
+		<field name="state" />
+		<field name="billgroupid" caption="Bill Group"  indexed="true"  searchable="true"/>
+		<field name="schedulegroupid" caption="Schedule Group"/>
+
+		<field name="scheduleid" />
+		<field name="reader_objid" />
+		<field name="reader_name" caption="Reader"/>
+
+		<field name="createdby_name" caption="Created By"/>
+		<field name="dtcreated" caption="Date Created"/>
+
+		<field name="year"  indexed="true" caption="Year"/>
+		<field name="month" indexed="true"/>
+		<field name="fromdate" />
+		<field name="todate" />
+		<field name="discdate" />
+		<field name="duedate" />
+		<field name="expirydate" />
+		<field name="monthname" expr="MONTH_ARRAY(month)" caption="Month" indexed="true"/>
+		<field name="description" />
+
+		<field name="expired" type="checkbox" checkValue="1" uncheckValue="0"/>
+
+		<field name="taskid" />
+		<field name="task_state" />
+		<field name="task_dtcreated" />
+		<field name="task_startdate" />
+		<field name="task_enddate" />
+		<field name="task_assignee_objid" />
+		<field name="task_assignee_name" />
+		<field name="task_actor_objid" />
+		<field name="task_actor_name" />
+		<field name="task_title" />
+		<field name="task_tracktime" />
+		<field name="task_properties" />
+		
+	</element>
+</schema>
+
+
+	

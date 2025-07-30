@@ -1,0 +1,15 @@
+<schema>
+	<element tablename="water_discountitem">
+		<field name="objid" primary="true" prefix="WTRDISC"/>
+		<field name="itemid"  required="true"/>
+		<field name="amount" type="decimal"  required="true"/>
+		<field name="voidamount" type="decimal"  required="true"/>
+		<complex name="billitem" ref="water_abstract_billitem" jointype="many-to-one" required="true">
+			<key field="billitemrefid" target="objid" />
+		</complex>	
+		<!-- sometimes there is no paymentid for example advance payment --> 
+		<complex name="payment" ref="water_payment" jointype="many-to-one" required="false">
+			<key field="paymentid" target="objid" />
+		</complex>	
+	</element>
+</schema>

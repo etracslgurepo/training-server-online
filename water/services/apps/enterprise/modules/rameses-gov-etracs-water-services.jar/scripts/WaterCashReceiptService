@@ -1,0 +1,101 @@
+import com.rameses.annotations.*;
+import com.rameses.util.*;
+import treasury.utils.*;
+
+class WaterCashReceiptService {
+	
+	@Service( dynamic=true )
+	def dynaSvc; 
+
+	@Service("WaterPaymentService")
+	def pmtSvc;
+
+	@DataContext("water_payment")
+	def pmtEm;
+
+	@DataContext("vw_water_bill")
+	def vwBillEm;
+	
+	@ProxyMethod
+	public def getBilling( def o ) { 
+		// used by barcode
+		def p = [:]; 
+		if ( o.params?.action ) {
+			def billno = o.params.id; 
+			p.billid = vwBillEm.find([ billno: billno ]).select('objid').val();
+		}
+
+		p.amount = o.params?.amtpaid;
+
+		def res = getPaymentInfo( p );
+
+		def bill = [:]; 
+		bill.billid = p.billid;
+		bill.paidby = res.paidby; 
+		bill.paidbyaddress = res.paidbyaddress;
+		bill.billitems = res.billitems;
+		bill.items = res.items;
+		return bill; 
+	}
+
+	@ProxyMethod
+	public def getPaymentInfo( def o ) {
+		def svc = dynaSvc.lookup('WaterBillPaymentService'); 
+		return svc.getPaymentInfo( o ); 
+    } 
+
+
+    @ProxyMethod
+	public def prePayment(def o) {
+		//do nothing...
+	}
+
+
+	//Posting payments is called from cash receipt. The validation logic like checking if there are called by getPaymentInfo. see above
+	//This simply accepts multiple bills (o.bills parameter) or single bill (o.billid parameter). Usually it is single bill. Multiple bills used by cash receipt.
+	//If there are multiplt bills, the receipt info is repeated every time. 
+    @ProxyMethod
+	public def postPayment( def o ) {
+		if(!o.refdate) o.refdate = o.receiptdate;
+		if(!o.refno) o.refno = o.receiptno;
+		if(!o.refid) o.refid = o.objid;
+		if(!o.paidby) throw new Exception("paidby is required in WaterCashReceiptService.postPayment");
+		if(!o.paidbyaddress) throw new Exception("paidby is required in WaterCashReceiptService.postPayment");
+
+		if ( o.billid ) {
+			pmtSvc.postPayment( o );
+		}
+		else if ( o.bills ) {
+			def bills = o.bills;
+			bills.each { b->
+				b.refno = o.refno;
+				b.refid = o.refid;
+				b.refdate = o.refdate;
+				b.reftype = "cashreceipt";
+				b.txnmode = "ONLINE";
+				b.payer = o.payer;
+				b.paidby = o.paidby;
+				b.paidbyaddress = o.paidbyaddress;
+				pmtSvc.postPayment( b );
+			}			
+		}
+		else { 
+ 			throw new Exception("bills or billid parameter is required in WaterCashReceiptService.postPayment");
+		}
+
+		//return null to avoid error in CashReceiptPluginInterceptor
+		return null;
+	}
+
+
+	@ProxyMethod
+	public def voidPayment( def o ) {
+		if(!o.objid ) throw new Exception("objid is required in WaterPaymentService.voidPayment");
+
+		def pmtList = pmtEm.find( [refid: o.receipt.objid ] ).list();
+		pmtList.each { pmt->
+			pmtSvc.voidPayment( pmt );		
+		}
+		return [:];
+	}
+}

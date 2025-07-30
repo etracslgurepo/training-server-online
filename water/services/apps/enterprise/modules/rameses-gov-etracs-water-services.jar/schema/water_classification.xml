@@ -1,0 +1,6 @@
+<schema>
+	<element tablename="water_classification">
+		<field name="objid" caption="ID" primary="true" visible="true"/>
+		<field name="name" caption="Name" searchable="true"/>
+	</element>
+</schema>

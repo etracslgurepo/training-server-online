@@ -1,0 +1,620 @@
+import com.rameses.annotations.*;
+
+import com.rameses.functions.*;
+import java.rmi.server.*;
+import com.rameses.util.*;
+import java.text.*;
+import treasury.facts.*;
+import water.facts.*;
+
+class WaterBillingService {
+
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("WaterControlnoService")
+	def controlNoSvc;
+
+	@Service("WaterBillScheduleService")
+    def billScheduleSvc;
+
+    @Service("WaterBillingUtilService")
+    def utilSvc;
+
+    @Service("WaterRecurringBillService")
+    def recurringBillSvc;
+
+    @Service("WaterInstallmentService")
+    def installmentSvc;
+
+    @Service
+    def self;
+
+	@DataContext("water_bill")
+	def billEm;
+
+	@DataContext("vw_water_bill")
+	def vwBillEm;
+
+	@DataContext("water_account")
+	def acctEm;
+
+	@DataContext("vw_water_account")
+	def vwAcctEm;
+
+	@DataContext("water_abstract_billitem")
+	def abstractBillItemEm;
+
+	@DataContext("vw_water_billitem")
+	def vwBillItemEm;
+
+	@DataContext("vw_water_billitem_subitem")
+	def vwSubItemEm;
+
+	@DataContext("water_billitem")
+	def billItemEm;
+
+	@DataContext("water_billitem_subitem")
+	def subItemEm;
+
+	@DataContext("water_credit_billitem")
+	def creditItemEm;
+
+	@DataContext("water_discountitem")
+	def discountItemEm;
+
+	@DataContext("water_installment")
+	def pmtPlanEm;
+
+	@DataContext("water_payment")
+	def pmtEm;
+
+	@DataContext("water_paymentitem")
+	def pmtItemEm;
+
+	@DataContext("water_bill_cancelled")
+	def cancelledBillEm;
+
+    @Env
+    def env;
+
+	def months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+
+	@ProxyMethod
+	public void buildBalanceForward( def o ) {
+		if(!o.billid) throw new Exception("billid is required in buildBalanceForward");
+		if(!o.prevbillid) throw new Exception("prevbillid is required in buildBalanceForward");
+		if(!o.billdate) throw new Exception("billdate is required in buildBalanceForward");
+
+		def sdf = new java.text.SimpleDateFormat("yyyyMMdd");
+		def billItems = billEm.getOpenBillItems( [billid: o.prevbillid ] );
+		def subItems = billEm.getOpenSubItems( [billid: o.prevbillid ] );
+		def cr = billEm.findOpenCreditItem( [billid: o.prevbillid ]);
+
+		billItems.each { b->
+			b.billid = o.billid;
+			b.forwarded = 1;
+			b.item = [objid: b.itemid];
+			b.amount = b.amount;
+			b.amtpaid = 0;
+			b.auto = 1;
+			b.uid = b.itemid + "_" + b.year + "_" + b.month;
+			b = billItemEm.create( b );
+			//find the appropriate subitem based on parentitemid,year and month
+
+			subItems.findAll{ si-> si.parentitemid == b.itemid && si.year==b.year && si.month==b.month }.each {si->
+				def sb = [:];
+				sb.billitemrefid = b.objid; 
+				sb.billid = o.billid;
+				sb.billdate = b.billdate;
+				sb.forwarded = 1;
+				sb.auto = 1;
+				sb.amount = si.amount;
+				sb.amtpaid = 0;
+				sb.type = si.type;
+				sb.amtpaid = 0;
+				sb.item = [objid: si.itemid] ;
+				sb.uid = si.type+"_"+b.objid+"_BF";
+				subItemEm.create( sb );	
+			}
+		}
+
+		if( cr?.amount ) {
+			def m = [:];
+			m.billid = o.billid;
+			m.refid = o.prevbillid;
+			m.reftype = "bf-credit";
+			m.refno = o.refno;
+			m.refdate = o.billdate;
+			m.amount = cr.amount;
+			m.remarks = "Balance forward credit";
+			m.posted = 0;
+			m.txnmode = "ONLINE";
+			m.voided = 0;
+			pmtEm.create( m );	
+		}
+
+		billEm.updateBalanceForward( [billid: o.billid] );	
+	}
+
+	//to be overridden 
+	@ProxyMethod
+    public def buildInitialBillItems( def o ) {
+ 		return o;
+    }
+
+    @ProxyMethod
+    public def beforeCreate( def p, def acct, def prevBill, def scheduleitem ) {
+    	return [:]; 
+    }
+
+    @ProxyMethod
+    public void afterCreate( def p, def acct, def bill, def scheduleitem ) {
+    }
+    
+	// --------------------------------------
+	// states: 0=OPEN   1=POSTED   2=CLOSED
+	// --------------------------------------
+	@ProxyMethod
+	public def create(def p) {
+		if(!p.acctid) throw new Exception("acctid is required in WaterBillingService.create");
+		if(!p.txndate ) p.txndate = dateSvc.getServerDate();
+
+		def	acct = vwAcctEm.find([objid: p.acctid]).first();
+
+		if(!acct.lastbillid) {
+			if( !p.year ) throw new Exception("year is required in WaterBillingService.create for first bill");	
+			if( !p.month )	throw new Exception("month is required in WaterBillingService.create for first bill");		
+		}
+
+		p.schedulegroupid = acct.schedulegroupid;
+
+		if(!p.schedulegroupid) throw new Exception("There is no bill schedule group assigned to " + acct.unitno );
+
+		//get the billscheduleitem if not provided
+		def scheduleitem = p.scheduleitem;
+		if( !scheduleitem ) {
+			if( !p.year ) throw new Exception("year is required in WaterBillingService.create");	
+			if( !p.month )	throw new Exception("month is required in WaterBillingService.create");	
+			def sp = [:];
+			sp.name = p.schedulegroupid;
+			sp.year = p.year;
+			sp.month = p.month;
+			scheduleitem = billScheduleSvc.getSchedule( sp );
+		}
+		if(!scheduleitem) throw new Exception("scheduleitem does not exist");
+		p.scheduleid = scheduleitem.objid;
+
+		//the date specified must not exceed the consumption period date 
+		//throw new Exception("txndate is " + p.txndate + " todate: " + scheduleitem.todate + " " + scheduleitem.expirydate );
+
+		//check if there is previous bill for the account
+		def prevBill = null;
+		if( acct.lastbillid ) {
+			prevBill = vwBillEm.find([ objid: acct.lastbillid ]).first();
+			if ( !prevBill.state.toString().toUpperCase().matches('POSTED|CLOSED')) 
+				throw new Exception("The existing bill status must be POSTED or CLOSED for Acct# " + acct.acctno );
+			if ( prevBill.expirydate.after( p.txndate))  
+				throw new Exception("Cannot create bill. Txndate is beyond the expiry date of this period"); 
+
+			//new bill month and year must not be less than the last bill
+			def tyr = prevBill.year;
+			def tmon = prevBill.month;
+			if( ((scheduleitem.year*12)+scheduleitem.month) <= ((tyr * 12)+tmon) ) 
+				throw new Exception( "Bill year and month must be greater than the last bill for for Acct No " + acct.acctno );
+		}
+
+		def customMap = self.beforeCreate( p, acct, prevBill, scheduleitem ); 
+
+		//check if there is a temporarily cancelled bill. we will use the same billno
+		def cancelledBill = cancelledBillEm.find( [acctid: acct.objid, year:scheduleitem.year, month: scheduleitem.month ] ).first();
+		if( cancelledBill ) { 
+			customMap.putAll( cancelledBill ); 
+		} 
+
+		if(!customMap.billno) {
+			def dt = new java.text.SimpleDateFormat("yyyy-MM-dd");
+			def pdate = dt.parse( scheduleitem.year + "-" + scheduleitem.month + "-01");
+			customMap.billno = controlNoSvc.getNextNo( [varname:  "water_billno", txndate: pdate ] );
+		}
+
+		//get the prev reading from the meter
+		def bill = [:];
+		bill.putAll( customMap ); 
+
+		// remove objid to ensure that it will assign a new objid
+		bill.remove('objid');
+
+		bill.prevbillid = prevBill?.objid;
+		bill.acctid = acct.objid; 
+		bill.acctinfoid = acct.acctinfoid;
+		bill.scheduleid = p.scheduleid;
+		bill.billdate = scheduleitem.billdate;
+		bill.duedate = scheduleitem.duedate;
+		bill.lasttxndate = dateSvc.getServerDate();
+		bill.txnmode = (!p.txnmode) ? "ONLINE": p.txnmode;
+		bill.balanceforward = 0;
+		bill.surcharge = 0;
+		bill.interest = 0;
+		bill.amount = 0;
+		bill.discount = 0;
+		bill.totalpayment = 0;
+		bill.year = scheduleitem.year;
+		bill.month = scheduleitem.month;
+		bill.uid = Encoder.MD5.encode( acct.objid + "_" + scheduleitem.objid );
+		bill = billEm.create( bill );
+			
+		//update the accounts last billid
+		acctEm.find( [objid: acct.objid ] ).update( [lastbillid: bill.objid ] );
+
+		if( prevBill && prevBill.state !='CLOSED' ) {
+			//close bill before balance forward to compute surcharges if any
+			closeBill( prevBill );
+			def defaultList = installmentSvc.processDefault( [acctid: acct.objid, billid: bill.objid, refdate: scheduleitem.fromdate ] );
+			//the billdate passed here is the fromdate because this represents the date of the previous record  
+			buildBalanceForward( [prevbillid: prevBill.objid, billid: bill.objid, billdate: scheduleitem.fromdate, refno: prevBill?.billno, defaultList:defaultList ] );
+		}
+
+		self.afterCreate( p, acct, bill, scheduleitem );
+
+		//restore temp bill billitems and payments
+		if(cancelledBill) {
+ 			def parm = [oldbillid: cancelledBill.objid, newbillid: bill.objid ]; 
+ 			cancelledBillEm.transferBillItems( parm );
+ 			cancelledBillEm.transferPayments( parm );
+			cancelledBillEm.find( [objid: cancelledBill.objid ]).delete();	
+ 		}
+
+		//call other routines that may add to the routine like installments
+		def parm  = [
+			billid: bill.objid, acctid: bill.acctid, 
+			year:bill.year, month:bill.month, 
+			billdate: scheduleitem.todate 
+		];
+		recurringBillSvc.loadBillItems( parm );
+
+		//repost payments if there are any
+		utilSvc.repostPayments( [billid:bill.objid ] );	
+
+		//this should be auto-post
+		utilSvc.updateBill( [billid: bill.objid, refdate:  dateSvc.getServerDate() ] );
+
+		return bill;
+	}
+
+	//close bill is called by the create method and when reconnection from a disconnect
+	@ProxyMethod
+	public void closeBill( def bill ) {
+		if(!bill) throw new Exception("bill is required in WaterBillingService.closeBill");
+
+		// if bill.validity date is not expirydate, it means bill is not updated.
+		// if(bill.validitydate!=bill.expirydate) {
+		// 	utilSvc.updateBill( [billid: bill.objid, refdate: bill.expirydate ] );	
+		// }
+		
+		utilSvc.updateBill( [billid: bill.objid, refdate: bill.expirydate ] );	
+		billEm.find( [objid: bill.objid ]).update( [state: "CLOSED" ] );
+	}
+
+	//create a temporary bill if there are payments that is not bf-credit or there are manually added items
+	@ProxyMethod
+	public def createCancelledBill(def bill) {
+		//check first if there are payments or there are manually added items; if none do not create the cancelled bill
+		boolean createCancelledBill = false;
+		if( pmtEm.find([billid: bill.objid ]).where( " NOT( reftype = 'bf-credit') " ).exists() ) {
+			createCancelledBill = true;
+		}
+		if( createCancelledBill == true ) {
+			def tmp = [:];
+			tmp.putAll( bill );
+			def oldbillid = tmp.remove("objid");
+			tmp = cancelledBillEm.create( tmp );	
+			def parm = [oldbillid: oldbillid, newbillid: tmp.objid ]; 
+			cancelledBillEm.transferPayments( parm );
+			cancelledBillEm.transferBillItems( parm );
+			return tmp;			
+		}
+		else {
+			return [:];
+		}
+	}
+
+	@ProxyMethod
+	public def cancelBill( def o ) { 
+		if ( !o?.billid ) throw new Exception("billid  parameter is required in cancelBill method");
+
+		def bill = vwBillEm.find([ objid: o.billid ]).first(); 
+		if ( !bill ) throw new Exception("Bill record not found");
+
+		if ( bill.txnmode.toString().toUpperCase() == 'MIGRATED') 
+			throw new Exception("This bill cannot be cancelled because it is migrated");
+		if ( !bill.state.toString().toUpperCase() == 'OPEN') 
+			throw new Exception("You can only cancel bill if it is in OPEN state");
+
+		//reverse first installment defaults if any
+		installmentSvc.revertDefault([ billid: bill.objid ]);
+
+		def creditNote = pmtEm.find([ billid: bill.objid ]).select('objid').where("reftype IN ('creditnote', 'paymentplan') ").first(); 
+		if ( creditNote ) {
+			throw new Exception("Bill cannot be cancelled. There are credit note/payment plan transactions. You need to revert this manually");	
+		}
+
+		utilSvc.rollbackPayments([ billid: bill.objid, force_delete: true ]);
+		pmtEm.find([ billid: o.billid ]).where("reftype = 'bf-credit' ").delete();
+
+		//delete recurring items first
+		def parm = [ billid: bill.objid, acctid: bill.acctid ];
+		recurringBillSvc.unloadBillItems( parm );
+
+		def tmp = createCancelledBill( bill );
+
+		//delete all subitems and items  
+		subItemEm.find([ billid: o.billid ]).delete();
+		billItemEm.find([ billid: o.billid ]).delete();
+		
+		//update the status and delete the bill
+		acctEm.find([ objid: bill.acctid ]).update([ lastbillid: "{NULL}" ]);
+		billEm.find([ objid: o.billid ]).delete();
+		
+		//if there is previous bill, change status to POSTED from CLOSED and update account last billid 
+		if ( bill.prevbillid ) {
+			billEm.find([ objid: bill.prevbillid ]).update([ state: "POSTED" ]);
+			acctEm.find([ objid: bill.acctid ]).update([ lastbillid: bill.prevbillid ]);	
+		}
+		
+		//return the cancelled bill
+		return tmp;
+	}
+
+	@ProxyMethod
+	public void beforePost( def o, def bill ) {
+	}
+
+	//post method will calculate the consumption and reapply payments if any. If txndate is greater than the duedate we need to reassess again  
+	@ProxyMethod
+	public void post(def o) {
+		if(!o.billid) throw new Exception("Please specify billid");
+		def txndate = dateSvc.getServerDate();
+		if(!txndate) {
+			def sdf = new SimpleDateFormat( "yyyy-MM-dd" );
+			txndate = sdf.parse( txndate.toString() );	
+		}
+
+		def bill = vwBillEm.find( [objid: o.billid ] ).first();
+		if(bill.state == 'POSTED') return;
+		if(bill.state == 'CLOSED') throw new Exception("Bill is already closed"); 
+
+		self.beforePost( o, bill ); 
+
+		def validitydate = bill.duedate;
+		//rollback first all payments if any
+		utilSvc.rollbackPayments( [billid: bill.objid ] );
+
+		//update billitems based on billdate
+		//update bill status to post so it can be evaluated by the rules
+		billEm.find( [objid: o.billid ]).update( [state: "POSTED"] );
+
+		utilSvc.updateBill( [billid: bill.objid, refdate: bill.billdate ] );
+
+		//repost all payments made before due date
+		utilSvc.repostPayments( [billid: bill.objid, refdate: bill.duedate ] ); 
+
+		//if the txndate is already past due, we need to recalculate the penalties if any
+		if(txndate.after(bill.duedate)) {
+			utilSvc.updateBill( [billid: bill.objid, refdate: bill.expirydate ] );	
+			validitydate = bill.expirydate;
+		}
+		//reapply all remaining payments for this bill
+		utilSvc.repostPayments( [billid: bill.objid ] ); 
+
+		//update the validity date afterwards
+		billEm.find( [objid: o.billid ]).update( [ validitydate: validitydate ] );
+	}
+
+	@ProxyMethod
+	public void unpost(def o) {
+		if(!o.billid) throw new Exception("Please specify billid");
+		def bill = vwBillEm.find( [objid: o.billid ] ).first();
+		if(bill.state != 'POSTED') throw new Exception("Unpost applicable only to POSTED bills");
+
+		//rollback first all payments made before due date like advance credits or early payments made even if the reading was still not available.
+		utilSvc.rollbackPayments( [billid: bill.objid] );
+		utilSvc.rollbackBill( [billid: bill.objid, refdate: bill.todate] );
+
+		billEm.find( [objid: o.billid ]).update( [state: "OPEN", validitydate: bill.todate ] );
+
+		//reapply all remaining payments for this bill
+		utilSvc.repostPayments( [billid: bill.objid ] ); 
+	}
+	
+
+	@ProxyMethod
+	public def getBillItems( def o ) {
+		if( o.viewtype == "unpaid") {
+			def billItems = billEm.getUnpaidBillItems( [billid : o.billid ] );
+			billItems.each {
+				it.particulars += " " + months[it.month-1]+ " " + it.year;
+			}
+			return billItems;
+		} 
+		else if( o.viewtype == "suppressed") {
+			def billItems = billEm.getBillItems( [billid : o.billid ] );
+			billItems.each{
+				it.itemdesc = it.itemid.toString().replaceAll('_',' '); 
+			}
+
+			def tempItems = []; 
+			billItems.groupBy{ it.itemid }.each{ k,v-> 
+
+				def currItem = v.find{ it.groupidx == 0 }
+				v.remove( currItem ); 
+
+				tempItems << currItem;
+
+				def particulars = "${currItem.itemdesc} "+ months[ currItem.month - 1] +" ${currItem.year}"; 
+				currItem.particulars = particulars.toString(); 
+
+				if ( currItem.remarks ) {
+					currItem.particulars += '('+ currItem.remarks +')';
+				}
+
+				if ( v ) {
+					def pastItem = [:]; 
+					pastItem.putAll( v.first()); 
+					pastItem.amount = pastItem.discount = 0; 
+					pastItem.surcharge = pastItem.interest = 0; 
+					pastItem.amtpaid = pastItem.balance = 0; 
+
+					pastItem.particulars = v.first().itemdesc +' ( Past Due )'; 
+
+					v.each{
+						pastItem.amount += it.amount; 
+						pastItem.discount += it.discount; 
+						pastItem.surcharge += it.surcharge; 
+						pastItem.interest += it.interest; 
+						pastItem.amtpaid += it.amtpaid; 
+						pastItem.balance += it.balance; 
+					}
+
+					tempItems << pastItem;
+				}
+			}
+			return tempItems;
+		}
+		else {
+			def billItems = billEm.getBillItems( [billid : o.billid ] );
+			billItems.each { 
+				it.particulars += " " + months[it.month-1]+ " " + it.year;
+				if( it.remarks ) it.particulars += "(" + it.remarks +  ")";
+			}
+			return billItems;
+		}
+	}
+
+	@ProxyMethod
+	public void addBillItem( def o ) {
+		if(!o.billid) throw new Exception("billid is required in addBillItem");
+		if(!o.year) throw new Exception("year is required  in addBillItem");
+		if(!o.month) throw new Exception("month is required  in addBillItem");
+
+		def bill = vwBillEm.find( [objid: o.billid]).first();
+
+		//check first if there are payments posted. Thius needs to be unposted first before continuing
+		def hasPayments = pmtEm.find( [billid: bill.objid ] ).where(" NOT(reftype='bf-credit') AND posted=1 ").exists();
+		if(hasPayments) {
+			if( !o.force_repost_payments )
+				throw new Exception("Please unpost all payments before proceeding");
+			utilSvc.rollbackPayments( [billid: bill.objid] );
+		}
+
+		//items to add should be less than or equal to current bill. future items not allowed 
+		if( ((o.year*12)+o.month) > ((bill.year*12)+bill.month))
+			throw new Exception("Year and month must be equal or less than the current year and month");  
+
+		def df = new SimpleDateFormat( "yyyy-MM-dd" );
+		o.uid = o.item.objid + "_" + o.year + "_" + o.month; 
+
+		o.remarks = "" + o.year + " " + months[ o.month.toInteger() - 1]; 
+		o.forwarded = (((bill.year*12)+bill.month) > ((o.year*12)+o.month)) ? 1 : 0;
+		o.amtpaid = 0;
+		o.auto = 0;
+
+		billItemEm.create( o );
+		utilSvc.updateBill( [billid: o.billid, refdate: bill.todate ] );
+		if( o.force_repost_payments ) {
+			utilSvc.repostPayments( [billid: bill.objid ] );	
+		}
+
+		billEm.updateBalanceForward( [billid: o.billid ] );	
+		billEm.updateBillTotals( [billid: o.billid ] );		
+	}	
+
+	@ProxyMethod
+	public void clearBillItems(def o) {
+		if(!o.billid) throw new Exception("Please specify billid in WaterBillingService.clearBillItems");
+		def bill = vwBillEm.find( [objid: o.billid]).first();
+
+		//rollback all credit payments before proceeding
+		utilSvc.rollbackPayments( [billid: bill.objid ] );
+		billItemEm.find( [billid: bill.objid] ).where("forwarded = 0 AND item.allowmanual = 1").list().each { b->
+			subItemEm.find( [billitemrefid: b.objid ]).delete();
+			billItemEm.find( [objid: b.objid ] ).delete();
+		}
+		utilSvc.repostPayments( [billid: bill.objid  ] );	
+		billEm.updateBalanceForward( [billid: bill.objid  ]);	
+		billEm.updateBillTotals( [billid: bill.objid  ] );	
+	}
+
+	@ProxyMethod
+	public void removeBillItems( def o ) {
+		//delete all penalties related to the items
+		if(!o.refdate) o.refdate = dateSvc.getServerDate();
+		utilSvc.rollbackPayments( [billid: o.billid, refdate: o.refdate ] );
+		o.items.each { itm->
+			def r = billItemEm.find( [objid: itm.objid ] ).first();
+			if( r.auto == 0 ) {
+				subItemEm.find( [billitemrefid: itm.objid ] ).delete();
+				billItemEm.find( [objid: itm.objid ] ).delete();							
+			}
+		}
+		utilSvc.repostPayments( o );
+		billEm.updateBalanceForward( o );		
+		billEm.updateBillTotals( o );
+	}
+
+	@ProxyMethod
+	public void removeBillItem( def o ) {
+		if(!o.objid) throw new Exception("objid is required in  WaterBillingService.removeBillItem");
+
+		def r = vwBillItemEm.find( [objid: o.objid ] ).first();
+		if(!r) throw new Exception("Item not found");
+		if(r.auto) throw new Exception("Only manually added items can be deleted");
+
+		utilSvc.rollbackPayments( [billid: r.billid ] );
+
+		//delete all penalties related to the items before deleting the item
+		subItemEm.find( [billitemrefid: r.objid ] ).delete();
+		billItemEm.find( [objid: r.objid ] ).delete();
+
+		utilSvc.repostPayments( [billid: r.billid  ] );
+		billEm.updateBalanceForward( [billid: r.billid ] );		
+		billEm.updateBillTotals( [billid: r.billid ] );
+	}
+
+	@ProxyMethod
+	public def rebill(def o ) {
+		if(!o.txndate) throw new Exception("refdate is required in WaterBillingService.updateBill");
+		if(!o.billid) throw new Exception("billid is required in WaterBillingService.updateBill");
+
+		def bill = vwBillEm.find([ objid: o.billid ]).first();
+		boolean posted = ( bill.state == 'POSTED' );
+		if ( posted ) {
+			billEm.find([ objid: o.billid ]).update([ state: 'OPEN' ]);
+		}
+
+		o.refdate = o.txndate;
+		o.force_delete = true;
+		utilSvc.rollbackPayments( o );
+		utilSvc.rollbackBill( o );
+
+		if ( bill.discdate ) {
+			utilSvc.repostPayments( [billid:bill.objid, refdate: bill.discdate ] );
+		}
+
+		if ( posted ) {
+			self.post( [billid: bill.objid ] ); 
+			bill = vwBillEm.find([ objid: o.billid ]).first();
+		}
+
+		
+		utilSvc.repostPayments( [billid:bill.objid, refdate: bill.validitydate ] );
+		return vwBillEm.find([ objid: o.billid ]).first();
+	}
+
+	//This is used by credit notes and other transactions
+	@ProxyMethod
+	public def getLatestBill( def  o ) {
+		if(!o.acctid) throw new Exception("acctid is required in WaterBillingService.getLatestBill");
+		return vwBillEm.find( [acctid: o.acctid ] ).orderBy("year DESC, month DESC").first();
+	}	
+}

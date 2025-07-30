@@ -1,0 +1,151 @@
+import com.rameses.annotations.*;
+import com.rameses.util.*;
+import treasury.utils.*;
+
+class WaterBillPaymentService {
+	
+	@Service("WaterPaymentService")
+	def pmtSvc;
+
+	@Service("WaterBillScheduleService")
+	def schedSvc;
+
+	@DataContext("vw_water_bill")
+	def vwBillEm;
+
+	@DataContext("water_payment")
+	def pmtEm;
+	
+	@DataContext("vw_water_account")
+	def vwAcctEm;
+
+	@Service("WaterBillingService")
+	def billingSvc;
+
+	@Service("DateService")
+	def dateSvc;
+
+
+	@ProxyMethod
+	public def getPaymentInfo( def o ) {
+		if ( !o.billid ) {
+			if ( o.params?.id ) {
+				o.acctno = o.params.id; 
+			}
+
+			def acct = vwAcctEm.find([ acctno: o.acctno.toString() ]).first(); 
+			if ( !acct ) throw new Exception("account '"+ acctno +"' not found");
+
+			o.billid = acct.lastbillid;
+		}		
+
+		if(!o.billid) throw new Exception("parameter billid is required in WaterBillPaymentService.getPaymentInfo")
+
+		if ( o.params?.billdate ) {
+			o.txndate = o.params.billdate; 
+		} 
+
+		if ( !o.txndate ) { 
+			o.txndate = dateSvc.getBasicServerDate(); 
+		}
+
+		// BEGIN: specific adjustments
+		// 
+		//   Do something here ...
+        // 
+        // END: specific adjustments
+
+
+		def bill = vwBillEm.find( [objid: o.billid ]).first();
+		if(!bill.schedulegroupid) throw new Exception("Please specify schedule groupid in bill");
+
+		def pmt = pmtEm.find([ billid: bill.objid, reftype: 'creditnote', posted: 0 ]).select('objid').first(); 
+		if ( pmt ) throw new Exception('There is still a pending creditnote. Please approve it first'); 
+
+		// correct first the bill if it is latest. This is only applicable if water state is active 
+		// If not latest, generate each bill until it reaches the latest
+		// find bill's groupid to find current month and bill
+		if ( bill.acctstate == 'active' ) {
+			def current = schedSvc.getCurrentBillMonth( [name: bill.schedulegroupid ] );
+			def bym = (bill.year * 12)+bill.month;
+			def cym = (current.year * 12)+current.month;
+			int counter = 0;		
+			while(bym < cym) {
+				def m = [:];
+				m.acctid = bill.acctid;
+				m.prevbillid = o.billid;
+				m.year = bill.year;
+				m.billtype = o.billtype;
+				m.month = bill.month + 1;
+				if( m.month > 12 ) {
+					m.month = 1;
+					m.year = m.year + 1;
+				}
+				bill = billingSvc.create( m );
+				o.billid = bill.objid;
+				bym = ((bill.year*12)+bill.month);
+				counter = counter + 1;
+			}	
+		}
+
+		if ( o.params?.amtpaid ) {
+			o.amount = o.params.amtpaid; 
+		}
+		
+		if ( o.amount == null ) {
+			o.amount = 0.0; 
+		}
+		else if (!( o.amount instanceof Number )) {
+			o.amount = new BigDecimal( o.amount.toString());
+		}
+
+        def r = pmtSvc.getPaymentInfo( [billid: o.billid, amtpaid: o.amount, txndate: o.txndate, autopost: true ] );
+
+        //check and correct item mapping and if it exists in financial module
+        def itmAcctUtil = new ItemAccountUtil();
+        r.items.each { it->
+        	def itm = it.item;
+        	if(!itm.objid) throw new Exception("No item mapping for " + it.billcode );
+			if( itm.orgid !=null ) {
+				try {
+					it.item = itmAcctUtil.lookup( itm.objid, it.orgid );						
+				}
+				catch(e) {
+					it.item = itmAcctUtil.lookup( itm.objid );	
+				}
+			}
+			else {
+				it.item = itmAcctUtil.lookup( itm.objid );
+			}
+			if(!it.item) throw new Exception("Item account not found in financial module for water item mapping for " + it.billcode );
+        }
+
+        def result = [:];
+        result.items = r.items;
+        result.billitems = r.billitems;
+        result.amount = NumberUtil.round( r.items.sum{ it.amount } );
+
+        bill = vwBillEm.find([ objid: bill.objid ]).first();
+
+		result.billid = bill.objid;
+        result.billno = bill.billno;
+        result.monthname = bill.monthname;
+        result.year = bill.year;
+        result.acctno = bill.acctno;
+        result.acctname = bill.acctname;
+        result.rate = bill.rate;
+        result.fromdate = bill.fromdate;
+        result.todate = bill.todate;
+        result.duedate = bill.duedate;
+
+        // BEGIN: specific adjustments
+        // 
+        result.acctgroup =  bill.acctgroup;
+        result.paidby = bill.acctname;
+        result.paidbyaddress =  bill.location?.text;
+        // 
+        // END: specific adjustments
+
+        return result;
+    }   
+}

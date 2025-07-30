@@ -1,0 +1,28 @@
+SET FOREIGN_KEY_CHECKS = 0;
+DELETE FROM sys_sequence;
+DELETE FROM water_abstract_billitem;
+DELETE FROM water_account;
+DELETE FROM water_account_info;
+DELETE FROM water_account_tag;
+DELETE FROM water_acctgroup;
+DELETE FROM water_batch_bill;
+DELETE FROM water_batch_bill_task;
+DELETE FROM water_bill;
+DELETE FROM water_billgroup;
+DELETE FROM water_billitem;
+DELETE FROM water_billitem_subitem;
+DELETE FROM water_billschedule;
+DELETE FROM water_billschedule_group;
+DELETE FROM water_compromise;
+DELETE FROM water_credit_billitem;
+DELETE FROM water_discountitem;
+DELETE FROM water_meter;
+DELETE FROM water_metersize;
+DELETE FROM water_payment;
+DELETE FROM water_paymentitem;
+DELETE FROM water_recurringfee;
+DELETE FROM water_tag;
+DELETE FROM water_txn;
+DELETE FROM water_txn_task;
+SET FOREIGN_KEY_CHECKS = 1;
+

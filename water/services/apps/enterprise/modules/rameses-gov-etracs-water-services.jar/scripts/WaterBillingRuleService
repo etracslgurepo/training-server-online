@@ -1,0 +1,137 @@
+import com.rameses.annotations.*;
+import com.rameses.functions.*;
+import com.rameses.functions.*;
+import water.facts.*;
+import com.rameses.util.*;
+import treasury.utils.*;
+import treasury.facts.*;
+import java.rmi.server.*;
+
+class WaterBillingRuleService {
+	
+	@Service("RuleExecutorService")
+	def ruleSvc;
+
+	@DataContext("water_payment")
+	def pmtEm;
+
+	@DataContext("water_paymentitem")
+	def pmtItem;
+
+	@DataContext("vw_water_billitem")
+	def vwBillItemEm;
+
+	@DataContext("vw_water_billitem_subitem")
+	def subItemEm;
+
+	@DataContext("water_credit_billitem")
+	def creditItemEm;
+
+	@DataContext("vw_water_credit_billitem")
+	def vwCreditItemEm;
+
+	@DataContext("water_discountitem")
+	def discountItemEm;
+
+	@DataContext("water_bill")
+	def billEm;
+
+	@DataContext("vw_water_installment")
+	def vwPmtPlanEm;
+
+	@Service("DateService")
+	def dateSvc;
+
+
+	@ProxyMethod
+	public def executeRules( def ruleName, def o ) {
+		if(!o.bill) throw new Exception("bill is required in WaterBillingRuleService.executeRules");
+		if(!o.acct) throw new Exception("acct is required in WaterBillingRuleService.executeRules");
+		if(!o.txndate) throw new Exception("txndate is required in WaterBillingRuleService.executeRules");
+		
+		def bill = o.bill;
+		def acct = o.acct;
+		
+		def facts = [];
+		facts << new TransactionDate( o.txndate );
+		facts << new WaterBill( bill );
+		facts << new WaterAccount( acct );
+		if( acct.meter ) {
+			facts << new WaterMeter( acct.meter );
+		}
+
+		//load account tags
+		if( acct.tags ) {
+			acct.tags.each {
+				facts << new WaterAccountTag( name: it );
+			}	
+		}
+
+		//load bill schedule fact
+		if(o.schedule) {
+			facts << new WaterBillSchedule( o.schedule );
+		}
+		else {
+			//if schedule not specified use the bill because the schedule is passed there
+			facts << new WaterBillSchedule( bill );
+		}
+
+		def filter_str = "superseded = 0";
+		if( ruleName == "waterpayment" ) {
+			if(!o.amtpaid ) o.amtpaid = 0;
+			def pmt = new Payment( amount: o.amtpaid );
+			if(o.reftype) pmt.reftype = o.reftype;
+			if(o.initial) pmt.initial = o.initial;
+			facts << pmt;
+
+			filter_str = "amount > amtpaid AND "+ filter_str;
+		} 
+
+		//load billitems
+		def pp = [billid: bill.objid, txndate: o.txndate ];
+		def billitemList = vwBillItemEm.find( [billid: o.billid ] ).where( filter_str ).list();
+		def subItemList = subItemEm.find( [billid: o.billid ] ).where( " superseded = 0 ").list();		
+		def discountItemList = discountItemEm.where( " billitem.billid = :billid  ", [billid: o.billid ] ).list();
+
+		billitemList.each {
+			//we need to correct the mapping
+			def mb = new WaterBillItem(it);
+			mb.input = true;
+
+			facts << mb;
+			def pItems = subItemList.findAll{ r-> r.billitemrefid == mb.objid };
+			if(pItems) {
+				pItems.each { sb->
+					def rb = null;
+					if(sb.type?.equalsIgnoreCase("SURCHARGE")) {
+						rb = new SurchargeItem(sb);
+					} 
+					else {
+						rb = new InterestItem(sb);
+					}	
+					rb.input = true;
+					mb.addSubItem( rb );
+					facts << rb;
+				}	
+			} 
+
+			def discItem = discountItemList.find{r -> r.billitemrefid == mb.objid  };
+			if( discItem ) {
+				def di = new DiscountItem( mb, discItem );
+				mb.addDiscount( di );
+				di.input = true;
+				facts << di;	
+			}
+
+
+		};
+
+		ruleSvc.execute( ruleName, facts, null, null );
+		return facts;
+	}
+
+	
+	
+
+
+}

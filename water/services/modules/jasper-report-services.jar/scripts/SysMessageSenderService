@@ -1,0 +1,64 @@
+import com.rameses.annotations.*;
+
+import groovy.text.*;
+import java.util.regex.*;
+import com.rameses.osiris2.reports.*;
+import com.rameses.osiris3.sql.*;
+import groovy.lang.GroovyShell;
+import groovy.lang.Script;
+import org.codehaus.groovy.runtime.InvokerHelper;
+
+class SysMessageSenderService {
+	
+	@XConnection("kafka-email")
+	def emailQueue;
+
+	@XConnection("kafka-sms")
+	def smsQueue;
+
+	@Service("SysMessageTemplateService")
+	def msgTemplateSvc;
+
+	@Service("DateService")
+	def dateSvc;
+
+	@ProxyMethod
+	def send( def o ) {
+		if(!o.templateid) throw new Exception("templateid is required in SysMessageSenderService.send");
+		if(!o.params) o.params = [:];
+
+		def rlist = msgTemplateSvc.getRender( [templateid: o.templateid, 
+				params: o.params, filters: o.filters, test: o.test,
+				include_attachments: true ]  );
+
+	    def dtsent = dateSvc.getServerDate();
+	    rlist.each { d-> 
+			if(d.email) {
+				def mm = [:];
+				mm.to = d.email;
+				mm.cc = d.emailcopy;
+				mm.state = 0;
+				mm.dtsent = dtsent;
+				mm.connection = d.connection;
+		    	mm.subject = d.subject;
+				mm.message = d.message;
+				if(d.attachments) mm.attachments = d.attachments; 
+				emailQueue.send( mm );
+			}	
+			if(d.mobileno) {
+				def mm = [:];
+				mm.phoneno = d.mobileno;
+				mm.dtsent = dtsent;
+				mm.state = 0;
+				mm.connection = d.connection;
+				mm.message = d.smstext;
+				smsQueue.send( mm );
+			}
+	    }
+
+	}
+
+
+
+}
+

@@ -1,0 +1,117 @@
+import com.rameses.annotations.*; 
+
+class WaterTxnPaymentService {
+
+	@Service("WorkflowTaskService")
+	def wfSvc;
+
+	@Service("DateService")
+	def dateSvc;
+
+	@DataContext("water_payment")
+	def pmtEm;
+
+	@DataContext("water_txn_billitem")
+	def aBillItemEm;
+
+	@DataContext("vw_water_txn")
+	def vwTxnEm;
+
+	@DataContext("water_txn_bill")
+	def txnBillEm;
+
+	@ProxyMethod
+	public def prePayment( o ) {
+		//this is just added for deprecated cashreceipt plugin  
+		return null;
+	}	
+
+	@ProxyMethod
+	public def getPaymentInfo( pp ) {
+
+		def param = pp.params;
+		if ( !param ) throw new Exception('params argument is required in WaterTxnCashReceiptService'); 
+		if( !param.id ) throw new Exception("id is required");
+
+		def txn = vwTxnEm.find( [controlno: param.id ] ).first();
+		if(!txn) throw new Exception("Transaction not found");
+		if( txn.task.state =='end') throw new Exception("This transaction has already ended");
+		if( txn.task.state !='payment') throw new Exception("This transaction is not yet approved for payment");
+
+		def billItems = aBillItemEm.find( [billid: txn.billid ]).list();
+
+		//transform into billitems to conform to the cashreceipt common client
+		def items = [];
+		def errs = [];
+		billItems.each {
+			if(!it.item.item?.objid) errs << "Account not mapped " + it.item.title;
+			def m = [:];
+			m.item = it.item.item;
+			m.amount = it.amount;
+			items << m
+		}	
+		if(errs) throw new Exception("Errors found \n" + errs.join("\n"));
+ 
+		def resp = [:]; 
+		resp.txnid = txn.objid;
+		resp.controlno = txn.controlno;
+		resp.txntype = "watertxn";
+		resp.items = items;
+		resp.billitems = items;
+		if( txn.acctinfo.owner.profileid ) {
+			def m = [:];
+			m.putAll( txn.acctinfo.owner );
+			m.objid = txn.acctinfo.owner.profileid;
+			resp.payer = m;
+		}
+		resp.paidby = txn.acctinfo.acctname + " (" + txn.account.acctno + ")";
+		resp.paidbyaddress = txn.acctinfo.location?.text;
+		resp.remarks = "Payment for Transaction"
+		return resp; 
+	}
+
+	@ProxyMethod
+	public void postPayment( o ) { 
+		
+		if(!o.txnid && !o.billid) throw new Exception("WaterTxnPaymentService.postPayment error. txnid or billid is required")
+		if(!o.txndate) o.txndate = dateSvc.getServerDate();
+		if(!o.txnmode) o.txnmode = "CAPTURE";
+		if(!o.refno) o.refno = o.receiptno;
+		if(!o.refdate) o.refdate = o.receiptdate;
+		if(!o.reftype) o.reftype = "cashreceipt";
+		if(!o.refid) o.refid = o.objid;
+
+		if( !o.txnid ) {
+			def txnBill = txnBillEm.find( [objid: o.billid ] ).first();
+			o.txnid = txnBill.txnid; 
+		}
+		def txn = vwTxnEm.find( [objid: o.txnid ] ).first();
+		if(!o.billid) o.billid = txn.billid;
+
+		//create the payment
+		def pmt = [:];
+		pmt.billid = o.billid;
+		pmt.txnid = o.txnid;
+		pmt.refid = o.refid;
+		pmt.refno = o.refno;
+		pmt.reftype = o.reftype;
+		pmt.refdate = o.refdate;
+		pmt.txnmode = "ONLINE";
+		pmt.amount = o.amount;
+		pmt.voided = 0;
+		pmt.posted = 1;
+		pmtEm.create( pmt );
+
+		aBillItemEm.find([ billid: o.billid ]).update([ amtpaid: "{amount}" ]); 
+
+		//fire the workflow for release.
+		def m = [:];
+		m.processname = txn.txntype.processname;
+		m.entityschemaname = "water_txn";
+		m.action = "post-payment";
+		m.refid = o.txnid;
+		wfSvc.signal( m ); 
+	} 
+
+
+} 

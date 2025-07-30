@@ -1,0 +1,29 @@
+<schema>
+	<element tablename="vw_water_installment">
+		<field name="objid" primary="true" />
+		<field name="acctid" />
+		<field name="txnid" />
+		<field name="state" />
+		<field name="paymentrefid" />
+		<field name="amount" type="decimal" />
+		<field name="downpaymentrate" type="decimal" required="true"/>
+		<field name="downpayment" type="decimal" required="true"/>
+		<field name="term" type="integer" required="true"/>
+		<field name="principal" type="decimal" required="true"/>
+		<field name="installmentamt" type="decimal" required="true"/>
+		<field name="txntypeid" />
+		<field name="amtpaid" />
+		<field name="balance" type="decimal" expr="principal-amtpaid"  caption="Balance"/>
+		<field name="refno" />
+		<field name="refdate" />
+		<field name="reftype" />
+		<field name="startyear" />
+		<field name="startmonth" />
+		<complex name="item" ref="water_itemaccount" jointype="many-to-one" required="true">
+			<key field="itemid" target="objid" />		
+		</complex>
+	</element>
+</schema>		
+
+
+

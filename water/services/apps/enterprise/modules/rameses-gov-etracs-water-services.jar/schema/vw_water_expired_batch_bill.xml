@@ -1,0 +1,19 @@
+<schema>
+	<element tablename="vw_water_expired_batch_bill">
+		<field name="objid" primary="true" visible="true" searchable="true" indexed="true" caption="Batch ID"/>
+		<field name="description" searchable="true" indexed="true" caption="Description"/>
+		<field name="state" />
+		<field name="tag" />
+		<field name="schedulegroupid" />
+		<field name="currentbatchid" />
+		<field name="year" caption="Year"/>
+		<field name="month" />
+		<field name="monthname" expr="MONTH_ARRAY(month)" caption="Month"/>
+		<field name="scheduleid" />
+		<field name="expirydate" />
+		<field name="task_state" />
+		<field name="reader_objid" />
+		<field name="reader_name" />
+	</element>
+</schema>
+

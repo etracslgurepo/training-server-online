@@ -1,0 +1,30 @@
+<schema>
+	<element tablename="vw_water_billitem">
+		<field name="objid" primary="true"/>
+		<field name="billid" />	
+		<field name="amount" type="decimal"/>
+		<field name="amtpaid" type="decimal"/>
+		
+		<field name="year" />
+		<field name="month" />
+		<field name="remarks" />
+		<field name="uid" />
+
+		<field name="particulars" />
+		<field name="billdate" />
+		<field name="auto" />
+		<field name="forwarded" />
+		<field name="billdate" />
+		<field name="duedate" />
+		<field name="superseded" />
+		<field name="supersederid" />
+
+		<field name="installmentid" />
+		<field name="recurring" />
+		
+		<complex name="item" ref="water_itemaccount" jointype="many-to-one" required="true">
+			<key field="itemid" target="objid" />		
+		</complex>	
+	</element>
+</schema>
+

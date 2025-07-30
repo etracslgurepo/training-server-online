@@ -1,0 +1,8 @@
+<schema>
+	<element tablename="water_recurring_bill" extends="water_abstract_bill">
+		<field name="objid" primary="true" prefix="WTRRECBILL"/>
+		<field name="acctid" />		
+	</element>
+</schema>
+
+

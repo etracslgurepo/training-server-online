@@ -1,0 +1,175 @@
+import com.rameses.annotations.*; 
+import com.rameses.util.*;
+
+class WaterEPaymentService {
+	
+	@DataContext( dynamic=true )
+	def dynaEm;
+
+	@Service("WaterPaymentService")
+	def svc;
+
+	@Service(value="QueryService")
+	def querySvc;
+
+	@Service('DateService')
+	def dateSvc; 
+
+	@DataContext("vw_water_bill")
+	def vwBillEm;
+
+	@ProxyMethod 
+	public def getBilling( param ) {
+		if ( !param.billdate ) {
+			param.billdate = dateSvc.getServerDate(); 
+		}
+
+		param.amount = toNumber( param.amount ); 
+
+		def bill = vwBillEm.find( [acctno: param.refno] ).orderBy("year DESC, month DESC").first();
+		if ( bill.state == 'CLOSED' ) 
+		    throw new Exception("Bill is already closed");
+
+		def schedEm = dynaEm.lookup('water_billschedule'); 
+		schedEm = schedEm.select('fromdate,todate,readingdate,duedate,expirydate');
+		
+		def sched = schedEm.find([ objid: bill.scheduleid ]).first(); 
+
+		def pp = [ billid: bill.objid, txndate: param.billdate ];
+		if ( param.amount ) pp.amtpaid = param.amount;     
+
+		def res = svc.getPaymentInfo( pp );
+		
+		def blankIfNull = { vv->
+			if(vv==null) return "";
+			return vv;
+		}
+
+		def rct = [:];
+        rct.acctid = bill.acctid;
+        rct.acctno = bill.acctno;
+        rct.acctname = bill.acctname;
+        rct.location = bill.location;
+        rct.address = bill.location;
+        rct.paidby = bill.acctname;
+        rct.paidbyaddress = bill.location?.text;
+        rct.billid = bill.objid;
+        rct.billgroupid = bill.billgroupid;
+        rct.classification = bill.classification;
+        rct.billno = bill.billno;
+        rct.billtoyear = bill.year;
+        rct.year = bill.year;
+        rct.monthname = bill.monthname;
+
+        rct.duedate = bill.duedate; 
+        rct.readingdate = sched.readingdate;
+        rct.schedule = sched; 
+
+        rct.meter = [
+        	serialno: bill.meter?.serialno,
+        	brand: bill.meter?.brand,
+        	size: bill.meter?.size
+        ];
+        
+        rct.reader = bill.reader;
+
+        def scaleNumber = { num, scale-> 
+        	if ( num == null ) return num; 
+
+        	def bd = null; 
+        	if ( num instanceof java.math.BigDecimal ) {
+        		bd = num; 
+        	} else {
+        		bd = new java.math.BigDecimal( num.toString()); 
+        	}
+        	return bd.setScale( scale, java.math.RoundingMode.HALF_EVEN); 
+        }
+
+        rct.prevreading =  scaleNumber( bill.prevreading, 4 );
+        rct.prevreading_formatted = (rct.prevreading == null ? "" : rct.prevreading.toString());
+
+        rct.reading = scaleNumber( bill.reading, 4 );
+        rct.reading_formatted = (rct.reading == null ? "" : rct.reading.toString());
+
+        rct.volume = scaleNumber( bill.volume, 4 );
+        rct.volume_formatted = (rct.volume == null ? "" : rct.volume.toString());
+
+        rct.billitems = res.billitems;
+        rct.billitems.each{
+        	if ( it.surcharge == null ) it.surcharge = 0.0;
+        	if ( it.interest == null ) it.interest = 0.0;
+        	if ( it.discount == null ) it.discount = 0.0;
+        	if ( it.total == null ) it.total = 0.0;
+
+        	it.discpenalty = (it.surcharge + it.interest) - it.discount; 
+        }
+        rct.amount = NumberUtil.round( res.billitems.sum{ it.total } );
+
+		if ( param.showdetails.toString().matches('true|1')) {
+			// include the items
+	        rct.items = res.items;
+	        rct.items.each {
+	        	it.item.title += blankIfNull( it.remarks );
+	        }
+		}
+
+        rct.pmttxntype = "billing";
+        rct.txntypename = 'Water';
+		return rct;
+	} 
+
+	@ProxyMethod
+	public def prePayment(def o) {
+		//do nothing...
+	}
+
+	@ProxyMethod
+	public def verifyPayment( def po ) {
+		return getBilling([ 
+			refno: po.refno, 
+			amount: po.amount, 
+			billdate: po.tracedate, 
+			showdetails: true 
+		]);
+	}
+
+	@ProxyMethod
+	public void postPayment( def eor, def bill ) {
+		def o = [:];
+		o.reftype = 'eor';
+		o.objid = eor.objid; 
+		o.receiptno = eor.receiptno; 
+		o.receiptdate = eor.receiptdate;
+		o.billitems = bill.billitems;
+		o.items = bill.items;
+		o.billid = bill.billid;
+		o.pmttxntype = bill.pmttxntype;
+		o.amount = bill.amount;
+		if ( !o.txnmode ) {
+			o.txnmode = 'ONLINE';
+		}
+		svc.postPayment( o ); 
+	}
+
+	@ProxyMethod
+	public def getEmailAttachments( def o ) {
+		return [];
+	}
+
+
+    def toNumber( value ) {
+        try {
+        	if ( value == null ) { 
+        		return null; 
+        	} 
+            else if ( value instanceof Number ) {
+                return value; 
+            }
+            return new BigDecimal(value.toString()); 
+        } 
+        catch(Throwable t) {
+        	println '[Warn] Cannot convert to number value ('+ value +')'; 
+            return null; 
+        }
+    } 
+}

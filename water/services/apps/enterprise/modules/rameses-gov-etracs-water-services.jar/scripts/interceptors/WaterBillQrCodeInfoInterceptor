@@ -1,0 +1,82 @@
+import com.rameses.annotations.*; 
+
+class WaterBillQrCodeInfoInterceptor { 
+
+	@DataContext( dynamic=true )
+	def dynaEm;
+
+	@Service( dynamic=true )
+	def dynaSvc; 
+
+	@After(pattern="QrCodeInfoService.getInfos", eval="#{args[0].reftype == 'water_bill'}")
+	void afterGetInfos( evt ) {
+		def param = evt.args[0]; 
+		if ( !param.refid ) return; 
+
+		def vwBillEm = dynaEm.lookup('vw_water_bill'); 
+		def bill = vwBillEm.find([ objid: param.refid ]).first(); 
+		if ( !bill ) return; 
+
+
+		def month_names = "JAN,FEB,MAR,APR,MAY,JUN,JUL,AUG,SEP,OCT,NOV,DEC".split(','); 
+		if ( bill.month && bill.month > 0 && bill.month <= 12) {
+			bill.monthname = month_names[ bill.month - 1 ]; 
+		}
+
+        def dateFormatter = new java.text.SimpleDateFormat('MMMMM dd, yyyy'); 
+        def formatDate = { value-> 
+			try {
+				return dateFormatter.format( value ); 
+			} catch(Throwable t) { 
+				return null; 
+			} 
+        }
+
+        def formatNumber = { num, scale-> 
+        	if ( num == null ) return num; 
+
+        	def bd = null; 
+        	if ( num instanceof java.math.BigDecimal ) {
+        		bd = num; 
+        	} else {
+        		bd = new java.math.BigDecimal( num.toString()); 
+        	}
+        	return bd.setScale( scale, java.math.RoundingMode.HALF_EVEN).toString(); 
+        }
+
+        def formatAmount = { val-> 
+        	if ( val == null ) return val; 
+
+        	def num = null; 
+        	if ( val instanceof java.lang.Number ) {
+        		num = val; 
+        	} else {
+        		num = new java.math.BigDecimal( val.toString()); 
+        	}
+        	return new java.text.DecimalFormat('#,##0.00').format( num ); 
+        }
+
+
+		def res = evt.result; 
+		res << [caption: 'ACCOUNT INFORMATION', value: '' ];
+		res << [caption: 'Acct No.  ', value: bill.acctno ];
+		res << [caption: 'Acct Name ', value: bill.acctname ];
+		res << [caption: 'Location  ', value: bill.location?.text ];
+		res << [caption: 'Classification  ', value: bill.classification?.name];
+
+		res << [caption: '', value: '' ];
+		res << [caption: 'METER INFORMATION', value: '' ];
+		res << [caption: 'Serial No./ Brand / Size', value: "${bill.meter?.serialno}  /  ${bill.meter?.brand}  /  ${bill.meter?.size?.title}".toString() ];
+		res << [caption: 'Previous Reading  ', value: formatNumber( bill.prevreading, 4 ) ];
+		res << [caption: 'Current Reading  ', value: formatNumber( bill.reading, 4 ) ];
+		res << [caption: 'Consumption    ', value: formatNumber( bill.volume, 4 ) ];
+		res << [caption: 'Rate', value: formatAmount( bill.rate ) ];
+		res << [caption: 'Reader Name', value: bill.reader?.name ];
+		res << [caption: 'Reading Date ', value: formatDate( bill.readingdate ) ];
+
+		res << [caption: '', value: '' ];
+		res << [caption: 'BILLING INFORMATION', value: '' ];
+		res << [caption: 'Bill No. / Period', value: "${bill.billno} / ${bill.monthname}-${bill.year}".toString() ];	
+		res << [caption: 'Due Date     ', value: formatDate( bill.duedate ) ];
+	} 
+}

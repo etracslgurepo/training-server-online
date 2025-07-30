@@ -1,0 +1,119 @@
+<schema>
+	<element tablename="vw_water_account">
+
+		<field name="objid" primary="true"/>
+		<field name="acctno" searchable="true" indexed="true"  caption="Acct No"/>
+		
+		<field name="acctinfoid" />
+		<field name="acctname" searchable="true" indexed="true" caption="Acct Name"/>
+		<field name="owner_name" />
+		<field name="owner_address_text" />
+
+		<field name="owner_profileid" />
+		<field name="owner_profileno" />
+		<field name="owner_entitytype" />		
+		<field name="owner_name" searchable="true" caption="Name"/>		
+		<field name="owner_firstname" />
+		<field name="owner_middlename" />
+		<field name="owner_lastname" />
+		<field name="owner_resident" />
+		<field name="owner_address_text" />
+		<field name="owner_address_unitno" />
+		<field name="owner_address_bldgno" />
+		<field name="owner_address_bldgname" />
+		<field name="owner_address_street" />
+		<field name="owner_address_subdivision" />
+		<field name="owner_address_barangay_objid" />
+		<field name="owner_address_barangay_name" />
+		<field name="owner_address_citymunicipality" />
+		<field name="owner_address_province" />
+		<field name="owner_tin" />
+		<field name="owner_email" />
+		<field name="owner_mobileno" />
+		<field name="owner_phoneno" />
+		<field name="owner_id_type_name" />
+		<field name="owner_id_idno" />
+		<field name="owner_id_placeissued" />
+		<field name="owner_id_dtissued" />
+
+		<field name="contact_mobileno" />
+		<field name="contact_email" />
+		<field name="contact_phoneno" />
+
+		<field name="contact_mobileno" />
+		<field name="contact_email" />
+		<field name="contact_phoneno" />
+		
+		<field name="business_objid" />
+		<field name="business_bin" caption="Business BIN"/>
+		<field name="business_tradename" />
+
+		<field name="location_text" />
+		<field name="location_unitno" />
+		<field name="location_bldgno" />
+		<field name="location_bldgname" />
+		<field name="location_blockno" />
+		<field name="location_lotno" />
+		<field name="location_street" />
+		<field name="location_subdivision" />
+		<field name="location_barangay_objid" />
+		<field name="location_barangay_name" caption="Barangay"/>
+
+		<field name="meterid" />
+		<field name="meter_objid" />
+		<field name="meter_serialno"  caption="Meter Serial No" indexed="true"/>
+		<field name="meter_brand"  caption="Meter Brand" indexed="true"/>
+		<field name="meter_capacity" />
+		<field name="meter_sizeid" />
+		<field name="meter_customerowned" />
+		<field name="meter_stocktype" />
+		<field name="meter_state" />
+		<field name="meter_size_title" />
+		<field name="meter_size_objid" />
+		<field name="meter_supersededid" /> 
+		<field name="meterstatus" />
+		
+		<field name="billgroupid" caption="BillGroup" indexed="true"/>
+		<field name="indexno" />
+		<field name="units" />
+		<field name="metered" caption="Metered" type="checkbox" checkValue="1" uncheckValue="0" indexed="true"/>
+
+		<field name="classificationid" caption="Classification" indexed="true"/>
+		<field name="classification_objid" />
+		<field name="classification_name" />
+
+		<field name="taskid" />
+		<field name="task_state" />
+		<field name="state" />
+		<field name="task_dtcreated" />
+		<field name="task_startdate" />
+		<field name="task_enddate" />
+		<field name="task_assignee_objid" />
+		<field name="task_assignee_name" />
+		<field name="task_actor_objid" />
+		<field name="task_actor_name" />
+		<field name="task_title" />
+		<field name="task_tracktime" />
+		<field name="task_properties" />
+		<complex name="tags" serializer="default" type="list" />
+
+		<field name="lastbillid" />
+		<field name="bill_balance" caption="Balance" type="decimal"/>
+		<field name="bill_year" caption="Last Bill Year" type="integer" indexed="true"/>
+		<field name="bill_month" />
+		<field name="bill_monthname" expr="MONTH_ARRAY(bill_month)" caption="Last Bill Month" />
+		<field name="notes" />
+
+		<field name="acctgroupid" />
+		<field name="acctgroup_name" searchable="true" indexed="true" caption="Account Group"/>
+		<field name="acctgroup_fullpath" searchable="true" />
+		<field name="acctgroup_sortorder" />
+
+		<!-- this is used for cash receipt lookup. cashreceiptrefid is the standard field name for generic collection -->
+		<field name="cashreceiptrefid" />
+		
+		<field name="schedulegroupid" />
+
+	</element>
+</schema>
+

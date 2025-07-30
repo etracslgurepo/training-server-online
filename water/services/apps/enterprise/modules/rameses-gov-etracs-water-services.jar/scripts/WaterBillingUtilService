@@ -1,0 +1,435 @@
+import com.rameses.annotations.*;
+
+import com.rameses.functions.*;
+import java.rmi.server.*;
+import com.rameses.util.*;
+import java.text.*;
+import treasury.facts.*;
+import treasury.utils.*;
+import water.facts.*;
+
+/*********************
+* This utility service is called by both WaterBillingService and WaterPaymentService
+********************/
+class WaterBillingUtilService {
+
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("WaterBillingRuleService")
+	def ruleSvc;
+
+	@DataContext("water_payment")
+	def pmtEm;
+
+	@DataContext("water_billitem")
+	def billItemEm;
+
+	@DataContext("vw_water_billitem")
+	def vwBillItemEm;
+
+	@DataContext("water_billitem_subitem")
+	def subItemEm;
+
+	@DataContext("vw_water_billitem_subitem")
+	def vwSubItemEm;
+
+	@DataContext("water_paymentitem")
+	def pmtItemEm;
+
+	@DataContext("water_credit_paymentitem")
+	def creditPmtItemEm;
+
+	@DataContext("vw_water_bill")
+	def vwBillEm;
+
+	@DataContext("water_bill")
+	def billEm;
+
+	@DataContext("water_account")
+	def acctEm;
+
+	@DataContext("water_abstract_billitem")
+	def abstractBillItemEm;
+
+	@DataContext("water_discountitem")
+	def discountItemEm;	
+
+	@DataContext("water_credit_billitem")
+	def creditBillitemEm;
+
+	@DataContext("water_itemaccount")
+	def itemAcctEm;
+
+	def months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+
+	@DataContext("water_meter")
+	def meterEm;
+
+
+	@ProxyMethod
+	def loadRuleData( def o ) {
+		if(!o.billid && !o.bill) throw new Exception("billid or bill is required in loadRuleData");
+		if(!o.bill) {
+			o.bill = billEm.findBill( [billid: o.billid ] );
+		}
+		if(!o.bill.acctid) throw new Exception("acctid does not exist in bill ( billing/payment rule execution)");
+		if(!o.acct) {
+			o.acct = acctEm.findAccount( [acctid: o.bill.acctid ]);
+		};
+		if( o.acct.meterid ) {
+			o.acct.meter = meterEm.find([ objid: o.acct.meterid ]).first(); 
+		}
+		if( o.acct.tags && (o.acct.tags instanceof String) ) {
+			o.acct.tags = acctEm.serializer.read( o.acct.tags ).unique();
+		}	
+		o.acctid = o.acct.objid;
+		o.billid = o.bill.objid;
+		o.txndate = o.refdate;
+		if(!o.txndate) o.txndate = dateSvc.getServerDate();
+		return o;
+	}
+
+	@ProxyMethod
+	public void validateAndUpdateBill( def bill ) {
+		if ( bill.txndate.after( bill.duedate)) {
+			//if txndate after due date and validity date is not yet updated, rebill
+			if ( bill.validitydate != bill.expirydate ) { 
+				updateBill([ billid: bill.objid, refdate: bill.txndate ]);
+				billEm.find([ objid: bill.objid ]).update([ validitydate: bill.expirydate ]);
+			}
+		} 
+		else {
+			//if validiity date is already updated, we need to back track  
+			if ( bill.validitydate == bill.expirydate ) {
+				rollbackBill([ billid: bill.objid, refdate: bill.duedate ]);
+				billEm.find([ objid: bill.objid ]).update([ validitydate: bill.duedate ]);
+			} 
+		} 
+	}
+
+	@ProxyMethod
+	public def updateBill( def o ) {
+		
+		def ruleData = loadRuleData( o );
+		def facts = ruleSvc.executeRules("waterbilling", ruleData );
+
+		facts.findAll{ (it instanceof WaterBillItem) && (it.input == false) }.each {
+			def m = it.toMap();
+			m.billid = o.billid;
+			m.auto = 1;
+			billItemEm.create( m );
+		}
+		
+		facts.findAll{ (it instanceof BillSubItem) && (it.input == false)  }.each {
+			def m = it.toMap();
+			m.billid = o.billid;
+			m.auto = 1;
+			subItemEm.create( m );	 
+		}
+
+		facts.findAll{ (it instanceof CreditPaymentItem ) }.each {
+			def m = it.toMap();
+			creditPmtItemEm.create( m );
+			//throw new Exception("f")
+			//also update the creditbillitemid and billitemrefid afterwards
+			abstractBillItemEm.find( [objid: m.billitemrefid ] ).update( [amtpaid: "{amtpaid + :amt}"], [amt: m.amount ] );
+			abstractBillItemEm.find( [objid: m.credititemid ] ).update( [amount: "{amount + :amt}"], [amt: m.amount ] );
+		}	
+
+		//update next bill validity
+		def bl = facts.find{ it instanceof WaterBill };
+		if(!bl.validitydate)
+			throw new Exception("Please add rule to specify validity date");
+
+		def u = [lasttxndate: o.txndate];
+		u.validitydate = bl.validitydate;
+		u.duedate = bl.duedate;
+
+		// BEGIN: 
+		//   apply specific update setting
+		//   before updating the bill if applicable
+		if ( bl.volumeChanged == true ) { 
+			u.volume = bl.volume;  
+		}
+		// END: 
+
+		billEm.find( [objid: o.billid ] ).update( u );
+		billEm.updateBillTotals( [billid: o.billid ] );
+		return billEm.find([objid: o.billid ]).first();
+	}
+
+	@ProxyMethod
+	public void rollbackBill( def o ) {
+		if(!o.billid) throw new Exception("Please specify billid in WaterBillingService.rollback");
+		if(!o.refdate) throw new Exception("Please specify refdate in WaterBillingService.rollback");
+
+		//throw new Exception("rollback");
+		vwSubItemEm.find( [billid: o.billid] ).where("forwarded=0 AND billdate > :bdate", [bdate:o.refdate] ).list().each {
+			subItemEm.find( [objid: it.objid] ).delete();
+		}
+
+		//delete bill items that are not forwarded, auto added but excludes those during bill creation (i.e.billdate == todate)
+		vwBillItemEm.find( [billid: o.billid] ).where( "forwarded=0 AND auto=1 AND billdate > :bdate", [bdate:o.refdate] ).list().each {
+			billItemEm.find( [objid: it.objid ] ).delete();
+		}
+		//remove all items that are not forwarded or auto
+		billEm.updateBillTotals( [billid: o.billid ] );
+	}
+
+
+	@ProxyMethod
+	public void rollbackPayments( def o ) {
+		if(!o.billid) throw new Exception("billid is required in rollbackPayments");
+		if(!o.force_delete) o.force_delete = false;
+		def refdate = o.refdate;
+		def billid = o.billid;
+		def arr = [];
+		def parms = [:];
+		arr << "posted = 1 AND voided=0 ";
+		if( refdate ) {
+			arr << " refdate > :rdate";
+			parms.rdate = refdate;
+		}
+		def pmtList = pmtEm.find( [billid: billid ] ).where( arr.join( " AND "), parms ).list();
+		if(pmtList) {
+			pmtList.each { pmt->
+				def parm = [paymentid: pmt.objid, force_delete: o.force_delete  ];
+				unpostPaymentItems( parm );
+				pmtEm.find( [objid: pmt.objid] ).update( [posted: 0 ] );
+			}
+			billEm.updateBillPayment( [billid: billid ] );
+		}
+	}
+
+	@ProxyMethod
+	public void repostPayments( def o ) {
+		if(!o.billid) throw new Exception("billid is required in repostPayments");
+		def refdate = o.refdate;
+		def billid = o.billid;
+		def arr = [];
+		def parms = [:];
+		arr << "posted = 0 AND voided=0 ";
+		if( refdate ) {
+			arr << " refdate <= :rdate";
+			parms.rdate = refdate;
+		}
+		def pmtList = pmtEm.find( [billid: billid ] ).where( arr.join( " AND "), parms ).orderBy("refdate ASC").list();
+		if(pmtList) {
+			pmtList.each { pmt->
+				//update the bill first up to the payment date to correct for daily billing
+				updateBill( [billid: billid, refdate: pmt.refdate ] );
+				postPayment( [ payment: pmt ] );
+			}
+			billEm.updateBillPayment( [billid: billid ] );
+		}
+	}
+
+
+	@ProxyMethod
+	public def buildPaymentItems( def o ) {
+		//if(!o.amtpaid ) throw new Exception("amtpaid is required in buildPaymentItems");
+
+		def ruleData = loadRuleData(o);	
+		def facts = ruleSvc.executeRules("waterpayment", ruleData );
+
+		//check first if the payment is handled properly
+		def pmt = facts.find{ it instanceof Payment };
+		if( pmt.amount > 0 ) {
+			//check if there is a discount having same amount
+			def discounts = facts.findAll{ it instanceof DiscountItem };
+			if( discounts && discounts.sum{ it.amount } == pmt.amount ) {
+				//do nothing
+			}
+			else {
+				def cramt = facts.findAll{ it instanceof CreditBillItem }.sum{ it.amtpaid };
+				if( pmt.amount != cramt ) throw new Exception("Excess payment is not handled properly. Please create a rule to credit billitem for the excess payment");
+			} 
+		} 
+
+		def items = [];
+		def billitems = [];
+		def postingitems = [];
+
+		facts.findAll{ (it instanceof WaterBillItem) && it.paid == true }.each {
+			def mp = it.toMap();
+			def b = [:];
+			b.billitemrefid = it.objid; 
+			b.remarks = mp.remarks;
+			b.particulars = mp.item.title + " " + months[ mp.month - 1] + " " + mp.year;
+			b.amount = it.paymentItem.amount + it.discount;
+			b.surcharge = it.surchargepaid;
+			b.interest = it.interestpaid;
+			b.discount = it.discount;
+			b.sortorder =  (mp.year*12)+mp.month;
+			b.total = NumberUtil.round( b.amount - b.discount + b.surcharge + b.interest );
+			billitems << b;	
+		}
+
+		facts.findAll{ it instanceof PaymentItem }.each {
+			def b = [:];
+			b.type = "payment";
+			b.billitemrefid = it.billitemrefid;
+			b.amount = it.amount;
+			postingitems << b; 		
+		}
+
+		facts.findAll{ it instanceof DiscountItem }.each {
+			def mp = it.toMap();
+			def b = [:];
+			b.type = "discount";
+			b.billitemrefid = it.billitemrefid;
+			b.amount = it.amount;
+			b.item = mp.item;
+			postingitems  << b; 					
+		}
+
+		facts.findAll{ it instanceof CreditBillItem }.each {
+			def cr = it.toMap();
+			def crb = [:];
+			crb.amount = cr.amtpaid;
+			crb.item = cr.item;
+			crb.type = "credit"; 
+			crb.uid = cr.uid;
+			postingitems << crb;
+
+			def bi = [:];
+			bi.particulars = cr.item?.title;
+			bi.amount = cr.amtpaid;
+			bi.total = cr.amtpaid;
+			bi.sortorder = 100000; //to ensure that it will be on the last position
+			billitems << bi;
+		}
+
+		facts.findAll{ (it instanceof CashReceiptItem) && (it.amount != 0) }.each {
+
+			def itm = it.toMap();
+			//if item not specified, try to lookup the billitem's item and check if theres a mapping specified
+			if(!itm.item) {
+				if( !itm.billcode ) throw new Exception("billcode not specified ");
+				def ia = itemAcctEm.find( [objid: itm.billcode ] ).first();
+				if(!ia) throw new Exception("Water Item Account not found. " + itm.billcode )
+
+				itm.item = ia.item;
+			}
+
+			//we need to insert org id for treaury item account lookup to process
+			itm.item.orgid = it.orgid;
+			items << itm;
+		}
+
+		//we will not include discount in balancing the amount
+		def sumPosting = NumberUtil.round( postingitems.findAll{ it.type != 'discount' }.sum{it.amount} );
+		def sumItems = NumberUtil.round( items.sum{it.amount} )
+		if( sumPosting != sumItems ) {
+			def str = "postItems:"+ sumPosting + " == items:" + sumItems;
+			str = str + "\n" + items.collect{ it.item.title + "=" + it.amount }.join("\n");
+			throw new Exception("Cash receipt item balance does not match posting total. Please ensure all items are mapped properly. "+str);
+		}
+		return [
+			billitems: billitems.sort{ it.sortorder },
+			postingitems: postingitems,
+			items: items.sort{ it.sortorder }
+		];			
+	}
+
+	@ProxyMethod
+	public def postPaymentItems( def o ) {
+		if(!o.paymentid) throw new Exception("paymentid is required in postPaymentItems");
+		if(!o.refdate) throw new Exception("refdate is required in postPaymentItems");
+		if(!o.billid) throw new Exception("billid is required in postPaymentItems");
+		if(!o.postingitems) throw new Exception("items is required in postPaymentItems");
+
+		o.postingitems.each { pi->
+			if( pi.type == "credit") {
+				def cr = [:];
+				cr.billid = o.billid;
+				cr.billdate = o.refdate;
+				cr.uid =  pi.uid + "_" + o.paymentid;
+				cr.item = pi.item;
+				cr.forwarded = 0;
+				cr.auto = 1;
+				cr.amount = 0;
+				cr.amtpaid = pi.amount;
+				cr.paymentid = o.paymentid;
+				creditBillitemEm.create( cr );
+			}
+			else if( pi.type == "discount") {
+				def d = [:];
+				d.itemid = pi.item?.objid;
+				d.amount = pi.amount;
+				d.voidamount = 0;
+				d.billitem = [objid: pi.billitemrefid];
+				d.payment = [objid: o.paymentid];
+				discountItemEm.create( d );
+			}
+			else {
+				pi.paymentid = o.paymentid;
+				pmtItemEm.create( pi );
+				abstractBillItemEm.find( [objid: pi.billitemrefid ] ).update( [amtpaid: "{amtpaid + :amt}"], [amt: pi.amount ] );
+			}
+		}
+	}
+
+	@ProxyMethod
+	public void unpostPaymentItems( def o ) {
+		if(!o.paymentid) throw new Exception("paymentid is required in unpostPaymentItems");
+		def pmtItems = pmtItemEm.find( [paymentid:o.paymentid] ).list();
+		pmtItems.each { pi->
+			if(!o.force_delete) {
+				abstractBillItemEm.find( [objid: pi.billitemrefid ] ).update( [amtpaid: "{amtpaid - :amt}"], [amt: pi.amount ] );	
+			}
+			discountItemEm.find( [paymentid: o.paymentid ] ).delete();
+			pmtItemEm.find([objid: pi.objid ]).delete();				
+		}
+
+		def creditItems = creditBillitemEm.find( [paymentid: o.paymentid] ).list();
+		creditItems.each { ci->
+			//delete credit payment items
+			def creditPmtItems = creditPmtItemEm.find( [credititemid: ci.objid ] ).list();
+			creditPmtItems.each { cpi->
+				creditPmtItemEm.find( [objid: cpi.objid ]).delete();
+			};
+			creditBillitemEm.find( [objid: ci.objid ]).delete();
+		}
+	}
+
+	@ProxyMethod
+	public void unpostPayment( def o ) {
+		if(!o.paymentid) throw new Exception("paymentid is required in repostPayment");
+		def pmt = pmtEm.find( [objid: o.paymentid] ).first();
+		if(pmt.posted==0) throw new Exception("This payment is already unposted");
+		unpostPaymentItems( [paymentid: pmt.objid ] );
+		pmtEm.find( [objid:pmt.objid] ).update( [ posted: 0 ] );
+	}
+
+	@ProxyMethod
+	public void postPayment( def o ) {
+		def pmt = o.payment;
+		if(!pmt) {
+			if(!o.paymentid) throw new Exception("paymentid is required in postPayment");
+			pmt = pmtEm.find( [objid: o.paymentid] ).first();
+		}
+		if(pmt.posted==1) throw new Exception("This payment is already posted");
+
+		//check if there are posting items passed as parameters. normally called from PaymentService
+		if( o.postingitems ) {
+			postPaymentItems( [paymentid: pmt.objid, refdate: pmt.refdate, billid: pmt.billid, postingitems: o.postingitems ] );
+		}
+		else {
+			//check if there are already items saved for the payment. if not dynamically build by calling buildPaymentItems
+			def postingItems = pmtItemEm.find( [paymentid: pmt.objid ]).list();
+			if( postingItems ) {
+				//set item type to payment
+				postingItems.each { pi->
+					abstractBillItemEm.find( [objid: pi.billitemrefid ] ).update( [amtpaid: "{amtpaid + :amt}"], [amt: pi.amount ] );	 
+				};
+			}
+			else {	
+				def res = buildPaymentItems( [billid: pmt.billid, amtpaid: pmt.amount, refdate: pmt.refdate ] );
+				postPaymentItems( [paymentid: pmt.objid, refdate: pmt.refdate, billid: pmt.billid, postingitems: res.postingitems ] );
+			}
+		}
+		pmtEm.find( [objid:pmt.objid] ).update( [ posted: 1 ] );
+	}
+}

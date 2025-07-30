@@ -1,0 +1,19 @@
+<schema>
+	<element tablename="water_account">
+		<field name="objid" primary="true" prefix="WTRACCT"/>
+		<field name="acctno" />
+		
+		<!-- link to current account details -->
+		<field name="acctinfoid" />
+
+		<field name="taskid" />
+		<field name="lastbillid" />
+
+		<field name="indexno" />
+
+		<complex name="billgroup" ref="water_billgroup" jointype="many-to-one" required="false">
+			<key field="billgroupid" target="objid" />		
+		</complex>
+
+	</element>
+</schema>

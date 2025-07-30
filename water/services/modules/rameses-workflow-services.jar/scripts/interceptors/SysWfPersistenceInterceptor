@@ -1,0 +1,28 @@
+
+import com.rameses.annotations.*;
+import com.rameses.util.*;
+import java.rmi.server.*;
+
+
+public class WorkflowPeristenceInterceptor {
+
+	@DataContext("sys_wf_eventaction")
+	def evtActionEm;	
+
+	@DataContext("sys_wf_transition")
+	def transitionEm;	
+
+	@DataContext("sys_wf_node")
+	def nodeEm;	
+	
+
+	@Before(pattern="PersistenceService.removeEntity", eval="#{args[0]._schemaname == 'sys_wf' }", index=-1000)
+	public void beforeRemoveWf(def evt) {
+		def o = evt.args[0];
+		
+		evtActionEm.find( [processname: o.name ] ).delete();
+		transitionEm.find( [processname: o.name ] ).delete();
+		nodeEm.find( [processname: o.name ] ).delete();
+	}
+
+}

@@ -1,0 +1,74 @@
+<app>
+<env>
+app.title=ETRACS v255 - WATER (${lgu_name})
+app.host=${app_server_ip}:18070
+app.cluster=osiris3
+app.context=etracs25
+app.help=http://${app_server_ip}:18080/help
+app.loader=com.rameses.osiris2.client.OsirisAppLoader
+readTimeout=300000
+connectionTimeout=5000
+filemgmt.enabled=false
+
+ws.host=${app_server_ip}:18060
+#res.host=${app_server_ip}
+
+socketio.host=${socketio_server_ip}:7080
+
+admin.app.host=${app_server_ip}:18070
+admin.app.context=etracs25
+
+entity.app.host=${app_server_ip}:18070
+entity.app.context=etracs25
+
+water.app.host=${app_server_ip}:18040
+water.app.context=enterprise
+water.filemgmt.connection=local-ftp
+
+cloud-server.app.host=${gdx_proxy_server_ip}:8500
+cloud-server.app.cluster=cloud-server
+cloud-server.app.context=water
+</env>
+<modules>
+   <module version="2.04" file="modules/osiris2-client-themes.jar" />
+   <module version="2.07" file="modules/osiris2-client-ui.jar" />
+   <module version="2.02" file="modules/osiris2-draw.jar" />
+   <module version="2.05" file="modules/osiris2-framework.jar" />
+   <module version="2.22" file="modules/osiris2-report.jar" />
+   <module version="2.21" file="modules/rameses-client-ui.jar" />
+   <module version="2.21" file="modules/rameses-client-ui-support.jar" />
+   <module version="2.02" file="modules/rameses-client-ui-bio.jar" />
+   <module version="2.02" file="modules/rameses-client-ui-jfx.jar" />
+   <module version="2.02" file="modules/rameses-client-notification-socketio.jar" />
+   <module version="2.13" file="modules/rameses-common2.jar" />
+   <module version="2.03" file="modules/rameses-custom-impl.jar" />
+   <module version="2.02" file="modules/rameses-jdbc16.jar" />
+   <module version="2.19" file="modules/rameses-seti.jar" />
+   <module version="2.19" file="modules/rameses-seti-support.jar" />
+   <module version="2.06" file="modules/rameses-file-mgmt.jar" />
+   <module version="2.04" file="modules/ireport-designer-connector.jar" />
+   <module version="2.02" file="modules/client-system.jar" />
+   <module version="2.09" file="modules/client-ui-extended.jar" />
+   <module version="2.03" file="modules/rameses-client-menu.jar" />
+   <module version="2.02" file="modules/rameses-client-report.jar" />
+   <module version="2.09" file="modules/rameses-rules-mgmt.jar" />
+   <module version="2.08" file="modules/rameses-workflow-mgmt.jar" />
+   <module version="2.09" file="modules/rameses-app-common.jar" />
+   <module version="2.09" file="modules/rameses-enterprise.jar" />
+   <module version="2.05" file="modules/rameses-enterprise-admin.jar" />
+   <module version="2.06" file="modules/rameses-enterprise-admin-plugin.jar" />
+   <module version="2.06" file="modules/rameses-enterprise-financial.jar" />
+   <module version="2.02" file="modules/rameses-client-notification2.jar" />
+   <module version="2.02" file="modules/rameses-email-client.jar" />
+   <module version="2.13" file="modules/rameses-jasper-client.jar" />
+   <module version="1.02" file="modules/rameses-enterprise-entity.jar" />
+   <module version="1.02" file="modules/rameses-enterprise-entity-tool.jar" />
+   <module version="1.02" file="modules/rameses-gov-etracs-entity.jar" />
+   <module version="1.02" file="modules/rameses-etracs-main.jar" />
+   <module version="1.02" file="modules/rameses-gov-etracs-tools.jar" />
+   <module version="1.02" file="modules/rameses-gov-lgu.jar" />
+   <module version="2.06" file="modules/water/rameses-gov-etracs-water.jar" />
+   <module version="2.04" file="modules/water/rameses-gov-etracs-water-common.jar" />
+   <module version="1.03" file="modules/water/rameses-gov-etracs-water-treasury.jar" />
+</modules>
+</app>

@@ -1,0 +1,25 @@
+import com.rameses.annotations.*;
+
+class WaterMenuTaskCountInterceptor {
+	
+	@Env
+	def env;
+
+	@ActiveDB( dynamic=true )
+	def dynaDB;
+
+	@After( pattern="WorkflowTaskCountService.getCustomNodeListTaskCount", eval="#{ args[0]._schemaname == 'vw_water_txn' }" )
+	public void afterGetCustomNodeListTaskCount( def evt ) { 
+		def param = evt.args[0]; 
+
+		def db = dynaDB.lookup( param._schemaname );
+
+		def filterMap = [:]; 
+		filterMap.putAll( param.where[1] ); 
+		filterMap.processname = param.processname; 
+		filterMap.userid = env.USERID; 
+
+		def list = db.getNodeListTaskCountByType( filterMap ); 
+		evt.result.addAll( list ); 
+	}
+}

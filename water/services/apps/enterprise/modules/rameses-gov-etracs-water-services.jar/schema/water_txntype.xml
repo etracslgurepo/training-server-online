@@ -1,0 +1,13 @@
+<schema>
+	<element tablename="water_txntype">
+		<field name="objid" primary="true" visible="true" searchable="true"/>
+		<field name="title" />
+		<field name="sortorder" />
+		<field name="processname" />
+		<field name="controlnopattern" />
+		<field name="guihandler" />
+		<field name="role" />
+		<field name="editableinfo" />
+		<field name="active" />
+	</element>
+</schema>

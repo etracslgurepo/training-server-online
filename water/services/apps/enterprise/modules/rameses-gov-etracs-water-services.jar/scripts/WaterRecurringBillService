@@ -1,0 +1,112 @@
+import com.rameses.annotations.*;
+
+import water.facts.*;
+import com.rameses.util.*;
+import treasury.facts.*;
+import java.text.*;
+
+class WaterRecurringBillService {
+	
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("RuleExecutorService")
+	def ruleSvc;
+
+	@DataContext("vw_water_txn")
+	def vwTxnEm;
+
+	@DataContext("water_installment")
+	def pmtPlanEm;
+
+	@DataContext("water_recurring_bill")
+	def recurringBillEm;
+
+	@DataContext("water_billitem")
+	def billItemEm;
+
+	@DataContext("vw_water_account")
+	def vwAcctEm;
+
+	def months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+
+	@ProxyMethod
+	public void clearBillItems( def o ) {
+		if(!o.billid) throw new Exception("billid is required in WaterRecurringBillService.assess");
+		billItemEm.find( [billid: o.billid ]).where("auto = 0").delete();
+	}
+
+	@ProxyMethod
+	public void addBillItem( def o ) {
+		if(!o.billid) throw new Exception("billid is required in WaterRecurringBillService.addBillItem");
+		o.auto = 0;
+		o.forwarded = 0;
+		o.amtpaid = 0;
+		o.uid = o.itemid;
+		billItemEm.create( o );
+	}
+  	
+	@ProxyMethod
+	public void removeBillItems( def o ) {
+		if(!o.billid) throw new Exception("billid is required in WaterRecurringBillService.removeBillItems");
+		if(!o.items) throw new Exception("items is required in WaterRecurringBillService.removeBillItems");
+		def list = billItemEm.where( "objid IN ('"  +   o.items*.objid.join("','")    + "') AND auto=0 "   ).list();
+		list.each {
+			if(it.installmentid) throw new Exception("Items with payment plans cannot be removed.");
+			billItemEm.find( [objid: it.objid ] ).delete();
+		}
+	}
+
+	@ProxyMethod
+	public def getBillItems( def o ) {
+		if(!o.billid) throw new Exception("billid is required in WaterRecurringBillService.getBillItems");
+		def items = billItemEm.find( [billid: o.billid ] ).list();
+		items.each {
+			it.particulars = it.item.title;
+			if( it.year ) {
+				it.particulars += " (" + months[it.month-1] + "-" + it.year + ")";
+			}
+		}
+		return items;
+	}
+
+	@ProxyMethod
+	public void loadBillItems( def o ) {
+		//find all where year and month is equal to bill month and year. This is for recurring items fired once
+		def billList = billItemEm.find( [billid: o.acctid ] ).where( "year = :yr AND month = :mon", [yr: o.year, mon:o.month] ).list();
+		billList.each {
+			billItemEm.find( [objid: it.objid] ).update( [billid: o.billid, recurring: 1 ] );
+		}
+
+		//these are items that fire always
+		billList = billItemEm.find( [billid: o.acctid ] ).where( "year IS NULL" ).list();
+		billList.each { pp->
+			def bi = [:];
+			bi.item = pp.item;
+			bi.itemid = pp.item.objid;
+			bi.billid = o.billid;
+			bi.amount = pp.amount;
+			bi.amtpaid = 0;
+			bi.year = o.year;
+			bi.month = o.month;
+			bi.auto = 1;
+			bi.forwarded = 0;
+			bi.recurring = 0;
+			bi.uid =  o.billid + "-" + bi.itemid + "-" + o.year + "-" + o.month;
+			billItemEm.create( bi );
+		}
+
+	}
+
+	@ProxyMethod
+	public void unloadBillItems( def o ) {
+		def billList = billItemEm.find( [billid: o.billid ] ).where( "recurring = 1" ).list();
+		billList.each {
+			//send this back to the recurring bill
+			billItemEm.find( [objid: it.objid] ).update( [billid: o.acctid]);
+		}	
+	}
+
+
+}
+

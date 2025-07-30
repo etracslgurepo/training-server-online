@@ -1,0 +1,21 @@
+<schema>
+	<element tablename="vw_water_meter">
+		<field name="objid" primary="true" />
+		<field name="state" />
+		
+		<field name="serialno" indexed="true" caption="Serial No." searchable="true"/>
+		<field name="brand" indexed="true" caption="Brand"/>
+		<field name="capacity" type="integer" caption="Capacity" />
+		<field name="sizeid"  required="true"/>
+		<field name="currentacctid"  />
+		<field name="stocktype" />
+
+		<field name="account_objid" />
+		<field name="account_acctno" />
+		<field name="account_acctname" />
+		<field name="size_objid" />
+		<field name="size_title" />
+		<field name="superseded" />
+		<field name="supersededid"  />
+	</element>
+</schema>

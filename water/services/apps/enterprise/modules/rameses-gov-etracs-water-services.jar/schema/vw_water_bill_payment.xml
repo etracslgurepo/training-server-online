@@ -1,0 +1,24 @@
+<schema>
+	<element tablename="vw_water_bill_payment">
+		<field name="objid" primary="true" prefix="WTRPMT"/>
+		<field name="billid" required="true"/>
+		<field name="refid" />
+		<field name="refno" caption="Ref No"/>
+		<field name="reftype"  required="true" caption="Ref Type"/>
+		<field name="refdate"  type="date" caption="Ref Date"/>
+		<field name="txnmode"  required="true" caption="Txn Mode"/>
+		<field name="voided"  required="true" caption="Voided"/>
+		<field name="amount" type="decimal"  required="true" caption="Amount"/>
+		<field name="remarks" caption="Remarks"/>
+
+		<field name="payer_objid" />
+		<field name="payer_name" />
+		<field name="paidby" caption="Paid By"/>
+		<field name="paidbyaddress" caption="Paid by Address"/>
+		
+		<field name="acctid" />
+		<field name="billrefno" />
+		<field name="year" caption="Year"/>
+		<field name="monthname" expr="MONTH_ARRAY(month)" caption="Month"/>
+	</element>
+</schema>

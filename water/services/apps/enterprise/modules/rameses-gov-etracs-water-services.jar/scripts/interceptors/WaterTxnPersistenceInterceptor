@@ -1,0 +1,124 @@
+import com.rameses.annotations.*;
+
+class WaterTxnPersistenceInterceptor {
+
+	@DataContext("water_txn")
+	def txnEm;	
+
+	@DataContext("vw_water_txn")
+	def vwTxnEm;	
+
+	@DataContext("water_txn_task")
+	def txnTaskEm;	
+	
+	@DataContext("water_account_info")
+	def acctInfoEm;	
+
+	@DataContext("water_account")
+	def acctEm;
+
+	@DataContext("vw_water_account_info")
+	def vwAcctInfoEm;	
+
+	@DataContext("water_meter")
+	def meterEm;	
+
+	@DataContext("water_installment")
+	def installmentEm;
+
+	@DataContext("water_payment")
+	def pmtEm;
+
+	@DataContext("water_paymentitem")
+	def pmtItemEm;
+
+	@DataContext("vw_water_txn_paymentitem")
+	def vwTxnPmtItemEm;
+
+	@DataContext("water_txn_bill")
+	def txnBillEm;	
+
+	@DataContext("water_abstract_billitem")
+	def abstractBillItemEm;
+
+	@DataContext("water_bill")
+	def billEm;	
+
+	@DataContext("vw_water_installment")
+	def vwInstallmentEm;
+
+	@Before(pattern="PersistenceService.removeEntity", eval="#{args[0]._schemaname == 'water_txn' }")
+	public void onRemove(def evt) {
+		def o = evt.args[0];
+
+		def txn = vwTxnEm.find( [objid: o.objid ] ).first();
+		if( txn.task.state == 'end' )
+			throw new Exception("Cannot delete transaction that has already ended");
+		
+		if( txn.newacctinfoid ) {
+			def newacctinfo = vwAcctInfoEm.find( [objid: txn.newacctinfoid ] ).first();
+			
+			//if acctinfoid is null but newacctinfoid is not null we need to remove account. This is applicable for new and capture account
+			if( !txn.acctinfoid ) {
+				txnEm.find( [objid: o.objid ] ).update( [acctid: "{NULL}"] );
+				acctEm.find( [objid: txn.acctid ] ).delete();
+			}
+
+			if( newacctinfo.meterid ) {
+				meterEm.find( [objid: newacctinfo.meterid ] ).update( [currentacctid: "{NULL}"] );
+			}
+
+			txnEm.find( [objid: txn.objid ] ).update( [ newacctinfoid: "{NULL}" ] );
+			acctInfoEm.find( [objid: txn.newacctinfoid ] ).delete();
+
+			//update meter
+			if( txn.oldacctinfoid ) {
+				def oldAcctInfo = vwAcctInfoEm.find( [objid: txn.oldacctinfoid ] ).first();
+				if( oldAcctInfo.meterid ) {
+					meterEm.find( [objid: oldAcctInfo.meterid ] ).update( [currentacctid: "{NULL}", state: oldAcctInfo.meterstatus ] );	
+				}
+			}
+		}
+
+		//check if there are attached payment plans and remove it
+		//installmentEm.find( [txnid: txn.objid ] ).where("posted=0").delete();
+		def crNote = pmtEm.find( [txnid: txn.objid ] ).first();
+		if(crNote) {
+			def billid = crNote.billid;
+			def items = pmtItemEm.find([paymentid: crNote.objid]).list();
+			items.each { pi->
+				abstractBillItemEm.find( [objid: pi.billitemrefid ] ).update( [amtpaid: "{amtpaid - :amt}"], [amt: pi.amount] );
+			}
+
+			//remove first installment if there are installments
+			installmentEm.find( [paymentrefid: crNote.objid ] ).delete();
+
+			pmtItemEm.find([paymentid: crNote.objid]).delete();
+			pmtEm.find( [objid: crNote.objid ] ).delete();
+			billEm.updateBillPayment( [billid: crNote.billid ] );
+		}
+
+		txnEm.find( [objid: o.objid ] ).update( [taskid: "{NULL}"] );
+		txnTaskEm.find( [refid: o.objid ]).delete();
+	}
+
+	
+	@After(pattern="PersistenceService.read", eval="#{args[0]._schemaname == 'vw_water_txn' }")
+	public void afterRead(def evt) {
+		def o = evt.args[0];
+		def result = evt.result;
+
+		def compromise = vwInstallmentEm.find( [txnid: result.objid ] ).first();
+		if( compromise ) {
+			result.compromise = compromise;
+		}
+
+		//load if there are associated payments related to this bill
+		def cr = pmtEm.find( [txnid: result.objid ] ).where("reftype = 'creditnote' ").first();
+		if( cr) {
+			result.creditnote = cr; 
+		}
+
+	}
+	
+}

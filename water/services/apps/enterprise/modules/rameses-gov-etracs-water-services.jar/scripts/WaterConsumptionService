@@ -1,0 +1,82 @@
+import com.rameses.annotations.*;
+
+import com.rameses.functions.*;
+import com.rameses.functions.*;
+import water.facts.*;
+import com.rameses.util.*;
+import treasury.utils.*;
+import treasury.facts.*;
+import java.rmi.server.*;
+
+class WaterConsumptionService {
+	
+	@Service("RuleExecutorService")
+	def ruleSvc;
+
+	@Service("WaterBillingUtilService")
+	def utilService
+
+	@DataContext("water_bill")
+	def billEm;
+
+
+	@ProxyMethod
+	public def compute( def param ) {
+		def o = utilService.loadRuleData( param );
+		return executeRules( o ); 
+	} 
+
+	@ProxyMethod
+	public def update( def param ) { 
+		def o = utilService.loadRuleData( param ); 
+		def res = executeRules( o ); 
+
+		def u = [:];
+		u.rate = res.rate;
+		u.volume = res.volume;
+
+		if ( o.prevreading ) u.prevreading = o.prevreading; 
+		if ( o.reading ) u.reading = o.reading; 
+		if ( o.reader ) u.reader = o.reader; 
+
+		billEm.find([ objid: o.billid ]).update( u );
+		return u; 
+	}
+
+	
+	def executeRules( def ruleData ) {
+		def o = ruleData; 
+
+		if ( o.prevreading ) o.bill.prevreading = o.prevreading;
+		if ( o.reading ) o.bill.reading = o.reading;
+		if ( o.volume ) o.bill.volume = o.volume;
+
+		// set rate to zero so we can reacalculate
+		o.bill.rate = 0;
+
+		def facts = [];
+		facts << new TransactionDate( o.txndate );
+		facts << new WaterBill( o.bill );
+		facts << new WaterAccount( o.acct );
+
+		if ( o.acct.meter ) {
+			facts << new WaterMeter( o.acct.meter );
+		}
+
+		//load account tags
+		if ( o.acct.tags ) {
+			o.acct.tags.each {
+				facts << new WaterAccountTag( name: it );
+			}	
+		}
+
+		ruleSvc.execute( "waterconsumption", facts, null, null );
+
+		def wb = facts.find{ it instanceof WaterBill }
+
+		def res = [:];
+		res.rate = wb.rate;
+		res.volume = ( o.volume ? o.volume : wb.volume );
+		return res;
+	} 
+}

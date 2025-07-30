@@ -1,0 +1,96 @@
+import com.rameses.annotations.*;
+import java.rmi.server.*;
+
+class WaterAccountPersistenceInterceptor {
+	
+	@DataContext("water_account_info")
+	def acctInfoEm;
+
+	@DataContext("water_account")
+	def acctEm;
+
+	@DataContext("water_account_task")
+	def acctTaskEm;
+
+	@DataContext("water_meter")
+	def meterEm;
+
+
+	@Before(pattern="PersistenceService.removeEntity", eval="#{args[0]._schemaname == 'water_account'  }")
+	public void beforeRemove(def evt) {
+		def p = evt.args[0];
+
+		def r = acctEm.find( [objid: p.objid ]).select("state,acctinfoid").first();
+		if(r.state!="DRAFT") 
+			throw new Exception("Account can only be removed in DRAFT state");
+
+		acctEm.find( [objid: p.objid ]).update( [acctinfoid: "{NULL}", taskid: "{NULL}"] ); 
+		acctInfoEm.find( [objid: r.acctinfoid ] ).delete();
+		meterEm.find( [currentacctid: p.objid ]  ).update( [currentacctid: "{NULL}"] );
+		acctTaskEm.find( [refid: p.objid ] ).delete();
+	}
+
+	@Before(pattern="PersistenceService.create", eval="#{args[0]._schemaname == 'water_account'  }")
+	public void beforeCreate( def evt ) {
+		def p = evt.args[0];
+		if(p.billgroupid) {
+			//find the last index so we can add 1 
+			def z = acctEm.find( [billgroupid: p.billgroupid ]).orderBy("indexno DESC").first();
+			if(!z) {
+				p.indexno = 1;
+			}
+			else {
+				p.indexno = z.indexno + 1;
+			}		
+		}
+	}
+
+	// ----------------------------------------------------------------------------------------------------------------
+	// These are bill group related actions for the account
+	// -----------------------------------------------------------------------------------------------------------------
+	@After(pattern="PersistenceService.doAction", eval="#{args[0]._schemaname == 'water_account' && args[0]._action == 'moveUp'  }")
+	public void moveUp( def evt ) {
+		def p = evt.args[0];
+		def bg = acctEm.find( [objid: p.objid ] ).first();
+		acctEm.find( [billgroupid: bg.billgroupid ] ).where(" indexno = :idx ", [idx: bg.indexno-1 ]).update([indexno: bg.indexno]);
+		acctEm.find( [objid: bg.objid ] ).update([indexno: bg.indexno - 1 ]);
+	}
+
+	@After(pattern="PersistenceService.doAction", eval="#{args[0]._schemaname == 'water_account' && args[0]._action == 'moveDown'  }")
+	public void moveDown( def evt ) {
+		def p = evt.args[0];
+		def bg = acctEm.find( [objid: p.objid ] ).first();
+		acctEm.find( [billgroupid: bg.billgroupid ] ).where(" indexno = :idx ", [idx: bg.indexno + 1 ]).update([indexno: bg.indexno]);
+		acctEm.find( [objid: bg.objid ] ).update([indexno: bg.indexno + 1 ]);
+	}
+
+	@After(pattern="PersistenceService.doAction", eval="#{args[0]._schemaname == 'water_account' && args[0]._action == 'reindex'  }")
+	public void reindex( def evt ) {
+		def p = evt.args[0];
+		if(!p.billgroupid) throw new Exception("Please specify billgroupid in parameters");
+		def list = 	acctEm.find( [billgroupid: p.billgroupid ] ).orderBy("indexno ASC").list();
+		def idx = 1;
+		list.each {
+			acctEm.find([objid: it.objid]).update( [indexno: (idx++) ]);	
+		}
+	}
+
+	@After(pattern="PersistenceService.doAction", eval="#{args[0]._schemaname == 'water_account' && args[0]._action == 'moveTo'  }")
+	public void moveTo( def evt ) {
+		def p = evt.args[0];
+		if(!p.moveto ) throw new Exception("Please specify a moveto value");
+		if(p.moveto <=0 ) return;
+
+		def bg = acctEm.find( [objid: p.objid ] ).first();
+		
+		//check first if moveto is a valid no. It should not be more than the size
+		def v = acctEm.find( [billgroupid: bg.billgroupid] ).select("c:{COUNT(*)}").val();
+		if( p.moveto >= v ) return;
+
+		//update all items greater than moveto + 1
+		acctEm.find( [billgroupid: bg.billgroupid] ).where("indexno >= :idx AND indexno < :lidx", [idx:p.moveto, lidx: bg.indexno]).update( [indexno: "{indexno + 1}" ] );
+		acctEm.find( [objid: bg.objid] ).update( [indexno: p.moveto ] );	 
+	}
+
+
+}

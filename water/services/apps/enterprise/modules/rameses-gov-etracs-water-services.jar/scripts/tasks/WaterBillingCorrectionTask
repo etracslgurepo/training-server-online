@@ -1,0 +1,34 @@
+import com.rameses.annotations.*;
+import water.util.*;
+
+class WaterBillingCorrectionTask {
+
+	@Service(dynamic=true)
+	def svc;
+
+	boolean hasMore = false;
+	int counter = 0;
+
+    @Schedule( interval=1, timeUnit="SECONDS")
+	public void process( def tsk ) {
+		def sysvar = svc.lookup("Var");
+		def srun = sysvar.run_background_correction;
+		if (!srun.toString().matches('true|1')) return;
+
+		counter += 1;
+		if(!hasMore && counter < 30 ) return;
+
+		if( hasMore)
+			println "continuing batch";
+		else	
+			println "start processing new batch --";
+
+		hasMore = false;
+		counter = 0;
+
+		def proc = svc.lookup("WaterBillingCorrectionService");
+		def result = proc.processBatch();
+		if( result.status != 'end' ) hasMore = true;
+    }
+
+}
