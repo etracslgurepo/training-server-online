@@ -35,12 +35,17 @@ running the ETRACS application.
    mysql -u root -p -f  <  04-training_queue.sql
 
 
-7. Patch the "eor" database 
+7. Restore the "water" database 
+
+   mysql -u root -p -f  <  05-training_water.sql
+
+
+8. Patch the "eor" database 
 
    mysql -u root -p -f  <  10-patch-eor.sql
 
 
-8. Patch the "etracs" database 
+9. Patch the "etracs" database 
 
    mysql -u root -p -f  <  11-patch-eor.sql
 
