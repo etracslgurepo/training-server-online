@@ -4547,8 +4547,3 @@ SET character_set_client = @saved_cs_client;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
 -- Dump completed on 2025-08-30 11:36:13
-
-
-
-INSERT IGNORE INTO `sys_fileloc` (`objid`, `url`, `rootdir`, `defaultloc`, `loctype`, `user_name`, `user_pwd`, `info`) 
-VALUES ('obo-fileserver', '192.168.2.22', 'obo', 0, 'ftp', 'ftpuser', 'ftpuser1234', '[downloadhost: \'http://${url}:2180\']');
