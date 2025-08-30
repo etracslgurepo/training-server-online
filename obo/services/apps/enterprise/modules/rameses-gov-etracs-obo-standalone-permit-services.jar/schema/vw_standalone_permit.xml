@@ -1,0 +1,61 @@
+<schema>
+	<element tablename="vw_standalone_permit">
+		<field name="objid" primary="true"/>
+		<field name="appno" searchable="true"/>
+		<field name="apptype" />
+		<field name="appdate" type="date"/>
+		<field name="appclassid" />
+
+		<field name="orgcode" />
+		<field name="trackingno" searchable="true"/>
+
+		<field name="contact_name" />
+		<field name="contact_detail" />
+		<field name="contact_email" />
+		<field name="contact_mobileno" />
+		<field name="taskid" />
+		<field name="txnmode" caption="Txn Mode" indexed="true"/>
+
+		<complex name="bldgpermit" ref="vw_building_permit_issued" jointype="many-to-one" required="true">
+			<key field="bldgpermitid" target="objid" />
+		</complex>
+
+		<complex name="applicant" ref="obo_app_entity" jointype="many-to-one" required="true">
+			<key field="applicantid" target="objid" />
+		</complex>	
+
+		<field name="task_state" />
+		<field name="task_dtcreated" caption="Txn date" indexed="true" type="date" />
+		<field name="task_startdate" />
+		<field name="task_enddate" />
+		<field name="task_assignee_objid" />
+		<field name="task_assignee_name" />
+		<field name="task_actor_objid" />
+		<field name="task_actor_name" />
+
+		<field name="task_title" />
+		<field name="task_tracktime" />
+		<complex name="task_properties" serializer="default" />
+
+		<field name="txntype" indexed="true" />
+
+		<!-- this is added to make reports easier -->
+		<field name="title" />
+		<field name="description" />
+		
+		<field name="occupancytype_objid" />
+		<field name="occupancytype_title" />
+		<field name="occupancytype_division_objid" />
+		<field name="occupancytype_division_title" />
+		<field name="occupancytype_group_objid" />
+		<field name="occupancytype_group_title" />
+		<field name="location_text" />
+		
+		<field name="inspectiondate" type="timestamp" />
+
+	</element>
+</schema>	
+
+
+
+

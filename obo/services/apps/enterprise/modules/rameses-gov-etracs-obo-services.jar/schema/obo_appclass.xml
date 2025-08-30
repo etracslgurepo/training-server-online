@@ -1,0 +1,24 @@
+<schema>
+	<element tablename="obo_appclass">
+		<field name="objid" primary="true" visible="true" searchable="true"/>
+		<field name="title" caption="Title" searchable="true"/>
+		<field name="processname" caption="Process Name"/>
+		<field name="schemaname" caption="Schema Name"/>
+		<field name="entityschemaname" caption="Entity Schema Name"/>
+		<field name="doctypeid" caption="Doc Type"/>
+		<field name="appnopattern"/>
+		<field name="reqnodid"/>
+		<field name="nodid"/>
+
+		<complex name="reqnod" ref="obo_doctype" jointype="many-to-one" required="false">
+			<key field="reqnodid" target="objid" />
+		</complex>
+
+		<complex name="nod" ref="obo_doctype" jointype="many-to-one" required="false">
+			<key field="nodid" target="objid" />
+		</complex>
+		
+		<field name="sortorder"/>
+
+	</element>
+</schema>

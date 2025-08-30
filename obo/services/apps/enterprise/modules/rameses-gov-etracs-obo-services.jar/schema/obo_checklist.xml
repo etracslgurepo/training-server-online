@@ -1,0 +1,8 @@
+<schema>
+	<element tablename="obo_checklist">
+		<field name="objid" primary="true" caption="Obj ID" visible="true"/>
+		<field name="description" caption="Description" searchable="true"/>
+		<field name="type" caption="Type" searchable="true" indexed="true"/>
+	</element>
+</schema>
+

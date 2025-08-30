@@ -1,0 +1,38 @@
+import com.rameses.annotations.*; 
+
+class BuildingPermitIssuedListInterceptor { 
+
+	@Service("DateService")
+	def dateSvc;
+
+
+	@Before(pattern="QueryService.getList", eval="#{args[0]._schemaname == 'vw_building_permit_issued' }")
+	public void loadList(def evt) {
+		def o = evt.args[0];
+		if (!o._tag) return;
+		
+		def str = "task.state = :state ";
+		def m = [state: o._tag ];
+
+		if( o._tag == 'post-requirement' ) {
+			m.state = "post-requirement";
+			m.duedate = dateSvc.add( dateSvc.getServerDate() , "-30d");
+			str += " AND  dtissued > :duedate  ";	
+		}
+		else if(  o._tag == 'post-requirement-pastdue'  ) {
+			m.state = "post-requirement";
+			m.duedate = dateSvc.add( dateSvc.getServerDate() , "-30d");
+			str += " AND  dtissued <= :duedate  ";	
+		}
+
+		//add to first position of where
+		if( o.where ) {
+			o.where[0] = str + " AND " + o.where[0];	
+			o.where[1].putAll( m );
+		}
+		else {
+			o.where = [str, m];
+		}
+	}
+
+} 

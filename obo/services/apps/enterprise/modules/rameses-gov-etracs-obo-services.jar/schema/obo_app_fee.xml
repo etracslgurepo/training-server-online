@@ -1,0 +1,23 @@
+<schema>
+	<element tablename="obo_app_fee">
+		<field name="objid" primary="true" prefix="OBOPF"/>
+		<field name="appid" required="true" />
+
+		<!-- parent here is the subdoc. it can be null -->
+		<!--
+		<field name="docid" />
+		-->
+		<field name="remarks" />
+		<field name="amount" required="true" />
+		<field name="amtpaid" required="true" />
+		<field name="balance"  expr="amount-amtpaid"/>
+		<complex name="item" ref="obo_itemaccount" jointype="many-to-one" required="true">
+			<key field="itemid" target="objid" />
+		</complex>	
+		<field name="dynamic"  type="integer"/>
+		<field name="billid" />
+
+		<!-- billstep: 0=computed at document level 1=computed at bill level -->
+		<field name="billstep" />
+	</element>
+</schema>	

@@ -1,0 +1,14 @@
+<schema>
+	<element tablename="obo_app_taskitem">
+		<field name="objid" primary="true" prefix="OBOTSKITM"/>
+		<field name="appid" required="true"/>
+		<field name="typeid" required="true"/>
+		<field name="taskid" />
+
+		<!-- the previous task having the same typeid that where status was 1 -->
+		<field name="supersededid" />
+
+		<!-- starts with zero. Increments after every reactivation -->
+		<field name="revision" required="true"/>
+	</element>
+</schema>

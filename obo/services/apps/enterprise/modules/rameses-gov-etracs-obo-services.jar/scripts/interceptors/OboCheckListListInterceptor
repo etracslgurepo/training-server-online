@@ -1,0 +1,35 @@
+import com.rameses.annotations.*; 
+
+class OboCheckListListInterceptor { 
+
+	@DataContext("obo_checklist")
+	def docType;
+
+	@After(pattern="QueryService.getNodeList", eval="#{args[0]._schemaname == 'obo_checklist' }")
+	public void getNodeList(def evt) {
+		def result = evt.result;
+		def list = docType.select("type").groupBy("type").list();
+		list.each {
+			result << [title: it.type];
+		}
+	}
+
+	@Before(pattern="QueryService.getList", eval="#{args[0]._schemaname == 'obo_checklist' }")
+	public void loadList(def evt) {
+		def o = evt.args[0];
+		if( !o.node?.title ) return;
+
+		def str = " type = :type ";
+		def m = [type: o.node.title ];
+
+		//add to first position of where
+		if( o.where ) {
+			o.where[0] = str + " AND " + o.where[0];	
+			o.where[1].putAll( m );
+		}
+		else {
+			o.where = [str, m];
+		}
+	}
+
+} 

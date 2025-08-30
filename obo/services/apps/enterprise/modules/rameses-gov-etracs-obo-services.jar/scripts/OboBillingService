@@ -1,0 +1,220 @@
+import com.rameses.annotations.*; 
+import com.rameses.util.*;
+import obo.facts.*;
+import java.text.*;
+import enterprise.utils.*;
+import java.rmi.server.*;
+import treasury.utils.*;
+import treasury.facts.*;
+
+class OboBillingService {
+	
+	@Service("RuleExecutorService")
+	def ruleSvc;
+
+	@Service("OboAppDocInfoService")
+	def infoSvc;
+
+	@Service("DateService")
+	def dateSvc;
+
+	@DataContext(dynamic=true)
+	def dynaDb;
+
+	@Service("NumberService")
+	def numSvc;
+
+	@DataContext("vw_obo_app")
+	def vwAppEm;
+
+	@DataContext("obo_app_fee")
+	def appFeeEm;
+
+	@DataContext("obo_bill")
+	def billEm;
+
+	@DataContext("vw_obo_app")
+    def vwAbstractAppEm;
+
+    @DataContext("vw_obo_app_doc")
+	def vwDocEm;
+
+	@DataContext("obo_app_tag")
+	def appTagEm;
+
+	@DataContext("obo_itemaccount")
+	def itemAcctEm;
+
+	@ProxyMethod
+	public def getBillItems( o ) { 
+		if(!o.refno ) throw new Exception("refno is required in OboBillingService.getBillItems");
+
+		def app = vwAppEm.find( [appno: o.refno ]).first();
+		if(!app) {
+			//test the trackingno
+			app = vwAppEm.find( [trackingno: o.refno ] ).first();
+			if(!app) throw new Exception("Application not found!");
+		}
+
+		def bill = billEm.find( [appid: app.objid ] ).first();		
+		
+		if ( app.task?.state != 'payment' ) 
+			throw new Exception("This is not yet ready for payment");	
+
+		def fees = 	appFeeEm.find([ billid: bill.objid ]).orderBy("item.sortorder").where("amount - amtpaid > 0").list().collect{ 
+			[ item: it.item?.item, amount: it.amount, refid: it.objid, code: it.item.objid ]
+		} 
+
+		if ( !fees ) throw new Exception("There are no items for payment");
+		def noMap =  fees.findAll{ it.item?.objid == null };
+		if( noMap ) {
+			throw new Exception("Please map the ff items \n" + noMap*.code.join("\n") );
+		}
+
+		def p = [:];
+		p.permittype = app.doctitle;
+
+		p.items = fees; 
+
+		p.amount = p.items.sum{( it.amount ? it.amount : 0.0 )} 
+		if ( p.amount == null ) p.amount = 0.0; 
+
+		p.objid = app.objid;
+		p.billid = bill.objid;
+		p.appno = app.appno;
+		p.trackingno = app.trackingno;
+		p.txntype = "obo";
+		p.title = app.title;
+		p.applicant = app.applicant;
+
+ 		p.mobileno = app.contact?.mobileno;
+		p.email = app.contact?.email;
+		p.task = app.task;
+
+		return p; 
+	} 
+
+	@ProxyMethod
+	public def createBill( def o ) {
+		if(!o.appid) throw new Exception("appid is required in OboBillingService.createBill");
+		if(!o.appno ) throw new Exception("appno is required in OboBillingService.createBill");
+
+		//do not include documents that the amount has already been computed 
+		def docList = vwDocEm.find([appid: o.appid ]).where("doctype.requirefee > 0").list();
+		def docFactList = [];
+		def docErrList = []; 
+		docList.each {
+			if( it.doctype.requirefee == 1 ) {
+				if( !it.amount && !it.exemptfees ) {
+					docErrList << it.doctype.title;
+				}		
+			}
+			else {
+				docFactList << it.doctype.code;	
+			}
+		}
+		if(docErrList) {
+			throw new Exception("The following document require fees to be assessed: \n" + docErrList.join("\n") );
+		}	 
+
+		def bill = [:];
+		bill.objid = o.appid;
+		bill.appid = o.appid
+		bill.state = "ACTIVE";
+		bill.billno = o.appno;
+		
+		bill = billEm.create( bill );
+		
+		//get the appclass first
+		def app = vwAbstractAppEm.find( [objid: o.appid ]).first();
+		def vwAppEm = dynaDb.lookup( app.schemaname );
+		def vapp = vwAppEm.find( [objid: app.objid ] ).first();
+		def occ = vapp.occupancytype;
+		
+		//we'll need to update this later to our newer treasury module
+        def vitems = appFeeEm.find( [appid: o.appid ] ).list();
+
+        def facts = [];
+		facts << new BuildingInfo( vapp ); 
+        facts << new OccupancyType( occ );
+	    facts << new OboPaymentOrder( apptype: app.doctypeid );
+		facts << new OboApp( type: app.doctypeid );
+		
+		docFactList.each {
+			facts << new OboDocument( doctype:it, appid:app.objid);
+		}
+		
+        vitems.each {
+        	def bi = new BillItem( objid: it.objid, billcode: it.item.objid, amount: it.amount, input: true );
+        	bi.tag = it.item.tag;
+            facts << bi;
+        };
+		infoSvc.loadFacts( [appid: o.appid ], facts );
+
+		def tags = appTagEm.find( [appid: o.appid ] ).list();
+		tags.each {
+			facts << new OboAppTag( name: it.tagid );
+		}
+		
+		ruleSvc.execute( "oboassessment", facts, null, null );
+
+        def items = [];
+        facts.findAll{ (it instanceof BillItem) && it.input==false }.each {
+        	def bi = it.toMap();
+            def p = itemAcctEm.find( [objid: bi.billcode ] ).first();
+            bi.item = p;
+            bi.dynamic = 1;
+            bi.billstep = 1;
+            bi.amtpaid = 0;
+            bi.appid = app.objid;
+            bi.sortorder = (p.sortorder == null ? 100 : p.sortorder);
+            items << bi;            
+        };
+        if(items ) {
+        	items.each {
+				def exists = appFeeEm.find( [appid: it.appid, itemid: it.item.objid ] ).exists();
+				if( !exists ) {
+					appFeeEm.create( it );
+				}	
+			}
+        }
+		
+		//check if all items are mapped. If not throw error.
+		def itemList = appFeeEm.find( [appid: o.appid] ).where("item.item.objid IS NULL").list();
+		if(itemList) {
+			throw new Exception("The ff. fees are not mapped. \n" + itemList*.item.title.join("\n"))			
+		}
+		appFeeEm.find( [appid: o.appid ] ).update( [billid: bill.objid ] );
+		appFeeEm.updateAppDocFees( [appid: o.appid ] );
+		appFeeEm.updateBillAmount( [appid: o.appid ]);
+
+		return billEm.find( [objid: bill.objid ] ).first();
+	}
+ 
+	@ProxyMethod
+	public void cancelBill( def o ) {
+		if(!o.billid) throw new Exception("billid is required in OboBillingService.cancelBill");
+		def bill = billEm.find( [objid: o.billid ] ).first();
+		//can remove only if app is assessment task
+		def app = vwAppEm.find( [objid: bill.appid ]).first();
+
+		if( app.task.state != 'assessment' ) 
+			throw new Exception("Bill can only be removed during assessment");
+
+		appFeeEm.find( [appid: bill.appid ] ).where( "billstep = 1" ).delete();
+
+		//nullify billid for all fees so we can delete it. 	
+		appFeeEm.find( [appid: bill.appid ] ).update( [billid: "{NULL}" ] );
+		appFeeEm.updateAppDocFees( [appid: bill.appid ] );
+		billEm.find( [objid: o.billid ] ).delete();
+	}
+
+	@ProxyMethod
+	public void checkHasBill( def o ) {
+		if(!o.appid) throw new Exception("appid is required in OboBillingService.checkHasBill");
+		def exists = billEm.find( [appid: o.appid ] ).exists();
+		if(!exists) throw new Exception("Please generate a bill first");
+	}
+
+
+}

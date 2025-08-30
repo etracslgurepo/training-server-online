@@ -1,0 +1,35 @@
+import com.rameses.annotations.*;
+
+
+class InspectionScheduleTask {
+	
+	@Service("WorkflowTaskService")
+	def wfSvc;	
+
+	@DataContext("vw_obo_app")
+	def vwAppEm;
+	
+	@Schedule(interval=1, timeUnit="MINUTES")
+	public void activateTasks( def tsk ) {
+		def activateTasks = vwAppEm.select("objid,appno,taskid,appclass.*").where( "NOT(inspectiondate IS NULL) AND inspectiondate < NOW() AND task.state='inspection-wait-state' " ).list();
+		if(activateTasks) {
+			println "trigger schedule inspection";
+			activateTasks.each {
+				try {
+					def  t = [:];
+					t.processname = it.appclassinfo.processname;
+					t.entityschemaname = "obo_app";
+					t.refid = it.objid;
+					t.info = [appid:it.objid];
+					t.action = "submit";
+					wfSvc.signal( t );
+				}
+				catch(e) {
+					println "error on " + it.appclassid + " " + it.appno + ". Task was not forwarded to inspection";
+				}
+			}
+		}
+	}
+
+
+}

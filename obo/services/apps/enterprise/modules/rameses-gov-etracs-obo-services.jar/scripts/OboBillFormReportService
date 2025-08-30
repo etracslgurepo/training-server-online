@@ -1,0 +1,57 @@
+import com.rameses.annotations.*;
+import com.rameses.util.*;
+
+
+public class OboBillFormReportService  {
+
+	@Service("DateService")
+	def dateSvc;
+
+	@DataContext("obo_app_fee")
+	def feeEm;
+
+	@DataContext("obo_bill")
+	def billEm;
+
+	@DataContext("vw_obo_app")
+	def vwAppEm;
+
+	@ProxyMethod
+	public def getData( def o ) {
+		if(!o.billid) throw new Exception( "billid is required in OboBillFormReportService.getData ")
+
+		def bill = billEm.find( [objid: o.billid ] ).first();
+
+		def data = vwAppEm.find( [objid: bill.objid ]).first();
+		if(!data) throw new Exception("App not found");
+
+		//data.permittype =  data.doctitle ;
+
+		def fitems = feeEm.find([appid: bill.objid]).list();
+		def unmappedList = fitems.findAll{ !it.item?.objid };
+		if(unmappedList) {
+			throw new Exception("Please map the ff. items first /n" + unmappedList*.title.join("/n") );
+		}
+
+		//group by fee group
+		def vitems = [];
+		fitems.groupBy{ it.item.item }.each {k,v->
+			def feegroup = v.find{ it.item.feegroupid!=null }.item.feegroup;
+			def m = [ 
+				item: k, 
+				section: feegroup?.title,
+				grouporder: feegroup?.sortindex,
+				sortorder: v.max{ it.item.sortorder }.item.sortorder, 
+				amount: v.sum{it.amount} 
+			];
+			vitems << m;
+		};
+
+		data.items = vitems.sort{ ( (it.grouporder==null?0:it.grouporder) * 1000 )+ (it.sortorder==null? 0: it.sortorder) };
+
+		data.dtfiled = dateSvc.getServerDate();
+		return data;
+	}	
+
+
+}

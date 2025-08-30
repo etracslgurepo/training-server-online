@@ -1,0 +1,26 @@
+<schema>
+	<element tablename="vw_occupancy_certificate_issued">
+		<field name="objid" primary="true"/>
+
+		<field name="applicant_entitytype" />
+		<field name="applicant_name" caption="Applicant name" searchable="true" indexed="true"/>
+
+		<field name="appno" caption="App No" searchable="true" indexed="true"/>
+		<field name="appdate" caption="App Date" type="date"/>
+		<field name="trackingno" caption="Tracking No" searchable="true" indexed="true"/>
+		<field name="task_state" caption="State"/>
+
+		<field name="controlno" caption="Certificate No"/>
+		<field name="dtissued" type="date" caption="Date Issued"/>
+		<field name="occupancytype_objid" />
+		<field name="occupancytype_title" />
+		<field name="occupancytype_division_objid" />
+		<field name="occupancytype_division_title" />
+		<field name="occupancytype_group_objid" />
+		<field name="occupancytype_group_title" />
+		
+		<complex name="bldgpermit" ref="vw_building_permit_issued" jointype="many-to-one" required="true">
+			<key field="bldgpermitid" target="objid" />
+		</complex>
+	</element>
+</schema>	

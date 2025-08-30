@@ -1,0 +1,96 @@
+import com.rameses.annotations.*;
+import java.rmi.server.*;
+
+class OccupancyCertificatePersistenceInterceptor {
+	
+	@Service("OboAppProfessionalService")
+	def profSvc;
+
+	@Service("OboAppDocService")
+	def appDocSvc;
+
+
+	@Service("OboAppRuleService")
+	def appRuleSvc;
+
+	@DataContext("occupancy_certificate")
+	def appEm;
+
+
+	@DataContext("vw_occupancy_certificate")
+	def vwAppEm;
+
+	@DataContext("obo_app_entity")
+	def entityEm;
+
+	@DataContext("occupancy_rpu")
+	def occEm;
+
+	@DataContext("obo_app_tag")
+	def tagEm;
+
+	@DataContext("obo_appclass")
+	def appClassEm;
+
+	@DataContext("vw_obo_app_doc")
+	def vwDocEm;	
+
+	@DataContext("obo_bill")
+	def billEm;
+
+	@Env
+	def env;
+
+	//OCCUPANCY PERMIT APPLICATION
+	@Before(pattern="PersistenceService.update", eval="#{ args[0]._schemaname == 'occupancy_certificate' }")
+	public void beforeUpdateApplication(def evt) {
+		def app = evt.args[0];
+		if( app.supervisor ) {
+			app.supervisorid = app.supervisor.objid;
+		}
+		if( app.applicant?.objid ) {
+			entityEm.find( [objid: app.applicant.objid]).update( app.applicant );
+		}
+	}
+
+	@After(pattern="PersistenceService.update", eval="#{ args[0]._schemaname == 'occupancy_certificate' }")
+	public void afterUpdateApplication(def evt) {
+		def app = evt.args[0];
+
+		//update project cost and txntype if there are changes in the floor area and occupancy type
+		if( app.actualtotalfloorarea || app.occupancytype?.objid ) {
+			def res = appRuleSvc.execRules( [appid: app.objid ] );
+			appEm.find( [objid: app.objid ] ).update( res );
+		}
+
+		if(app.tags!=null) {
+			app.tags.findAll{ !it.objid }.each {
+				tagEm.create( it );	
+			};
+			app._removedtags?.findAll{ it.objid !=null }.each {
+				tagEm.find( [objid: it.objid] ).delete();
+			}
+		}
+	}
+
+	@After(pattern="PersistenceService.read", eval="#{ args[0]._schemaname == 'vw_occupancy_certificate' }")
+	public void afterOpen(def evt) {
+		def p = evt.args[0];
+		def a = evt.result;
+		a.occupancytype.title = a.occupancytype.title?.toUpperCase();
+
+		//retrieve also the related occupancy permit
+		def rpu = occEm.find( [appid: p.objid] ).select("objid").first(); 
+		if( rpu ) a.rpuid = rpu.objid;
+
+		def appclass = appClassEm.find( [objid: a.appclassid ] ).first();
+		def doc = vwDocEm.find( [appid: a.objid ] ).where( "doctype.code = :dtype", [dtype: appclass.doctypeid] ).first();
+		if(doc) {
+			a.control = doc;
+		}	
+		a.bill = billEm.find( [appid: a.objid ] ).first();
+		a.tags = tagEm.find( [appid: a.objid ] ).list();
+	}
+
+
+}

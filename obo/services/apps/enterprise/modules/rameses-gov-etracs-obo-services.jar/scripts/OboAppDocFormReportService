@@ -1,0 +1,398 @@
+import com.rameses.annotations.*;
+import com.rameses.util.*;
+
+/* ----------------------------------
+* This service is called by sys_report
+* ----------------------------------*/
+public class OboAppDocFormReportService  {
+
+	@DataContext("vw_obo_app_doc")
+	def vwSubdocEm;
+
+	@DataContext("vw_obo_app_doc_info")
+	def vwInfoEm;
+
+	@DataContext(dynamic=true)
+	def db;
+
+	@DataContext("vw_obo_app_taskitem")
+	def vwAppTaskitemEm;
+
+	@DataContext("vw_obo_app_taskitem_task")
+	def vwTaskitemTaskEm;
+
+	@DataContext("vw_obo_payment")
+	def vwDocPayEm;
+
+	@DataContext("obo_payment")
+	def payEm;
+
+	@DataContext("vw_obo_app")
+	def appEm;
+
+	@DataContext("obo_app_doc_checklist")
+	def checkListEm;
+
+	@DataContext("obo_checklist_item")
+	def docCheckListEm;
+
+	@DataContext("obo_app_professional")
+	def appProfEm;
+
+	@DataContext("sys_signature")
+	def signatureEm;
+
+	@DataContext("building_permit_rpu")
+	def rpuEm;
+
+	@DataContext("obo_app_professional")
+	def profEm;
+
+	@DataContext("vw_obo_doctype")
+	def vwDocType;
+
+	@Service(dynamic=true)
+	def qrCodeProv;
+
+	@Service("SysReportService")
+	def reportSvc;
+
+	@Env
+	def env;
+	
+
+	@ProxyMethod
+	public def getDocData( def o ) {
+		if(!o.objid ) throw new Exception("objid is required in OboAppDocFormReportService.getData" );
+		def docsub = vwSubdocEm.find([objid: o.objid ]).first();
+		if(!docsub) throw new Exception("doc not found");
+		return docsub;
+	}
+
+	@ProxyMethod
+	public def getReportHeaders( def o ) {
+		if(!o.name ) throw new Exception("name is required in OboAppDocFormReportService.getRewportHeaders" );
+		return reportSvc.getReportHeaders( [name: o.name ] );
+	}
+
+	@ProxyMethod
+	public def getDocSignatory( def o ) {
+		if(!o.doctypeid ) throw new Exception("doctypeid is required in OboAppDocFormReportService.getDocSignatory" );
+		def doctype = vwDocType.find( [objid: o.doctypeid] ).first();
+		def docsub = [:];
+		if( doctype.endorserid != null ) {
+			docsub.endorserid = doctype.endorserid;	
+			docsub.endorser = signatureEm.find( [objid: doctype.endorserid] ).first(); 	
+		}
+		if( doctype.approverid != null ) {
+			docsub.approverid = doctype.approverid;
+			docsub.approver = signatureEm.find( [objid: doctype.approverid] ).first(); 		
+		};	
+		return docsub;
+	}
+
+	@ProxyMethod
+	public def getIssuerSignatory( def o ) {
+		if(!o.docid ) throw new Exception("docid is required in OboAppDocFormReportService.getIssuerSignatory" );
+		def docsub = vwSubdocEm.find([objid: o.objid ]).first();
+
+		//load issuer
+		def retval = [:];
+		if( docsub.issuedby?.objid ) {
+			def info = signatureEm.find( [userid: docsub.issuedby.objid] ).first();
+			if( info ) {
+				retval.issuedby.signature = info.signature;
+				retval.issuedby.name = info.displayname;
+			}	
+		}
+		return retval;
+	}
+
+
+
+	@ProxyMethod
+	public def getEvaluatorSignatory( def o ) {
+		if(!o.appid ) throw new Exception("appid is required in OboAppDocFormReportService.getEvaluatorInfo" );
+		if(!o.sectionid) throw new Exception("sectionid is required in OboAppDocFormReportService.getEvaluatorInfo");
+
+
+		def tsk = vwTaskitemTaskEm.find( [appid: o.appid, sectionid: o.sectionid, state: "evaluation" ] ).orderBy("dtcreated DESC").first();
+		def docsub = [:];
+		if( tsk?.assignee?.objid ) {
+			def info = signatureEm.find( [userid: tsk.assignee.objid ] ).first();
+			if(!info) info = [displayname: tsk.assignee.name];
+			docsub.evaluator = info;
+			docsub.dtevaluated = tsk.enddate; 
+		}
+		return docsub; 
+	}
+
+	@ProxyMethod
+	public def getInspectorSignatory( def o ) {
+		if(!o.appid ) throw new Exception("appid is required in OboAppDocFormReportService.getInspectorInfo" );
+		if(!o.sectionid) throw new Exception("sectionid is required in OboAppDocFormReportService.getInspectorInfo");
+		def tsk = vwTaskitemTaskEm.find( [appid: o.appid, sectionid: o.sectionid, state: "inspection" ] ).orderBy("dtcreated DESC").first();
+		def docsub = [:];
+		if( tsk?.assignee?.objid ) {
+			def info = signatureEm.find( [userid: tsk.assignee.objid ] ).first();
+			if(!info) info = [displayname: tsk.assignee.name];
+			docsub.inspector = info;
+			docsub.dtinspected = tsk.enddate; 
+		}
+		return docsub; 
+	}
+
+	@ProxyMethod
+	public def getInfos( def o ) {
+		if(!o.objid ) throw new Exception("objid is required in OboAppDocFormReportService.getDocInfos" );
+		//load infos
+		def infos = vwInfoEm.find( [parentid: o.objid ] ).list();
+		def docsub = [:];
+		infos.each {
+			def vname = it.name.toLowerCase();
+			if( it.datatype == 'date')  docsub.put( vname,  it.datevalue);
+			else if( it.datatype == 'decimal') docsub.put(vname, it.decimalvalue);
+			else if( it.datatype == 'integer') docsub.put(vname, it.intvalue);
+			else if( it.datatype == 'boolean') docsub.put(vname, ( (it.booleanvalue == 0) ? false: true));
+			else if( it.datatype == 'lookup' ) docsub.put( vname, [key:it.lookupkey, value:it.lookupvalue] );
+			else it.value = docsub.put(vname,  it.stringvalue);
+		}
+		return docsub;
+	}
+
+	@ProxyMethod
+	public def getDocInfos( def o ) {
+		if(!o.objid ) throw new Exception("objid is required in OboAppDocFormReportService.getDocInfos" );
+		//load infos
+		def infos = vwInfoEm.find( [parentid: o.objid ] ).list();
+		def docsub = [:];
+		infos.each {
+			def vname = it.name.toLowerCase();
+			if( it.datatype == 'date')  docsub.put( vname,  it.datevalue);
+			else if( it.datatype == 'decimal') docsub.put(vname, it.decimalvalue);
+			else if( it.datatype == 'integer') docsub.put(vname, it.intvalue);
+			else if( it.datatype == 'boolean') docsub.put(vname, ( (it.booleanvalue == 0) ? false: true));
+			else if( it.datatype == 'lookup' ) docsub.put( vname, [key:it.lookupkey, value:it.lookupvalue] );
+			else it.value = docsub.put(vname,  it.stringvalue);
+		}
+		return docsub;
+	}
+
+	@ProxyMethod
+	public def getDocChecklist( def o ) {
+		if(!o.objid ) throw new Exception("objid is required in OboAppDocFormReportService.getDocChecklist" );
+		//load checklist items if any
+		def chklist = checkListEm.find( [parentid: o.objid]).list();
+		def docsub = [:];
+		chklist.each {
+			docsub.put( it.typeid.toLowerCase(), 1 );
+			if( it.values  ) {
+				for(int i=0;i < it.values.size();i++) {
+					docsub.put( it.typeid.toLowerCase()+"_"+i, it.values[i] );
+				}
+			}
+		}
+		return docsub;
+	}
+
+	@ProxyMethod
+	public def getDocAllChecklist( def o ) {
+		if(!o.objid ) throw new Exception("objid is required in OboAppDocFormReportService.getDocAllChecklist" );
+		if(!o.checklistid ) throw new Exception("checklistid is required in OboAppDocFormReportService.getDocAllChecklist" );
+		//find first the doctype 
+
+		def chklist = docCheckListEm.find( [parentid: o.checklistid ] ).list();
+		def valueList = checkListEm.find( [parentid: o.objid ] ).list();
+		def docsub = [:];
+
+		chklist.each { cd->
+			def val = valueList.find{ r -> r.typeid == cd.objid };
+			
+			def rexp = cd.title.replace("/n", "<br>") =~ /\{\w\}/; 
+			def sb = new StringBuffer();
+			int i = 0;
+			while (rexp.find()) {
+				def xval = "";
+				if(val?.values) {
+					if(val.values.size() > i ) xval = val.values[i]; 
+				};
+				i = i + 1;
+				def sval = " ";
+
+				if( !xval ) {
+					if(rexp.group().toString() != "{b}") {
+						sval = "<u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u>";
+					}
+				}
+				else if("1".equals(xval+"") || xval == true || "true".equals(xval) ) {
+					sval = "&#10003;";
+				}
+				else {
+					sval = "<u>&nbsp;&nbsp;&nbsp;" + xval + "&nbsp;&nbsp;&nbsp;</u>"
+				}
+	            rexp.appendReplacement(sb, sval); 
+	        } 
+	        rexp.appendTail(sb);
+
+			def m = [:];
+			m.title = sb.toString();
+			m.checked = (val!=null)? 1: 0;
+			docsub.put( cd.objid.toLowerCase(), m  );
+		};
+		return docsub;
+	}
+
+	@ProxyMethod
+	public def getAppData( def o ) {
+		if(!o.appid ) throw new Exception("appid is required in OboAppDocFormReportService.getAppData");
+		if(!o.schemaname ) throw new Exception("appclass is required in OboAppDocFormReportService.getAppData");
+
+		def vwAppEm = db.lookup( o.schemaname );
+		//def appTaskEm = db.lookup( o.schemaname + "_task");
+		def app = vwAppEm.find( [objid: o.appid ] ).first();
+		if(app.worktypes) {
+			app.worktypes = app.worktypes?.join(", ");
+		}
+		return app;
+	}
+
+	@ProxyMethod
+	public def getRpus( def o ) {
+		if(!o.appid ) throw new Exception("appid is required in OboAppDocFormReportService.getAppData");
+		//load also the RPUs for display. get the tdno and tctno
+		def rpus = rpuEm.find( [appid: o.appid ] ).list();
+		def docsub = [:];
+		if( rpus ) {
+			docsub.tdno = rpus.findAll{it.tdno!=null}*.tdno.join(",");
+			docsub.titleno = rpus.findAll{it.titleno!=null}*.titleno.join(",");			
+			//this is to fix existing tctno field
+			docsub.tctno = rpus.findAll{it.titleno!=null}*.titleno.join(",");
+			docsub.lotno = rpus.findAll{it.lotno!=null}*.lotno.join(",");						
+		}	
+		docsub.rpus = rpus;
+		return docsub;
+	}
+
+	@ProxyMethod
+	public def getQrCode( def o ) {
+		if(!o.objid ) throw new Exception("objid is required in OboAppDocFormReportService.getQrCode");
+		//implement the qrcode
+		def qrCodeSvc = qrCodeProv.lookup("QrCodeInfoService");
+		def docsub = [:];
+		if( qrCodeSvc ) {
+			def parms = [:];
+			parms.orgcode = env.ORGID;
+			parms.reftype = "obo_app_doc"; //leave as is. This is used by qrcodeintercptor
+			parms.refid = o.objid; 
+			parms.connection = "obo";
+			//for testing only -> parms.host = "http://107.21.113.74:90"
+			docsub.qrcode = "qrcode:" + qrCodeSvc.getData(parms);
+		}
+		return docsub;
+	}
+
+	@ProxyMethod
+	public def getRelatedDoc( def o ) {
+		if(!o.appid) throw new Exception("appid is required in OboAppDocFormReportService.getRelatedDoc");
+		if(!o.doctypeid ) throw new Exception( "doctypeid is required in OboAppDocFormReportService.getRelatedDoc" );
+		def dinfo = vwSubdocEm.find([appid: o.appid ]).where(" doctypeid = :type", [type: o.doctypeid] ).select("controlno,dtissued,amount").first();
+		if(!dinfo) return [:];
+
+		def zz = [:];
+		zz.controlno = dinfo.controlno;
+		zz.dtissued = dinfo.dtissued;
+		zz.amount = dinfo.amount; 	
+		return zz;
+	}
+
+	@ProxyMethod
+	public def getReceipt( def o ) {
+		if(!o.appid) throw new Exception("appid is required in OboAppDocFormReportService.getReceipt");
+		def rct = payEm.find( [appid: o.appid ] ).first();
+		def docsub = [:];
+		if( rct ) {
+			docsub.receiptno = rct.refno;
+			docsub.receiptdate = rct.refdate;
+			docsub.receiptamount = rct.amount;
+		}
+		return docsub;
+	}
+
+	@ProxyMethod
+	public def getData( def id ) {
+		//throw new Exception("Thorw get data in OboAppDocPrintoutService " + id );
+
+		//if completed, used for occupancy
+		docsub.dtactualcompleted = app.dtactualcompleted;
+		if(app.bldgpermit) docsub.bldgpermit = app.bldgpermit; 
+
+
+		//determine the date received
+		docsub.dtreceived = appTaskEm.find([refid: docsub.appid, state:'receiving' ] ).select("enddate").first()?.enddate;		
+		
+		docsub.permittype = vapp.doctitle;
+		docsub.supervisor = app.supervisor;
+
+		//load the main documents for reference
+		def dlist = vwSubdocEm.find([appid: docsub.appid ]).where(" NOT(controlno IS NULL) AND objid <> :id", [id: id] ).select("controlno,dtissued,doctype.objid,amount").list();
+		def zz = [:];
+		dlist.each {
+			def z = [controlno: it.controlno, dtissued: it.dtissued, amount: it.amount ];
+			docsub.put( it.doctype.objid.toLowerCase(), z );
+		}
+
+		//documents that have professionals
+		if(docsub.doctype.sectionid ) {
+			def s1 = docsub.doctype.sectionid;
+			def prof1 =	appProfEm.find( [appid: docsub.appid ] ).where(  "section.objid = :sectionid ", [sectionid: s1] ).first();
+			if(prof1) {
+				def z1 = [:];
+				z1.designprofessional = prof1.designprofessional;  
+				z1.supervisor = prof1.supervisor;
+				docsub.put( s1.toLowerCase(), z1);		
+			}	
+		}
+		return docsub;
+	}
+
+	@ProxyMethod
+	public def getProfessionals( def o ) {
+		if(!o.appid) throw new Exception("appid is required in OboAppDocFormReportService.getProfessionals");
+		def profs = profEm.find( [appid: o.appid ]).select("section.*,designprofessional.*").where("NOT(sectionid IS NULL)").list();
+		def res = [:];
+		//correct the name and prcno
+		profs.each {
+			def m = [:];
+			m.name = it.designprofessional.name;
+			m.lastname = it.designprofessional.lastname;
+			m.firstname = it.designprofessional.firstname;
+			m.prc = it.designprofessional.prc;
+			def sectionid = it.sectionid.toLowerCase();
+			if(sectionid == "architectural") res.architect = m;
+			else if(sectionid == "civil_structural") res.civil = m;
+			else if(sectionid == "electrical") res.electrical = m;
+			else if(sectionid == "mechanical") res.mechanical = m;
+			else if(sectionid == "sanitary") res.sanitary = m;
+			else if(sectionid == "plumbing") res.plumbing = m;
+			else if(sectionid == "electronic") res.electronic = m;			
+		}
+		return res;
+	}
+
+	@ProxyMethod
+	public def getDesignProfessional( def o ) {
+		if(!o.appid) throw new Exception("appid is required in OboAppDocFormReportService.getDesignProfessional");
+		if(!o.sectionid) throw new Exception("sectionid is required in OboAppDocFormReportService.getDesignProfessional");
+		def prof = profEm.find( [appid: o.appid ]).select("designprofessional.*").where("sectionid = :secid", [secid: o.sectionid]).first();
+		return prof?.designprofessional;
+	}
+
+	@ProxyMethod
+	public def getSupervisor( def o ) {
+		if(!o.appid) throw new Exception("appid is required in OboAppDocFormReportService.getSupervisor");
+		if(!o.sectionid) throw new Exception("sectionid is required in OboAppDocFormReportService.getSupervisor");
+		def prof = profEm.find( [appid: o.appid ]).select("supervisor.*").where("sectionid = :secid", [secid: o.sectionid]).first();
+		return prof?.supervisor;
+	}
+
+}

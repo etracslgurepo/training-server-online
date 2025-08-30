@@ -1,0 +1,46 @@
+import com.rameses.annotations.*;
+
+import java.text.*;
+
+class OboAppDocFormQRCodeInterceptor {
+
+	@DataContext("vw_obo_app_doc")
+	def vwDocEm;
+
+	@Service(value="OrgService", connection="admin")
+	def orgSvc;
+
+	@After(pattern="QrCodeInfoService.getInfos", eval="#{args[0].reftype == 'obo_app_doc'}", index=100)
+	public void getOboAppDoc(def evt) {
+		def arg = evt.args[0];
+		def result = evt.result;
+
+		def doc = vwDocEm.find( [objid: arg.refid ]).first();
+		if(!doc) throw new Exception("Document not found");
+
+		def root =  orgSvc.getRoot();
+
+		if(!doc.controlno)
+			throw new Exception("This document is no yet released");
+
+		def df = new SimpleDateFormat("MMMM dd yyyy");
+		def issuer = doc.doctype?.section?.org?.name;
+		if( issuer == null ) {
+			issuer = root.name;
+		} 
+		else {
+			issuer = issuer + " " + root.name;
+		}
+
+		result << [caption: 'Document Type', value: doc.doctype.title ];		
+		result << [caption: 'Control No', value: doc.controlno ];
+		result << [caption: 'Date Issued', value: df.format(doc.dtissued) ];
+		result << [caption: 'Issuer', value: issuer ];
+		result << [caption: 'URL (please check)', value: "https://www.filipizen.com" ];
+
+		result << [caption: 'App No', value: doc.app?.appno ];		
+		result << [caption: 'Applicant', value: doc.app?.applicant?.name ];
+		result << [caption: 'Project Title', value: doc.app?.title ];
+
+	}
+}

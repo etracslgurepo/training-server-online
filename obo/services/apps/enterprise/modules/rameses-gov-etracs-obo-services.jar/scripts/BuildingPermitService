@@ -1,0 +1,70 @@
+import com.rameses.annotations.*;
+
+class BuildingPermitService {
+
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("OboAppFindingService")
+	def findingSvc;
+	
+	@DataContext("vw_building_permit")
+	def vwPermitEm;
+
+	@DataContext("vw_building_permit_issued")
+	def permitIssuedEm;
+
+	@DataContext("obo_app_entity")
+	def permitEntity;
+
+	@DataContext("obo_professional_info")
+	def professionalEm;
+
+	@DataContext("vw_obo_app_doc")
+	def subdocEm;
+
+	@DataContext("obo_app_professional")
+	def profEm;
+
+	@DataContext("building_permit_rpu")
+	def rpuEm;
+
+
+	@Env
+	def env;
+
+	//used for occupancy permit
+	@ProxyMethod
+	public def findByPermitNo( def p ) {
+		def ctl = permitIssuedEm.find( [controlno: p.permitno ] ).first();
+		if(!ctl) throw new Exception("Permit "+p.permitno + " does not exist");
+
+		def perm = vwPermitEm.find( [objid: ctl.objid ] ).first();
+		perm.permitno = ctl.controlno;	
+		perm.orgid = perm.orgcode;
+		perm.professionals = profEm.find([appid: perm.objid]).where("NOT(sectionid IS NULL)").list();
+		perm.rpus = rpuEm.find( [appid: perm.objid ] ).list();
+
+		//check if there are open findings post requirements
+		def list = findingSvc.getOpenPostRequirementList( [appid: perm.objid ] );
+		if(list) {
+			throw new Exception("There are issues that need to be resolved. Please contact the OBO office  " )
+			/*
+			def str = new StringBuilder();
+			str.append( "There are items that need to be complied first as follows: \n" );
+			list*.particulars.each {
+				str.append( it + "\n" );
+			}
+			throw new Exception( str.toString() );
+			*/
+		} 
+
+
+
+		return perm;
+	}	
+
+
+
+	
+}

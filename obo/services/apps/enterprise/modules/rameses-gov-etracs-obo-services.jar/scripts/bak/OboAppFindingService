@@ -1,0 +1,217 @@
+import com.rameses.annotations.*; 
+import java.rmi.server.*;
+import obo.util.*;
+
+class OboAppFindingService {
+
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("ControlnoGeneratorService")
+	def controlNoSvc;
+	
+	@Service("JasperEmailQueueService")
+    def emailSvc;
+
+	@DataContext("vw_obo_app_finding")
+	def vwFindingEm;
+	
+	@DataContext("vw_obo_doctype")
+	def vwDoctypeEm;
+
+	@DataContext("obo_app_finding")
+	def findingEm;
+
+	@DataContext("obo_app_transmittal")
+	def transmittalEm;
+
+	@DataContext("vw_obo_app")
+	def vwAppEm;
+
+	@Env
+	def env;
+
+	@ProxyMethod
+	public def getList( def o ) {
+		if(!o.appid) throw new Exception("appid in OboAppFindingService.getList is required");
+		if(!o.findingtypeid) throw new Exception("findingtypeid in OboAppFindingService.getList is required");
+		
+		def finder = [appid: o.appid ];
+        def str = " findingtypeid = :findingtypeid AND superseded = 0 ";    
+        def params = [ findingtypeid: o.findingtypeid ];
+
+        if(o.state) {
+        	str += " AND state = :state ";
+        	params.state = o.state;
+        }
+
+        if(o.sectionid) {
+            str += " AND sectionid = :sectionid";
+            params.sectionid = o.sectionid;         
+        }     
+
+		def sortfld = "checklistitem.indexno ASC"
+		def items = vwFindingEm.find(finder).where(str, params).orderBy(sortfld).list();
+
+		def ch = new ServerCheckListUtil();
+
+        items.each {
+            it.description = "";
+            if( it.checklistitem?.title ) {
+                it.description = ch.format(it.checklistitem.title, it.values );
+
+                //if description is dot only then make it blank.
+                if(it.description.trim().length() <= 0) it.description = "";
+            }
+            if( it.particulars) {
+                if(it.description && !it.description.trim().endsWith(".")) {
+                    it.description += ". ";
+                }    
+                it.description += it.particulars;
+            }    
+        }
+        return items;
+	}
+
+	@ProxyMethod
+	public def openItem( def o ) {
+		if(!o.objid) throw new Exception("objid in OboAppFindingService.openItem is required");
+		def v = vwFindingEm.find([objid: o.objid]).first();
+		if(!v) throw new Exception("Item not found");
+
+		def ch = new ServerCheckListUtil();
+
+		v.description = "";
+        if( v.checklistitem?.title ) {
+            v.description = ch.format(v.checklistitem.title, v.values );
+
+            //if description is dot only then make it blank.
+            if(v.description.trim().length() <= 0) v.description = "";
+        }
+        if( v.particulars) {
+            if(v.description && !v.description.trim().endsWith(".")) {
+                v.description += ". ";
+            }    
+            v.description += v.particulars;
+        }   
+       	return v;
+	}
+
+	/*
+	* Check if there are findings that were transmitted but not corrected
+	*/
+	@ProxyMethod
+	public void checkUnresolvedItems( def o ) {
+		if(!o.appid) throw new Exception("appid is required in OboAppFindingService.checkUnresolvedItems");
+		//check if there are pending findings
+		def t = vwFindingEm.find( [appid: o.appid] ).select("c:{COUNT(*)}").where("state=2 AND superseded=0 AND NOT(transmittalid IS NULL) ").val();
+		if( t > 0) throw new Exception("There are unresolved findings. Please resolve open issues before proceeding");
+	}
+
+	@ProxyMethod
+	public def checkHasFindings( def o ) {
+		if(!o.appid) throw new Exception("appid is required in OboAppFindingService.checkHasFindings");
+		if(!o.typeid) throw new Exception("typeid is required in OboAppFindingService.checkHasFindings");
+
+		def ex = vwFindingEm.find( [appid: o.appid, findingtypeid: o.typeid ] ).where("superseded = 0 AND state = 2").exists();
+		if( ex ) {
+			return [hasfindings: true];
+		}
+		else {
+			return [hasfindings: false];
+		}
+	}
+
+	@ProxyMethod
+	public def checkHasPostRequirements( def o ) {
+		if(!o.appid) throw new Exception("appid is required in OboAppFindingService.checkHasPostRequirement");
+		def ex = vwFindingEm.find( [appid: o.appid ] ).where("superseded = 0 AND state = 3").exists();
+		if( ex ) {
+			return [hasfindings: true];
+		}
+		else {
+			return [hasfindings: false];
+		}
+	}
+
+	@ProxyMethod
+	public def getOpenPostRequirementList( def o ) {
+		if(!o.appid) throw new Exception("appid in OboAppFindingService.getOpenPostRequirementList is required");
+		
+		def finder = [appid: o.appid ];
+        
+		def sortfld = "checklistitem.indexno ASC"
+		def items = vwFindingEm.find(finder).where("superseded = 0 AND state = 3").orderBy(sortfld).list();
+
+		def ch = new ServerCheckListUtil();
+
+        items.each {
+            it.description = "";
+            if( it.checklistitem?.title ) {
+                it.description = ch.format(it.checklistitem.title, it.values );
+
+                //if description is dot only then make it blank.
+                if(it.description.trim().length() <= 0) it.description = "";
+            }
+            if( it.particulars) {
+                if(it.description && !it.description.trim().endsWith(".")) {
+                    it.description += ". ";
+                }    
+                it.description += it.particulars;
+            }    
+        }
+        return items;
+	}
+
+	@ProxyMethod
+	public def validatePostRequirements( def o ) {
+		if(!o.appid) throw new Exception("appid is required in OboAppFindingService.validatePostRequirement");
+		def ex = vwFindingEm.find( [appid: o.appid ] ).where("superseded = 0 AND state = 3").exists();
+		if( ex ) {
+			throw new Exception("There are still unresolved requirements. Please comply all first");
+		}
+	}
+
+	@ProxyMethod
+	public def createTransmittal( def o ) {
+		if(!o.appid) throw new Exception("appid is required in OboAppFindingService.createTransmittal");
+		if(!o.typeid) throw new Exception("typeid is required in OboAppFindingService.createTransmittal");
+		
+		//do not throw an error if there are no findings. Just proceed
+		def items = vwFindingEm.find([appid:o.appid, findingtypeid: o.typeid]).where("superseded=0 AND state=2 AND transmittalid IS NULL").list();
+		if(!items) return null;			
+	
+		//find the doctypeid of the first item found
+		def ftype = findingTypeEm.find( [objid: o.typeid ] ).first();
+		
+		if(!ftype) throw new Exception("finding type " + o.typeid + " not found. ");
+		if(!ftype.controlnopattern) throw new Exception("Please define controlnopattern in " + o.typeid );
+		def t = [:];
+		t.objid = controlNoSvc.getNextNo( ftype.controlnopattern );
+		t.appid = o.appid;
+		t.app = [objid: o.appid];
+		t.typeid = o.typeid;
+		t.findingtype = [objid: o.typeid ];
+		t.createdby = [objid: env.USERID, name: env.FULLNAME ];
+		t.dtcreated = dateSvc.getServerDate();
+		t.state = 0;
+		transmittalEm.create( t );
+
+		items.each {
+			findingEm.find([objid: it.objid]).update( [transmittalid: t.objid] );
+		}
+		
+		return t;	
+	}
+
+	
+
+
+	@ProxyMethod
+	public void sendTransmittal( def o ) {
+		if(o.sendmail == true) {
+			emailSvc.send( [reportid: "obo_app_transmittal", refid: t.objid ]);
+		}	
+	}
+
+}	

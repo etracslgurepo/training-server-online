@@ -1,0 +1,49 @@
+<schema>
+	<element tablename="vw_obo_app_doc">
+		<field name="objid" primary="true"/>
+		<field name="appid" />
+		<field name="state" />
+		<field name="worktypes" />
+		<field name="remarks" />
+		<field name="amount" caption="Amount" type="decimal"/>
+		<field name="controlid" />
+		<field name="projectcost" />
+		<field name="equipmentcost" />
+		<field name="org_objid" />
+		<field name="task_state" />
+		<field name="task_assignee_objid" />
+		<field name="controlno" caption="Control No"/>
+		<field name="dtissued" caption="Date Issued" />
+		<field name="expirydate" />
+		<field name="issuedby_name" />
+		<field name="issuedby_objid" />
+		<field name="template" />
+
+		<field name="reportid" />
+		<field name="endorserid" />
+		<field name="approverid" />
+		<field name="sectionid" />
+		<field name="checklistid" />
+
+		<field name="app_appno" caption="App No" searchable="true"/>
+		<field name="app_trackingno" caption="Tracking No" searchable="true"/>
+		<field name="app_title" caption="Title"/>
+		<field name="app_applicant_name" caption="Applicant Name"/>
+		<field name="app_location_text" caption="Location"/>
+		<field name="app_appclass" />
+		<field name="app_schemaname"  />
+                          
+		<complex name="doctype" ref="obo_doctype" jointype="many-to-one">
+			<key field="doctypeid" target="objid" />
+		</complex>	
+		
+
+		<field name="exemptfees" />
+		<field name="payment_refno" />
+		<field name="payment_refdate" />
+		<field name="payment_txnmode" />
+	</element>
+</schema>	
+
+
+

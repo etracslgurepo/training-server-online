@@ -1,0 +1,137 @@
+import com.rameses.annotations.*;
+import groovy.text.*;
+import java.util.regex.*;
+import com.rameses.osiris2.reports.*;
+import com.rameses.osiris3.sql.*;
+import groovy.lang.GroovyShell;
+import groovy.lang.Script;
+import org.codehaus.groovy.runtime.InvokerHelper;
+
+class SysReportService {
+	
+	@DataContext("sys_report_def")
+	def reportDefEm;
+
+	@DataContext("sys_report_output_template")
+	def templateDefEm;
+
+	@DataContext("sys_report_subreport_def")
+	def subreportDefEm;
+	
+	@Service("UserRoleService")
+	def userRole;
+
+	@Service("SysReportDataService")
+	def reportDataService;
+
+	@Service("Var")
+	def varSvc;
+
+	@DataContext("sys_report_header")
+	def headerEm;
+
+	@Env
+	def env;
+
+	@ProxyMethod
+	public def getListByCategory( def o ) {
+		int start = (o._start == null) ? 0 : o._start;
+		int limit = (o._limit == null) ? 25 : o._limit;
+		def roles = userRole.getRolesString( [:] );
+		
+		def categories = o.category;
+		if( categories && !(categories instanceof List )) {
+			categories = [ o.category ];
+		}
+		def sroles = "(" + roles + ")";
+		def scats = "('" + categories.join( "','" ) + "')"
+
+		def reports = reportDefEm.where("state='DEPLOYED' AND category IN " + scats + " AND (role IS NULL OR role IN " + sroles + ")" ).orderBy("sortorder").list(start, limit);
+		
+		//load also output templates if there are any
+		reports.each {
+			 it.outputTemplates = templateDefEm.find( [parentid: it.name ] ).select("objid,caption,type").list();	
+		}
+		return reports;
+	}
+
+	@ProxyMethod
+	public def findReportDef( def o ) {
+		if(!o.name) throw new Exception("name is required in findReportDef");
+		def r =  reportDefEm.find([name: o.name]).select("name,title,template,parameters,state,paramhandler,reportheader,visiblewhen").first();
+		if(!r) throw new Exception("report " + o.name + " not found in findReportDef");
+		if(r.state != 'DEPLOYED') throw new Exception("report " + o.name + " is not deployed");
+		return r;
+	}
+
+	private def loadItems(def itm, def sqr ) {
+		def result = reportDataService.getData( [statement:sqr.statement, 
+			querytype: sqr.querytype, params: itm ]  );
+		if( !(result instanceof List )) result = [result];
+		return result;	
+	}
+
+	private def loadList( def list, def sqr ) {
+		list.each { r->
+			r.put( sqr.name, loadItems(r, sqr) );
+		}
+		return list;
+	}
+
+	@ProxyMethod
+	public def getReportData( def o ) {
+
+		def rpt = reportDefEm.find( [name: o.name ] ).first();
+		if(!rpt) throw new Exception("report def " + o.name + " not found ");
+
+		def statement =  rpt.statement;
+		if(o.test == true && rpt.querytype == 'SCRIPT') {
+			statement = rpt.testparams + "\n" + rpt.statement;
+		}	
+
+		def result = reportDataService.getData( [statement:statement, 
+			querytype: rpt.querytype, params: o.params, filters: o.filters ]  );
+
+		/*	
+		def subreports = subreportDefEm.find( [reportid: o.name]).list();
+		if(subreports) {
+			subreports.each { sqr->
+				rlist = loadList( rlist, sqr );
+			}
+
+		}
+		*/
+
+		return result;
+	}
+
+	@ProxyMethod
+	public def getOutputTemplate( def o ) {
+		if(!o.reportid) throw new Exception("reportid is required in getTextTemplate");
+		if(!o.type) throw new Exception("type is required in getTextTemplate");
+		def tmp = templateDefEm.find( [parentid: o.reportid, type: o.type] ).first();
+		if( !tmp ) throw new Exception("Output template does not exist");
+		return tmp;
+	}
+
+	@ProxyMethod
+	public def getReportHeaders(def o) {
+		if(!o.name ) return [:];
+		def header = headerEm.find( [name: o.name ] ).first();
+		if(!header) throw new Exception("header " + o.name  + " not found");
+		if(!header.value) throw new Exception("There must be at least one header value for " + o.name);
+		def headers = [:];
+		def br = new BufferedReader(new StringReader(header.value));
+		def v = null;
+		while( (v=br.readLine())!=null ) {
+			if(v.contains("=")) {
+				def arr = v.split("=");
+				headers.put( arr[0], arr[1] );
+			}
+		}
+		return headers;
+	}
+
+
+}
+

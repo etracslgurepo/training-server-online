@@ -1,0 +1,13 @@
+<schema>
+	<element tablename="obo_checklist_item">
+		<field name="objid" primary="true" caption="Name" visible="true"  searchable="true" maxWidth="100"/>
+		<field name="parentid" />	
+		<field name="indexno" searchable="true" width="80" maxWidth="100"/>		
+		<field name="title" searchable="true"/>
+		<field name="category"  width="200" maxWidth="250"/>
+		<field name="params" />
+		<field name="system" type="integer" defaultValue="1" />
+		<field name="state"  />
+	</element>
+</schema>
+		

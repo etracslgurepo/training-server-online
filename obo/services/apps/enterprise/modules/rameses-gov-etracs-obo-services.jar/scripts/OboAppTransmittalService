@@ -1,0 +1,57 @@
+import com.rameses.annotations.*; 
+import java.rmi.server.*;
+import obo.util.*;
+
+class OboAppTransmittalService {
+
+	@DataContext("vw_obo_app_req_finding")
+	def vwReqFindingEm;
+
+	@DataContext("vw_obo_app_finding")
+	def vwFindingEm;
+
+	@DataContext("obo_app_transmittal")
+	def transmittalEm;
+
+	@DataContext("sys_signature")
+	def signatureEm;
+
+	@Env
+	def env;
+
+	@ProxyMethod
+	public def findTransmittal( def o ) {
+		if(!o.appid && !o.objid) throw new Exception("appid or objid is required in OboAppReqFindingService.findTransmittal");	
+		def a = [:];
+		if(o.appid) a.appid = o.appid;
+		else a.objid = o.objid;
+		def t = transmittalEm.find( a ).orderBy("dtcreated DESC").first();
+
+		def doctype = t.doctype;
+		def app = t.remove("app");
+		t.trackingno = app.trackingno;
+		t.appno = app.appno;
+		t.title = app.title;
+		t.applicant = app.applicant;
+		t.location = app.location;
+		t.doctitle = doctype.title;
+		t.contact = app.contact;
+		t.applicant = app.applicant;
+
+		if( doctype.endorserid ) {
+			t.endorser = signatureEm.find( [ objid: doctype.endorserid] ).first(); 
+		}
+		if( doctype.approverid ) {
+			t.approver = signatureEm.find( [ objid: doctype.approverid ] ).first(); 
+		}
+
+		def util = new ServerCheckListUtil();
+		def reqitems = vwReqFindingEm.find([ transmittalid:t.objid ]).orderBy( "checklistitem.indexno" ).list();
+		def items = vwFindingEm.find([ transmittalid:t.objid ]).orderBy( "section.objid,checklistitem.indexno" ).list();
+
+		t.items = util.formatList( reqitems + items );
+		return t;
+	}
+
+
+}	

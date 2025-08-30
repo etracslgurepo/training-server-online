@@ -1,0 +1,11 @@
+<schema>
+	<element tablename="obo_app_tag">
+		<field name="objid" primary="true" />
+		<field name="appid"/>
+		<field name="tagid"/>
+		<field name="reason"/>
+		<field name="dtcreated"/>
+		<field name="createdby_objid"/>
+		<field name="createdby_name"/>
+	</element>
+</schema>

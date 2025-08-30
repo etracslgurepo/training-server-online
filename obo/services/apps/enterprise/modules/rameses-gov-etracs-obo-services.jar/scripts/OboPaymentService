@@ -1,0 +1,64 @@
+import com.rameses.annotations.*; 
+
+class OboPaymentService {
+
+	@Service("WorkflowTaskService")
+	def wfSvc;
+
+	@Service("DateService")
+	def dateSvc;
+
+	@DataContext("obo_payment")
+	def pmtEm;
+
+	@DataContext("obo_app_fee")
+	def appFeeEm;
+
+	@DataContext("vw_obo_app")
+	def vwAppEm;
+
+	@ProxyMethod
+	public def prePayment( o ) {
+		//this is just added for deprecated cashreceipt plugin  
+		return null;
+	}	
+
+	@ProxyMethod
+	public void postPayment( o ) { 
+
+		if(!o.appid) throw new Exception("OboPaymentService.postPayment error. appid is required")
+		if(!o.txndate) o.txndate = dateSvc.getServerDate();
+		if(!o.txnmode) o.txnmode = "CAPTURE";
+		if(!o.refno) o.refno = o.receiptno;
+		if(!o.refdate) o.refdate = o.receiptdate;
+		if(!o.reftype) o.reftype = "cashreceipt";
+		if(!o.refid) o.refid = o.objid;
+
+		//create the payment
+		def pmt = [:];
+		pmt.appid = o.appid;
+		pmt.refid = o.refid;
+		pmt.refno = o.refno;
+		pmt.reftype = o.reftype;
+		pmt.refdate = o.refdate;
+		pmt.amount = o.amount;
+		pmt.voided = 0;
+
+		pmtEm.create( pmt );
+
+		appFeeEm.find([ appid: o.appid ]).update([ amtpaid: "{amount}" ]); 
+
+		//we have to do this to ensure that the processname we are picking up is correct.
+		def app = vwAppEm.find( [objid: o.appid] ).first();
+		
+		//fire the workflow for release.
+		def m = [:];
+		m.processname = app.processname;
+		m.entityschemaname = "obo_app";
+		m.action = "post-payment";
+		m.refid = o.appid;
+		wfSvc.signal( m ); 
+	} 
+
+
+} 

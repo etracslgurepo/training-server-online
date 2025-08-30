@@ -1,0 +1,106 @@
+import com.rameses.annotations.*;
+
+import groovy.text.*;
+import java.util.regex.*;
+import com.rameses.osiris2.reports.*;
+import com.rameses.osiris3.sql.*;
+import groovy.lang.GroovyShell;
+import groovy.lang.Script;
+import org.codehaus.groovy.runtime.InvokerHelper;
+import com.rameses.util.*;
+
+class SysReportDataService {
+	
+	@PersistenceContext("main")
+	def em;
+
+	@Service("DBService")
+	def dbService;
+
+	@Service("QueryService")
+	def qrySvc;
+
+	@Service(dynamic=true)
+	def dynSvc;
+
+	@DataContext(dynamic=true)
+	def dynEm;
+
+	@ActiveDB(dynamic=true)
+	def dbEm;
+
+	@Env
+	def env;
+
+	@ProxyMethod
+	def getData( def o ) {
+		if(!o.statement) throw new Exception("statement is required in SysReportDataService.getData");
+		if(o.querytype == null) throw new Exception("querytype is required in SysReportDataService.getData");
+
+		if(!o.params) o.params = [:];
+		
+		def result = [];
+
+		if( o.querytype == "SQL" ) {
+
+			def xsql = "SELECT q.* FROM (" + o.statement + ") q ";
+			def paramMap = [:]
+
+			if(o.params) paramMap.putAll( o.params );
+
+			if( o.filters ) {
+				def bufflist = [];
+				int idx = 0;
+				o.filters.each { f->
+					def str = null;
+					def pname = f.name +'_'+ (idx++);
+					if( f.operator.symbol.matches("IN|NOT IN") ) {
+						str = "q." + f.name + " ";
+						str += f.operator.symbol +  " ('" + f.items*.key.join("','") + "')";
+					}	
+					else {
+						if(f.value==null) throw new Exception("Please provide " + f.name + " value ");
+						paramMap.put( pname, f.value );
+						str = "q." + f.name + " " + f.operator.symbol + " \$P{" + pname + "}";
+
+						if( f.operator.symbol == 'BETWEEN' ) {
+							if(f.tovalue==null) throw new Exception("Please provide " + f.name + " to value ");
+							paramMap.put( pname+"2", f.tovalue );
+							str += " AND \$P{" + pname + "2}";
+						}
+
+					}
+					if(str ) bufflist << str; 
+				}
+				xsql += " WHERE " + bufflist.join( " AND " );
+			}
+			
+			def qry = em.sqlContext.createQuery(xsql);
+			qry.setVars( paramMap );
+			qry.setParameters( paramMap );
+			result = qry.resultList;
+		}
+		else if( o.querytype == "SCRIPT" ) {
+			GroovyShell shell = new GroovyShell();
+            def script = shell.parse(o.statement);
+            groovy.lang.Binding bnd = new groovy.lang.Binding();
+            bnd.setVariable( "QRY", qrySvc );
+            bnd.setVariable( "SERVICE", dynSvc );
+            bnd.setVariable( "PARAMS", ((o.params) ? o.params : [:]) );
+            bnd.setVariable( "FILTERS", ((o.filters) ? o.filters : []) );
+            bnd.setVariable( "EM", dynEm );
+            bnd.setVariable( "ACTIVEDB", dbEm );
+            bnd.setVariable( "DB", dbEm );
+            bnd.setVariable( "ENV", env );
+			Script s = InvokerHelper.createScript( script.getClass(), bnd);
+            result = s.run();
+		}
+		else {
+			throw new Exception("no query type handler found for " + o.querytype );	
+		}
+
+		return result;
+	}
+	    
+}
+

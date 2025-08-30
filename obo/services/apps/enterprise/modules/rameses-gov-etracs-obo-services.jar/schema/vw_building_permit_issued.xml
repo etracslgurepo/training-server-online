@@ -1,0 +1,46 @@
+<schema>
+	<element tablename="vw_building_permit_issued">
+		<field name="objid" primary="true"/>
+
+		<field name="applicant_entitytype" />
+		<field name="applicant_name" caption="Applicant name" searchable="true" indexed="true"/>
+
+		<field name="appno" caption="App No" searchable="true" indexed="true"/>
+		<field name="appdate" caption="App Date" type="date"/>
+		<field name="trackingno" caption="Tracking No" searchable="true" indexed="true"/>
+		<field name="task_state" caption="State"/>
+
+		<field name="description" />
+		<field name="title" caption="Project Title"/>
+		<field name="occupancytypeid" />
+		<field name="numunits" type="integer"/>
+		<field name="fixedcost" type="decimal"/>
+		<field name="projectcost" type="decimal" caption="Project Cost"/>
+		<field name="dtproposedconstruction" type="date"/>
+		<field name="dtexpectedcompletion" type="date"/>
+		<field name="totalfloorarea" type="decimal"/>
+		<field name="height" type="decimal"/>
+		<field name="numfloors" type="integer"/>
+		<field name="worktypes" />
+		<field name="location_lotno" />
+		<field name="location_blockno" />
+		<field name="location_street" />
+		<field name="location_barangay_name" />
+		<field name="location_barangay_objid" />
+		<field name="location_text" caption="Location"/>
+		<field name="supervisorid" />
+		<field name="location_unitno" />
+		<field name="location_bldgno" />
+		<field name="location_bldgname" />
+		<field name="location_subdivision" />
+		<field name="location_lotarea" />
+		<field name="controlno" caption="Permit No"/>
+		<field name="dtissued" type="date" caption="Date Issued"/>
+		<field name="occupancytype_objid" />
+		<field name="occupancytype_title" />
+		<field name="occupancytype_division_objid" />
+		<field name="occupancytype_division_title" />
+		<field name="occupancytype_group_objid" />
+		<field name="occupancytype_group_title" />
+	</element>
+</schema>	

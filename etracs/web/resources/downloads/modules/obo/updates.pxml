@@ -1,0 +1,9 @@
+<app>
+<env>
+obo.app.host=${app_server_ip}:18030
+obo.app.context=enterprise
+</env>
+<modules>
+  <module version="2.05" file="obo/rameses-gov-etracs-obo-collection.jar"  />
+</modules>
+</app>

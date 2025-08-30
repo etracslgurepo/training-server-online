@@ -1,0 +1,6 @@
+<schema>
+	<element tablename="obo_tag">
+		<field name="objid" primary="true" visible="true"/>
+		<field name="description"/>
+	</element>
+</schema>

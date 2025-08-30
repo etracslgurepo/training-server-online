@@ -1,0 +1,102 @@
+import com.rameses.annotations.*;
+import java.rmi.server.*;
+
+class BuildingPermitPersistenceInterceptor {
+	
+	@Service("OboAppProfessionalService")
+	def profSvc;
+
+	@Service("OboAppDocService")
+	def appDocSvc;
+
+	@Service("OboAppRuleService")
+	def appRuleSvc;
+
+	@DataContext("obo_app_entity")
+	def entityEm;
+
+	@DataContext("obo_app_tag")
+	def tagEm;
+
+	@DataContext("obo_app")
+	def appEm;
+
+	@DataContext("building_permit_rpu")
+	def rpuEm;
+
+	@DataContext("obo_appclass")
+	def appClassEm;
+
+	@DataContext("vw_obo_app_doc")
+	def vwDocEm;	
+
+	@DataContext("obo_bill")
+	def billEm;
+
+	@Env
+	def env;
+
+	private def formatAddress( def addr ) {
+		def lst = [];
+		lst << [addr.unitno, addr.bldgno, addr.bldgname ].findAll{it!=null}.join(" ");
+		lst << [addr.street, addr.subdivision ].findAll{it!=null}.join(",");
+		lst << [addr.barangay?.name, addr.citymunicipality, addr.province ].findAll{it!=null}.join(",");
+		return lst.findAll{it}.join(",");		
+	}
+
+
+	@Before(pattern="PersistenceService.update", eval="#{ args[0]._schemaname == 'building_permit' }")
+	public void beforeUpdateApplication(def evt) {
+		def app = evt.args[0];
+		if( app.supervisor ) {
+			app.supervisorid = app.supervisor.objid;
+		}
+		if( app.applicant?.objid ) {
+			entityEm.find( [objid: app.applicant.objid]).update( app.applicant );
+		}
+		if( app.location ) {
+			app.location.text = formatAddress( app.location );
+		}
+		
+	}
+
+	@After(pattern="PersistenceService.update", eval="#{ args[0]._schemaname == 'building_permit' }")
+	public void afterUpdateApplication(def evt) {
+		def app = evt.args[0];
+
+		//update project cost and txntype if there are changes in the floor area and occupancy type
+		if( app.totalfloorarea || app.occupancytype?.objid ) {
+			def res = appRuleSvc.execRules( [appid: app.objid ] );
+			appEm.find( [objid: app.objid ] ).update( res );
+		}
+
+		if(app.tags!=null) {
+			app.tags.findAll{ !it.objid }.each {
+				tagEm.create( it );	
+			};
+			app._removedtags?.findAll{ it.objid !=null }.each {
+				tagEm.find( [objid: it.objid] ).delete();
+			}
+		}
+	}
+
+
+	@After(pattern="PersistenceService.read", eval="#{ args[0]._schemaname == 'vw_building_permit' }")
+	public void afterOpen(def evt) {
+		def app = evt.result;
+		app.occupancytype.title = app.occupancytype.title?.toUpperCase();
+
+		def appclass = appClassEm.find( [objid: app.appclassid ] ).first();
+
+		def doc = vwDocEm.find( [appid: app.objid ] ).where( "doctype.code = :dtype", [dtype: appclass.doctypeid] ).first();
+		if(doc) {
+			app.control = doc;
+		}	
+		
+		app.bill = billEm.find( [appid: app.objid ] ).first();
+		app.tags = tagEm.find( [appid: app.objid ] ).list();
+	}
+
+
+
+}

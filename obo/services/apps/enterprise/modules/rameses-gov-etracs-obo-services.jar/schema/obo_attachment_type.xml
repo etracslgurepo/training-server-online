@@ -1,0 +1,7 @@
+<schema>
+	<element tablename="obo_attachment_type">
+		<field name="objid" primary="true" visible="true" searchable="true"/>
+		<field name="title" searchable="true"/>
+		<field name="sectionid" />
+	</element>
+</schema>

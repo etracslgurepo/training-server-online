@@ -1,0 +1,146 @@
+import com.rameses.annotations.*;
+import com.rameses.util.*;
+import obo.facts.*;
+import java.text.*;
+import enterprise.utils.*;
+import java.rmi.server.*;
+import treasury.utils.*;
+import treasury.facts.*;
+
+public class OboAppFeeService  {
+
+	@Service("RuleExecutorService")
+	def ruleSvc;
+
+	@Service("OboAppDocInfoService")
+	def infoSvc;
+
+	@Service("OboAppDocService")
+	def docSvc;
+
+	@DataContext("obo_app_fee")
+	def feeEm;
+
+	@DataContext("obo_app_doc")
+	def docEm;
+
+	@DataContext("vw_obo_app_doc")
+	def vwDocEm;
+
+	@DataContext("obo_itemaccount")
+	def itemAcctEm;
+
+  	@DataContext("vw_obo_app")
+    def vwAbstractAppEm;
+
+	@DataContext("obo_app")
+    def abstractAppEm;
+
+	@DataContext(dynamic=true)
+	def db;
+
+	@ProxyMethod
+	public def getFees( def o ) {
+		def r = docEm.find( [objid: o.docid ] ).first();
+		return feeEm.find([appid: r.appid]).where( "item.doctypeid = :dtype", [dtype: r.doctypeid] ).orderBy("item.sortorder").list();
+	}
+
+	//This will save the fees and returns the total
+	@ProxyMethod
+	public def saveFees(def o) {
+		if(!o.docid) throw new Exception("docid is required in saveFee");
+		//group totals by doctypeid
+		o.items.each {
+			//delete if there are existing items
+			def zz = feeEm.find( [appid: it.appid, itemid: it.item.objid ] ).first();
+			if( zz ) feeEm.find( [objid: zz.objid] ).delete();
+			feeEm.create( it );
+		}
+		feeEm.updateDocFee( [docid: o.docid] );
+	}
+
+	@ProxyMethod
+	public def saveFee(def o ) {
+		if(!o.appid) throw new Exception("appid is required in saveFee");
+		if(!o.docid) throw new Exception("docid is required in saveFee");
+		o.billstep = 0;
+		if(o.objid) {
+			feeEm.find( [objid: o.objid] ).update( o );
+		}
+		else {
+			feeEm.create( o );
+		}
+		feeEm.updateDocFee( [docid: o.docid ] );
+	}
+
+	@ProxyMethod
+	public def removeFee(def o ) {
+		if(!o.objid) throw new Exception("objid is required in removeFee");
+		if(!o.docid) throw new Exception("docid is required in removeFee");
+
+		feeEm.find( [objid: o.objid] ).delete();
+		feeEm.updateDocFee( [docid: o.docid ] );
+	}
+
+	@ProxyMethod
+	public def clearFees(def o ) {
+		if(!o.docid) throw new Exception("docid is required in clearFees");
+		def items = getFees( [docid: o.docid ] );
+		items.each {
+			feeEm.find( [objid: it.objid ]).delete();	
+		}
+		feeEm.updateDocFee( [docid: o.docid ] );
+	}
+
+	@ProxyMethod
+	public def assess( def o ) {
+		def sd = vwDocEm.find([objid: o.docid ] ).first();	
+		if(!sd.app.schemaname) throw new Exception("schemaname in doc app must be set"  );
+
+		def vwAppEm = db.lookup( sd.app.schemaname );
+		def vapp = vwAppEm.find( [objid: sd.appid ] ).first();
+
+		def occ = vapp.occupancytype;
+
+		def facts = [];
+		facts << new BuildingInfo( vapp ); 
+        facts << new OccupancyType( occ );
+        facts << new OboApp( type: vapp.doctypeid );
+        facts << new OboDocument( doctype: sd.doctype.code, appid: sd.appid );
+        infoSvc.loadFacts( [appid: sd.appid ], facts );
+
+		ruleSvc.execute( "oboassessment", facts, null, null );
+
+		def items = [];
+		facts.findAll{  (it instanceof BillItem) && it.amount > 0 }.each {
+			def bi = it.toMap();
+			bi.item = itemAcctEm.find( [objid: bi.billcode ] ).first();
+			bi.amtpaid = 0;
+			bi.appid = sd.appid;
+			bi.dynamic = 0;
+			bi.sortorder = (bi.item.sortorder == null ? 100 : bi.item.sortorder);
+			bi.billstep = 0;
+			items << bi;			
+		};
+		if( o.savefees == true ) {
+			saveFees( [appid: sd.appid, docid:o.docid, items: items] );
+		};
+		return [items: items];
+	}
+
+	@ProxyMethod
+	public def assessAll( def o ) {
+		if(!o.appid) throw new Exception("appid is required in OboAppFeeService.assessAll");
+		def docList = vwDocEm.find( [appid: o.appid ]).where( "requirefee > 0 AND (amount IS NULL OR amount=0) ").list();
+		docList.each { v->
+			assess( [parentid: v.objid, savefees: true] );
+		}
+	}
+
+	@ProxyMethod
+	public void updateExemptFees( def o ) {
+		if(!o.docid) throw new Exception("docid is required in OboAppFeeService.updateExemptFees");
+		docEm.find( [objid: o.docid ] ).update( [exemptfees: o.exemptfees] );		
+	}
+
+}

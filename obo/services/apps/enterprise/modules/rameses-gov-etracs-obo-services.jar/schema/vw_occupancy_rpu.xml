@@ -1,0 +1,46 @@
+<schema>
+	<element tablename="vw_occupancy_rpu">
+		<field name="objid"  primary="true"/>
+		<field name="state" type="integer"/>
+		<field name="dtcreated" />
+		<field name="appid" />
+		<field name="apptype" />
+		<field name="faasid" />
+		<field name="tdno" />
+		<field name="txnmode" indexed="true"/>
+		<field name="truecopycertid"/>
+		<field name="noaid" />
+		
+		<field name="bldgpermitid" />
+		<field name="bldgappid" />
+		<field name="bldgpermitno" caption="Bld Permit No"/>
+		<field name="bldgpermitdtissued" />
+
+		<field name="occpermitid" />
+		<field name="occpermitno" caption="Occ. Cert No"/>
+		<field name="occpermitdtissued" />
+
+		<field name="occupancytype_objid" />
+		<field name="occupancytype_title" />
+		<field name="occupancytype_division_objid" />
+		<field name="occupancytype_division_title" />
+		<field name="occupancytype_group_objid" />
+		<field name="occupancytype_group_title" />
+
+		<complex name="applicant" ref="obo_app_entity" jointype="many-to-one" required="true">
+			<key field="applicantid" target="objid" />
+		</complex>			
+
+		<field name="actualprojectcost" />
+		<field name="occupancytypeid" />
+		<field name="actualnumunits" />
+		<field name="actualnumfloors" />
+		<field name="actualtotalfloorarea" />
+		<field name="actualheight" />
+		<field name="dtactualstarted" />
+		<field name="dtactualcompleted" />
+		<field name="inspectiondate" />
+		<field name="title" />
+		<field name="location_text" />
+	</element>
+</schema>	

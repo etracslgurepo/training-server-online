@@ -1,0 +1,23 @@
+import com.rameses.annotations.*;
+
+class OboSysFileServiceInterceptor {
+	
+
+	@DataContext("obo_app_attachment")
+	def attachmentEm;
+
+	@After(pattern="SysFileService.create", eval="#{ args[0].fileitem == false }")
+	public void afterUploadSysFileService(def evt) {
+		def o = evt.args[0];
+		def res = evt.result;
+		attachmentEm.create( o );
+	}
+
+	@Before(pattern="SysFileService.remove",  eval="#{ args[0].fileitem == false }")
+	public void beforeRemoveSysFileService(def evt) {
+		def o = evt.args[0];
+		attachmentEm.delete( o );
+	}
+
+
+}

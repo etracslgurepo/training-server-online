@@ -1,0 +1,351 @@
+import com.rameses.annotations.*;
+
+import com.rameses.util.*;
+import wf.*;
+
+class OboAppTaskitemService {
+	
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("MenuNotificationService")
+	def notifySvc;
+
+	@Service("WorkflowTaskService")
+	def wfSvc;
+
+	@DataContext("vw_obo_app")
+	def vwAppEm;
+
+	@DataContext("obo_app_taskitem")
+	def taskitemEm;
+
+	@DataContext("obo_app_taskitem_task")
+	def taskitemTaskEm;
+
+	@DataContext("vw_obo_app_taskitem")
+	def vwTaskitemEm;
+
+	@DataContext("obo_taskitem_type")
+	def taskItemTypeEm;
+
+	@DataContext("obo_app_doc")
+	def appDocEm;
+
+	@DataContext("vw_obo_app_doc")
+	def vwAppDocEm;
+
+	@DataContext("vw_obo_app_finding")
+	def vwFindingEm;
+
+	@DataContext("obo_app_fee")
+	def appFeeEm;
+	
+	@DataContext("sys_wf_node")
+	def wfNodeEm;
+
+	@Env
+	def env;
+
+	void startTask( def o ) {
+ 		def tt = taskItemTypeEm.find( [objid: o.typeid ] ).first();
+ 		def f = [:];
+		f.processname = tt.processname;
+		f.entityschemaname = "obo_app_taskitem";
+		f.notificationid = 'obo_app_taskitem:' + o.typeid.toLowerCase();
+		f.refid = o.objid;
+		f.startdate = dateSvc.getServerDate();
+		f.info = [:];
+		wfSvc.start( f );
+ 	}
+
+ 	private void createTaskInfo( def tsk, def type ) {
+ 		//after creating we must not fire the startTask because it will undesirably fire the events  
+		//thus we will create it manually. we need to check the sys_wf_node 
+		def nod = wfNodeEm.find( [processname: type.processname ] ).where(" nodetype='state' ").orderBy("idx ASC").first();
+		def tit = [:];
+		tit.refid = tsk.objid;
+		tit.dtcreated = dateSvc.serverDate;
+		tit.state = nod.name;
+		tit = taskitemTaskEm.create(tit); 
+		taskitemEm.find( [objid: tsk.objid ] ).update( [taskid: tit.taskid ] );
+		
+		//notify
+		def list = [];
+		list << "obo_app_taskitem:" + type.objid.toLowerCase();
+		list << "obo";
+		notifySvc.notify( list );		
+ 	}
+
+ 	private void createParentTask(def appid, def appclassid, def processname) {
+ 		def pt = taskItemTypeEm.find( [processname: processname, appclassid: appclassid] ).first();
+ 		if( !pt ) return;
+ 		def ti = vwTaskitemEm.find( [appid: appid, typeid: pt.objid ] ).first();
+ 		if(!ti) {
+ 			create( [appid: appid, typeid: pt.objid ] );
+ 		}
+ 		else {
+ 			//if parent exists but is open do not proceed to supersede
+	 		if( ti.task.state != "end" ) return;
+			//if closed then we need to supersede it.
+			supersede( [prevtaskid: ti.objid ] ); 
+ 		}
+ 	}
+
+	//this is when creating a task on the fly. This is done by clicking on addTask 
+	@ProxyMethod
+	public def create(def o ) {
+		if(!o.appid) throw new Exception("appid is required");
+		if(!o.typeid) throw new Exception("typeid is required");
+		//check first if there is already a task that already exists that is not yet closed
+		if( taskitemEm.find( [appid: o.appid, typeid: o.typeid ] ).exists()) {
+			throw new Exception("Task already exists");
+		}
+		def app = vwAppEm.find( [objid: o.appid ]).first();
+		if(!app) throw new Exception("Application not found");
+		o.status = 0;
+		o.revision = 0;
+		o = taskitemEm.create( o );
+		def tt = taskItemTypeEm.find( [objid: o.typeid ] ).first();
+		createTaskInfo( o, tt );
+		createParentTask( o.appid, app.appclassid, tt.parentprocessname );
+		return o;
+	} 
+
+	@ProxyMethod
+	public def supersede(def o ) {
+		if(!o.prevtaskid) throw new Exception("prevtaskid is required");
+		def prevTask = vwTaskitemEm.find( [objid: o.prevtaskid] ).first();
+		if( prevTask.task.state != "end" ) throw new Exception("You cannot supersede an open task");
+		def app = vwAppEm.find( [objid: prevTask.appid ]).first();
+		if(prevTask.revision == null ) prevTask.revision = 0;
+		def nt = [:];
+		nt.appid = prevTask.appid;
+		nt.typeid = prevTask.typeid;
+		nt.status = 0;
+		nt.revision = prevTask.revision + 1;
+		nt.supersededid = prevTask.objid;
+		nt = taskitemEm.create( nt );
+		def tt = taskItemTypeEm.find( [objid: prevTask.typeid ] ).first();
+		createTaskInfo( nt, tt );	
+		createParentTask( prevTask.appid, app.appclassid, tt.parentprocessname );
+		return nt;
+	} 
+
+ 	@ProxyMethod
+ 	public def reactivate( def o ) {
+ 		startTask( o );
+		def list = [];
+		list << "obo_app_taskitem:" + o.typeid.toLowerCase();
+		list << "obo";
+		notifySvc.notify( list );
+ 	}
+
+	@ProxyMethod
+	public def getList( def o ) {
+		def list = taskitemEm.getActiveTaskList( [ appid: o.appid ] );
+		list.each {
+			it.statustext = '' ;
+			if( it.enddate ) {
+				it.statustext = (it.findingcount > 0 ) ? 'Has ' + it.findingcount + ' Findings' : 'OK' ;	
+			}
+		}
+		def subTasks = list.findAll{ it.subtask == 1 };
+		def mainTasks = list.findAll{ it.subtask == 0 };
+
+		def finList = [];
+		def addSubTasks;
+		addSubTasks = { p, lvl ->
+			p.type.title = (" "*lvl*5) + p.type.title;
+			finList << p;
+			def slist = subTasks.findAll{ it.task.parentprocessname == p.task.processname };
+			subTasks = subTasks - slist;
+			slist?.each { v->
+				addSubTasks( v, (lvl + 1) );	
+			}
+		}
+
+		//loop each maintask and look for appropriate subtasks
+		mainTasks.each { t->
+			addSubTasks( t, 0 );
+		}
+		if(subTasks) {
+			finList = subTasks + finList;
+		}
+		return finList;
+	}
+
+	@ProxyMethod
+	public def removeTaskitem( def p  ) {
+		def list = [];
+		def removeTsk = { tid, typeid->
+			taskitemEm.find( [objid: tid ] ).update( [ taskid: "{NULL}" ] );
+			taskitemTaskEm.find( [refid: tid] ).delete();
+			taskitemEm.find( [objid: tid ]).delete();
+			list << "obo_app_taskitem:" + typeid.toLowerCase();
+		}
+
+		def e = vwTaskitemEm.find( [objid: p.objid ]).first();
+		if( e.task.state == 'end' ) 
+			throw new Exception("This task cannot be deleted because it is already ended");
+		
+		//if there are subtasks also remove it
+		def subTasks = taskitemEm.getSubTasks( [appid: e.appid, parentprocessname: e.task.processname ] );
+		def hasEndTask = subTasks.find{ it.task.state == 'end' };
+		if(hasEndTask)
+			throw new Exception("Cannot remove this task because there is a sub task that has already ended");
+
+		subTasks?.each {
+			removeTsk( it.objid, it.typeid );
+		}
+		removeTsk( e.objid, e.typeid );
+		
+		list << "obo";
+		notifySvc.notify( list );
+	}
+
+	//activate all taskitems that match the current state
+	@ProxyMethod
+	public void activateTaskitems( def o ) {
+		if(!o.appid && !o.taskitemid) 
+			throw new Exception("appid or taskitemid is required in OboAppTaskitemService.activateTaskItems");
+		
+		def appid = null;
+		def parentProcname = null;
+		if( o.appid ) {
+			def app = vwAppEm.find( [objid: o.appid ]).first();
+			parentProcname = app.processname;
+			appid = app.objid;
+
+		}
+		else {
+			def ti = vwTaskitemEm.find( [objid: o.taskitemid ] ).first();
+			parentProcname = ti.task.processname;
+			appid = ti.appid;	
+		}
+
+
+		def dt = dateSvc.getServerDate();
+		def notificationList = [];
+
+		//insert task items taskitem.activateTasks( [appid: appid, parentprocessname: parentProcname] );
+		taskitemEm.createNewTasks( [appid: appid, parentprocessname: parentProcname ] );
+		taskitemEm.find( [appid: appid ] ).where( " taskid IS NULL ").list().each { t->
+			startTask( t );
+			notificationList << "obo_app_taskitem:" + t.typeid.toLowerCase();
+		}
+
+		env._notificationList = notificationList ;
+	}
+
+
+	/**
+	* This will resume the process of the task's parent process which is just an ordinary signal
+	* If there are still pending tasks in the main process, it will throw a HoldTransitionException
+	* which means the main process has not transitioned. Thats why we need to resume on error.
+	* If its some other kind of error then we need to throw it so the execution will not continue.  
+	**/
+	@ProxyMethod
+	public void resumeParentProcess( def o  ) {
+		if(!o.refid) throw new Exception("refid is required in OboAppTaskitemService.joinMainProcess");	
+		def r = vwTaskitemEm.find( [objid: o.refid ]).first();
+		def parentProcessname = r.task.parentprocessname;
+		def parentEntitySchemaName;
+		def refid;
+		boolean subTask = false;
+		if( r.app.processname == parentProcessname ) {
+			parentEntitySchemaName = "obo_app";	
+			refid = r.appid;
+		}
+		else {
+			//this is a subtask thus parent schemaname shoud be obo_app_taskitem
+			parentEntitySchemaName = "obo_app_taskitem";
+			//find the parent task to signal
+			def parentTsk = vwTaskitemEm.find( [appid: r.appid] ).where( "task.processname = :parentprocname", [parentprocname:parentProcessname] ).first();
+			refid = parentTsk.objid;
+			subTask = true;	
+		}
+
+		try {
+			def f = [:];
+			f.processname = parentProcessname;
+			f.entityschemaname = parentEntitySchemaName;
+			f.refid = refid;
+			f.startdate = dateSvc.getServerDate();
+			f.info = [appid:r.appid];
+			wfSvc.signal(f);
+		}
+		catch(HoldTransitionException he) {
+			//do nothing
+		}
+		catch(Exception ex) {
+			throw ex;
+		}
+	}
+
+	//This code is paired with the resumeParentProcess method. See above
+	@ProxyMethod
+	public void checkTasksComplete(def o) {
+		if(!o.appid && !o.taskitemid) 
+			throw new Exception("appid or taskitemid is required in OboAppTaskitemService.checkTasksComplete");
+		def appid = null;
+		def parentProcname = null;
+		if( o.appid ) {
+			def app = vwAppEm.find( [objid: o.appid ]).first();
+			parentProcname = app.processname;
+			appid = app.objid;
+		}
+		else {
+			def ti = vwTaskitemEm.find( [objid: o.taskitemid ] ).first();
+			parentProcname = ti.task.processname;
+			appid = ti.appid;	
+		}
+
+		def items = taskitemEm.getHasOpenTasks( [appid: appid, parentprocessname: parentProcname ] );
+		if(items) {
+			throw new HoldTransitionException("The following tasks are not yet completed.\n" + items*.title.join("\n") );	
+		}
+ 	}
+
+ 	@ProxyMethod
+ 	public void validateSection( def o ) {
+		if(!o.refid) throw new Exception("appid is required in OboAppTaskitemService.checkUnresolvedItems");
+
+		//check if there are pending findings
+		def vt = vwTaskitemEm.find( [objid: o.refid ]).first();
+		def m = [appid: vt.appid, sectionid: vt.sectionid ];
+		def t = vwFindingEm.find( m ).select("c:{COUNT(*)}").where("state=2 AND superseded=0 AND NOT(transmittalid IS NULL) ").val();
+		if( t > 0) throw new Exception("There are unresolved findings. Please resolve open issues before proceeding");
+
+		//if there are open findings, do not check anymore for fees or for controls.
+		def hasFindings = vwFindingEm.find( m ).where(" state=2 AND superseded=0 ", m ).exists();
+		if( hasFindings ) return;
+
+		def docList = vwAppDocEm.find( [appid: vt.appid, sectionid: vt.sectionid ]).where( "doctype.requirefee=1 AND (exemptfees IS NULL OR exemptfees = 0) AND amount<=0" ).list();
+		def rlist = [];
+		docList.each {
+			rlist << it.doctype.title;
+		}
+		if(rlist) {
+			throw new Exception("The following document require fees to be assessed: \n" + rlist.join("\n") );
+		}	
+ 	}
+
+ 	@ProxyMethod
+ 	public void issueSectionDocs(def o ) {
+ 		if(!o.refid) throw new Exception("appid is required in OboAppTaskitemService.issueSectionDocs");
+ 		def vt = vwTaskitemEm.find( [objid: o.refid ]).first();
+ 		def m = [appid: vt.appid, sectionid: vt.sectionid ];
+ 		
+		//check unissued docs
+		def unissuedDocs = vwAppDocEm.find( m ).where( "doctype.issuetype = 1").list();
+		def errs = [];
+		unissuedDocs.each {
+			if(!it.controlid) errs << it.doctype.title;
+		}
+		if( errs )
+			throw new Exception("The following documents must be assigned control numbers first: \n" + errs.join("\n") ); 	
+ 	}
+
+	
+}

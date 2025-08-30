@@ -1,0 +1,14 @@
+<!-- This table is only used for testing appno uniqueness -->
+<!--
+   when assigning appno, create first a unique appno  
+   and save the appid. The appid must be unique in this table
+   to lock in the application. Then this is linked to the 
+   obo_app. See OboAppService.assignAppno
+-->	
+<schema>
+	<element tablename="obo_appno">
+		<field name="appno" primary="true" />
+		<field name="appid" required="true"/>
+	</element>
+</schema>
+

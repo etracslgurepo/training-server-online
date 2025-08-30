@@ -1,0 +1,26 @@
+<schema>
+
+	<element tablename="vw_obo_variable">
+		<field name="objid" primary="true"/>
+		<field name="state" required="true" defaultValue="DRAFT" visible="false"/>
+		<field name="name" required="true" style="code" editable="false" searchable="true"/>
+		<field name="datatype" required="true" hidden="true"/>
+		<field name="caption" required="true" caption="Caption" searchable="true"/>
+		<field name="description" />
+		<complex name="arrayvalues" required="false" serializer="default" type="list"/>
+		<field name="system" required="false" defaultValue="0" visible="false"/>
+		<field name="sortorder" required="true" />
+		<field name="category" hidden="true"/>
+		<field name="unit" width="40"/>
+		
+		<field name="doctypeid"/>
+
+		<complex name="occupancytype" ref="vw_obo_occupancy_type" jointype="many-to-one" required="false">
+			<key field="occupancytypeid" target="objid" />
+		</complex>	
+
+		<field name="lookuplistname"/>
+		<field name="multiselect"/>
+	</element>
+
+</schema>

@@ -1,0 +1,47 @@
+import com.rameses.annotations.*;
+import com.rameses.util.*;
+import java.rmi.server.*;
+import obo.facts.*;
+import java.text.*;
+
+public class OboAppRuleService  {
+
+	@Service("RuleExecutorService")
+	def ruleSvc;
+
+	@DataContext(dynamic=true)
+    def dynaDb;
+
+	@DataContext("vw_obo_app")
+    def vwAbstractAppEm;
+
+	@DataContext("vw_standalone_permit")
+    def spEm;
+
+	@ProxyMethod
+	public def execRules( def params ) {
+		if(!params.appid) throw new Exception("appid is required in OboAppRuleService.execRules");
+
+		def app = vwAbstractAppEm.find( [objid: params.appid ]).first();
+		if(!app) throw new Exception("vw_obo_app not found having id " + params.appid );
+		def vwAppEm = dynaDb.lookup(app.schemaname );
+
+		def vapp = vwAppEm.find( [objid: app.objid ] ).first();
+		def facts = [];
+		facts << new BuildingInfo( vapp ); 
+        facts << new OccupancyType( vapp.occupancytype );
+        facts << new OboApp( type: app.appclass.toUpperCase(), txntype: app.txntype, step: app.task.state );
+
+		def res = ruleSvc.execute( "oboapplication", facts, null, null );
+
+		def out = [:];
+		out.fixedcost = facts.find{ it instanceof BuildingInfo }.projectcost;
+		out.txntype = facts.find{ it instanceof OboApp }.txntype;
+		out.docs = [];
+		facts.findAll{ it instanceof OboDocument }?.each {
+			out.docs << [ doctypeid: it.doctype ];
+		}
+		return out;
+	}
+
+}

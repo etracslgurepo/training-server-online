@@ -1,0 +1,13 @@
+<schema>
+	<element tablename="obo_bill">
+		<field name="objid" primary="true"/>
+		<field name="appid" />
+		<field name="billno" />
+		<field name="billdate" />
+
+		<!-- state is DRAFT and APPROVED -->
+		<field name="state" />
+		<field name="amount" type="decimal"/>
+	</element>
+</schema>
+

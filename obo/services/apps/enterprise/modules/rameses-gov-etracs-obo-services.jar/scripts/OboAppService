@@ -1,0 +1,351 @@
+import com.rameses.annotations.*;
+import java.rmi.server.*;
+import com.rameses.util.*;
+
+class OboAppService {
+	
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("ControlnoGeneratorService")
+	def controlNoSvc;
+
+    @Service("OboAppProfessionalService")
+	def profSvc;
+
+	@Service("OboAppDocService")
+	def appDocSvc;
+
+	@Service("OboAppRuleService")
+	def appRuleSvc;
+
+	@Service("WorkflowTaskService")
+	def wfSvc;
+
+	@DataContext(dynamic=true)
+	def db;
+
+	@DataContext("obo_doctype")
+	def doctypeEm;
+
+	@DataContext("vw_obo_app")
+	def vwAppEm;
+
+	@DataContext("obo_app")
+	def abstractAppEm;
+
+	@DataContext("obo_appclass")
+	def appClassEm;
+
+	@DataContext("obo_app_task")
+	def appTaskEm;
+
+	@DataContext("obo_appno")
+	def appnoEm;
+
+	@DataContext("obo_app_entity")
+	def entityEm;
+
+	@DataContext("obo_payment")
+	def paymentEm;
+
+	@DataContext("obo_app_fee")
+	def feeEm;
+
+	@DataContext("obo_app_doc")
+	def appDocEm;
+
+	@DataContext("obo_app_tag")
+	def tagEm;
+
+	@DataContext("obo_app_doc_info")
+	def appDocInfoEm;
+
+	@DataContext("building_permit_rpu")
+	def rpuEm;
+
+	@Env
+	def env;
+
+	@ProxyMethod
+	public def findApp( def o  ) {
+		def app = vwAppEm.find( o ).first();
+		//this is to fix web based request. In the request only trackingno was specified;
+		if(!app) app = vwAppEm.find( [appno: o.trackingno] ).first();
+		if(!app) throw new Exception("Tracking no. or App No " + o.trackingno + " does not exist");
+		return app;
+	}
+
+
+	@ProxyMethod
+	public def assignAppno(def o ) {
+		
+		if(!o.appid) throw new Exception("appid is required in OboAppService");
+
+		def app = vwAppEm.find( [objid: o.appid ] ).first();
+		if( app.appno ) return;
+		def appClz = appClassEm.find( [objid: app.appclassid ] ).first();
+
+		def pattern = appClz.appnopattern;
+		if(!pattern) throw new Exception("Please define appnopattern in " + app.appclass );
+
+		def appno = controlNoSvc.getNextNo( pattern );
+
+		//test first the appno table if it can be saved
+		def test = [appid:app.objid, appno:appno];
+		appnoEm.create( test );
+
+		def u = [:];
+		u.appdate = o.appdate;
+		if(!u.appdate) u.appdate = dateSvc.getServerDate();
+		u.appno = appno;
+		abstractAppEm.find( [objid: o.appid ] ).update( u );
+
+		return [appno: appno];
+	} 
+
+	private def formatAddress( def addr ) {
+		if(!addr) return "";
+		def lst = [];
+		lst << [addr.unitno, addr.bldgno, addr.bldgname ].findAll{it!=null}.join(" ");
+		lst << [addr.street, addr.subdivision ].findAll{it!=null}.join(",");
+		lst << [addr.barangay?.name, addr.citymunicipality, addr.province ].findAll{it!=null}.join(",");
+		return lst.findAll{it}.join(",");		
+	}
+
+	//create permit for capture
+    private def saveControl( def app ) {
+    	if(!app.permitno) return null;
+    	def permit = [:];
+    	permit.appid = app.objid;
+    	permit.doctypeid = app.appclass.toUpperCase();	
+    	permit.controlno = app.permitno;
+    	permit.dtissued = app.permitdtissued;
+    	permit.expirydate = app.permitexpirydate;
+    	permit.state = 3;
+    	return appDocSvc.createAndIssue( permit );
+    }
+
+    //save payment
+    private def savePayment( def app ) {
+    	if(!app.receiptno) return null;
+		def pmt = [:];
+		pmt.appid = app.objid;
+		pmt.refno = app.receiptno;
+		pmt.refdate = app.receiptdate;
+		pmt.amount = app.amtpaid;
+		pmt.reftype = "cashreceipt";
+		pmt.voided = 0;
+		return paymentEm.create( pmt );	
+    }
+
+	@ProxyMethod
+	public def create( def app ) {
+		if(!app.appclass) throw new Exception("appclass is required in OboAppService.create");
+		//save the obo app first before determining the schema used
+		if(!app.applicant) throw new Exception("Applicant is required");
+		
+		def appclz = appClassEm.find( [objid: app.appclass.toUpperCase() ] ).first();
+		if(!appclz) 
+			throw new Exception("Appclass " + app.appclass.toUpperCase() + " not found ");
+
+		def orgno = env.ORGID;
+		if(!app.trackingno) {
+			//auto assign a tracking no. immediately
+			def kg = new KeyGen();
+			app.trackingno = kg.generateAlphanumKey(orgno+"-",8);
+		}
+		
+		app.objid = "BAPP" + new UID();
+		app.appclassid = appclz.objid;
+		app.orgcode = env.ORGID;
+
+		if(!app.location?.text) {
+			app.location?.text = formatAddress( app.location );
+		}
+
+		//remove appid from applicant so it can be saved. We will create the entity ALWAYS!
+		app.applicant.remove("appid");
+		app.applicant.remove("objid");
+		app.applicant = entityEm.create( app.applicant );
+		app.applicantid = app.applicant.objid;
+
+		//save the supervisor
+		def supervisor = profSvc.saveProfessional( app.supervisor );		
+		if(supervisor) {
+			app.supervisor = supervisor;
+			app.supervisorid = supervisor.objid;
+		};		
+
+		app.createdby = [objid: env.USERID, name: env.FULLNAME];
+		app.dtcreated = dateSvc.getServerDate();
+		
+		//we save the application first before running the rules to keep it simple
+
+		def appEm = db.lookup( appclz.entityschemaname );
+		if( app.appno ) {
+			appnoEm.create( [appno: app.appno, appid: app.objid ] );	
+		}
+
+		app = appEm.create( app );
+
+		//save appid of entity
+		entityEm.find( [objid: app.applicant.objid ] ).update( [appid: app.objid] );
+		
+
+		if( app.txnmode == "CAPTURE" ) {
+			//save the task
+			def atask = [:];
+			atask.refid = app.objid;
+			atask.state =  app.task.state;
+			atask.dtcreated = dateSvc.getServerDate();
+
+
+			def tsk = appTaskEm.create( atask );
+			abstractAppEm.find([objid:app.objid]).update( [taskid: tsk.taskid] );
+
+			if(!app.appno) {
+				if( !atask.state.matches('receiving|.*requirement.*') ) {
+					assignAppno( [appid: app.objid ] );
+				}
+			}	
+			saveControl( app );
+			savePayment( app );
+		}
+		else {
+			//------- FOR ONLINE TRANSACTIONS --------
+			//save the entities
+			if(app.entities) {
+				app.entities.each {
+		    		if( it.objid != app.applicantid ) {
+						it.appid = app.objid;
+						entityEm.create( it );    		
+		    		}
+				}							
+			};
+
+			
+			if(app.professionals) {
+				app.professionals.each {
+					it.appid = app.objid;
+					profSvc.addAppProfessional( it );	
+				}	
+			}
+			
+			//start the workflow
+			def p = [:];
+			p.processname = appclz.processname;
+			p.entityschemaname = "obo_app";
+			p.refid = app.objid;
+			p.startdate = dateSvc.getServerDate();
+			p.info = app;
+			p.assignee = [objid:env.USERID, name:env.FULLNAME];		
+			wfSvc.start(p);			
+		}	
+
+		//run rules to update fixed cost and txntype	
+		def res = appRuleSvc.execRules( [appid: app.objid ] );
+
+		appEm.find( [objid: app.objid ] ).update( res );
+
+		//save the documents
+		if( app.documents) {
+			def docExists = app.documents.collect{ [doctypeid: it.doctypeid ] };
+			//merge with docs from rules
+			def doclist = app.documents + (res.docs - docExists );
+			appDocSvc.saveInitial(  [appid: app.objid, doclist: doclist ] );
+		} 
+		else if( !app.permitno ) {
+			//save the documents if there is no permit yet
+			appDocSvc.saveInitial(  [appid: app.objid, doclist: res.docs ]  );		
+		}
+
+		return app;
+	}
+
+	@ProxyMethod
+	public def update( def app ) {
+		if(!app.appclass) throw new Exception("appclass is required in OboAppService.reloadUpdate");
+		if(!app.trackingno) throw new Exception("trackingno is required in OboAppService.reloadUpdate");
+
+		def oldApp = vwAppEm.find( [trackingno: app.trackingno ] ).first();
+		if(!oldApp) throw new Exception("App does not exist");
+
+		app.objid = oldApp.objid;
+
+		//update entities
+		app.entities.each { ent->
+			def e = entityEm.find( [objid: ent.objid ] ).first();
+			ent.appid = app.objid;
+			if( e ) {
+				entityEm.find( [objid: ent.objid ] ).update( ent );
+			}
+			else {
+				entityEm.create( ent );  	
+			}
+		}
+		//update documents
+		if( app.documents) {
+			//remove all existing documents and replace with new infos
+			appDocInfoEm.find( [appid: app.objid ] ).delete();
+			appDocEm.find( [appid: app.objid ] ).delete();
+			appDocSvc.saveInitial(  [appid: app.objid, apptype: app.appclass.toLowerCase(), doclist: app.documents]  );
+		} 
+
+		if(app.professionals) {
+			app.professionals.each {
+				it.appid = app.objid;
+				profSvc.saveProfessional( it );	
+			}	
+		}
+
+		//prepare to update application
+		//update all except the ids
+		app.remove("applicantid");
+		app.remove("supervisorid");
+
+		if(!app.location?.text) {
+			app.location?.text = formatAddress( app.location );
+		}
+		
+		//run rules to update fixed cost and txntype	
+		def res = appRuleSvc.execRules( [appid: app.objid ] );
+		app.putAll( res );
+		
+		def appclz = appClassEm.find( [objid: app.appclass.toUpperCase() ] );
+		def appEm = db.lookup( appclz.entityschemaname );
+		appEm.find( [objid: app.objid ] ).update( app );
+			
+		return app;
+	}
+
+
+	@ProxyMethod
+	public void removeApp( def p ) {
+		def app = vwAppEm.find( [objid: p.objid]).first();
+		if( app.appno ) throw new Exception("This application cannot be deledted because appno is already assigned");
+
+		def u = [appid: app.objid ];	
+		abstractAppEm.find([objid: app.objid]).update( [applicantid: "{NULL}", taskid: "{NULL}" ] );
+		def appclz = appClassEm.find( [objid: app.appclassid.toUpperCase() ] ).first();
+
+		if( appclz.entityschemaname == "building_permit" ) {
+			rpuEm.find( u ).delete();	
+		}
+		appnoEm.find([appid: app.objid] ).delete();
+		entityEm.find( u ).delete();
+		appTaskEm.find( [refid: app.objid] ).delete();
+		appDocSvc.deleteDocuments( u );
+		profSvc.deleteAppProfessionals( u );
+		tagEm.find( [appid: app.objid ] ).delete();
+
+
+		//delete the appclass
+		def appEm = db.lookup( appclz.entityschemaname );
+		appEm.find( [objid: app.objid ]).delete();
+
+
+	}
+
+
+}

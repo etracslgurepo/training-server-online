@@ -1,0 +1,19 @@
+<schema>
+	<element tablename="vw_obo_app_attachment">
+		<field name="objid" primary="true"/>
+		<field name="appid" />
+		<field name="description" />
+		<field name="typeid" />
+
+		<field name="title" />
+		<field name="sectionid" />
+		<field name="filetype" />
+
+		<field name="createdby_objid" />
+		<field name="createdby_name" />
+		<field name="dtcreated" type="timestamp" />
+		<field name="version" />
+		<field name="superseded" />
+
+	</element>
+</schema>

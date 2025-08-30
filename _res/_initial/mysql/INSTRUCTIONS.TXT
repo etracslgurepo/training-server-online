@@ -39,10 +39,14 @@ running the ETRACS application.
 
    mysql -u root -p -f  <  10-patch-eor.sql
 
+   mysql -u root -p -f  <  11-patch-eor-obo.sql
+
 
 8. Patch the "etracs" database 
 
-   mysql -u root -p -f  <  11-patch-eor.sql
+   mysql -u root -p -f  <  12-patch-etracs-bpls.sql
+
+   mysql -u root -p -f  <  13-patch-etracs-obo.sql
 
 
 DONE !!!

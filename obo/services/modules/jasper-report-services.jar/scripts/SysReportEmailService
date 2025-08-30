@@ -1,0 +1,37 @@
+import com.rameses.annotations.*;
+import java.io.*;
+import com.rameses.util.*;
+import java.rmi.server.*;
+import java.util.zip.*;
+
+class SysReportEmailService  {
+	
+	@XConnection("kafka-email")
+	def emailQueue;
+
+	@Service("SysReportGeneratorService")
+	def reportGenService;
+
+	@ProxyMethod
+	public def send( def o ) {
+		if(!o.to) throw new Exception("to is required in JasperReportEmailService.send");
+		if(!o.connection) throw new Exception("email connection is required in JasperReportEmailService.send");
+
+		def mail = [:];
+		mail.to = o.to;
+		mail.connection = o.connection;
+		mail.subject = o.subject;
+		mail.message = o.message;
+
+		if(o.attachments) {
+			mail.attachments = [];
+			o.attachments.each { p->
+				mail.attachments << reportGenService.buildAttachment( p );
+			}
+		}
+
+		emailQueue.send( mail );
+	}
+
+	
+}

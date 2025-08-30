@@ -1,0 +1,267 @@
+import com.rameses.annotations.*;
+import groovy.text.*;
+import java.util.regex.*;
+import com.rameses.osiris2.reports.*;
+import com.rameses.io.*;
+import jasper.*;
+
+class SysReportTemplateService {
+	
+	@DataContext("sys_report_template")
+	def templateEm;
+
+	@DataContext("sys_report_header")
+	def headerEm;
+
+	String rootPath = "/report-files";
+	String templatePath = "/report-templates";
+
+	@ProxyMethod
+	public def getMasterTemplateList() {
+		return templateEm.where( "master = 1").orderBy("name").list();
+	}
+
+	@ProxyMethod
+	public def create( def o ) {
+		if(!o.name ) throw new Exception("name is required in SysReportTemplateService.create");
+		if(!o.masterfile ) throw new Exception("masterfile is required in SysReportTemplateService.create");
+		if(!o.filepath ) throw new Exception("filepath is required in SysReportTemplateService.create");
+
+		if( !o.filepath.endsWith(".jrxml") ) o.filepath = o.filepath.replace(".jrxml", ".jasper");
+		if( !o.filepath.endsWith(".jasper") ) o.filepath = o.filepath + ".jasper";
+
+		// this will create a new entry and also copies a template from the master
+		//def src = new SysReportTemplate( rootPath, o.masterfile );
+
+		def mt = new MasterTemplateProvider();
+		String fname = o.masterfile;
+		fname = fname.substring( fname.lastIndexOf("/") + 1 );
+		def test_file = new java.io.File( mt.getUrl(fname).getFile() );
+		
+		o.master = 0;
+		templateEm.create( o );
+
+		def st = new SysReportTemplate( rootPath, o.filepath );
+		st.saveResource( o.filepath.replace(".jasper", ".jrxml"), mt.getBytes(fname) );
+		st.saveResource( o.filepath.replace(".jrxml", ".jasper"), mt.getCompiledBytes(fname) );
+
+		/*
+		def handler = [
+        	getResources: { reportId ->
+            	return src.getResources();
+        	},
+			getContent : { reportId->
+				return src.getContent( reportId );	
+        	}
+		] as SysReportTemplateSource;
+
+		def st = new SysReportTemplate( rootPath, o.filepath );
+		st.sync( handler, o.masterfile, true );
+		*/
+		return o;
+	}
+
+	@ProxyMethod
+	public def update( Map param ) {
+		if ( !param.name ) throw new Exception("'param.name' argument is required");
+		if ( !param.filepath ) throw new Exception("'param.filepath' argument is required");
+
+		def template = templateEm.find([ name: param.name ]).first(); 
+		if ( !template ) throw new Exception("'"+ param.name +"' template record not found");
+
+		if ( template.filepath.toString() != param.filepath ) { 
+
+			def source_st = new SysReportTemplate( rootPath, template.filepath );
+			def handler = [
+	        	getResources: { reportId ->
+	            	return source_st.getResources();
+	        	},
+				getContent : { reportId->
+	            	return source_st.getContent( reportId );
+	        	}
+			] as SysReportTemplateSource;
+
+			def target_st = new SysReportTemplate( rootPath, param.filepath );
+			target_st.sync( handler, template.filepath, true ); 
+		}
+
+		param.master = 0; 
+		templateEm.find([ name: param.name ]).update( param ); 
+		return templateEm.find([ name: param.name ]).first(); 
+	}
+
+	@ProxyMethod
+	public def getInfo(def o ) {
+		if(!o.name) throw new Exception("name is required in SysReportTemplateService.findTemplate");
+		def tmp =  templateEm.find( [name:o.name] ).first();
+		if( tmp ) {
+			tmp.resources = getResources( [name: tmp.filepath ] );
+			//check if file exists in the path. it may be located in the template path only.
+			String contextPath = tmp.filepath.substring(0, tmp.filepath.lastIndexOf("/"));
+			String spath = rootPath;
+			if(contextPath) spath = spath + "/" + contextPath;
+			tmp.resources.each { 
+				File f = new File( spath, it.name );
+				if(f.exists() ) {
+					it.lastmodified = f.lastModified();	
+				}	
+			}
+		}
+
+		return tmp;
+	}
+
+	@ProxyMethod
+	public def getResources( def o ) {
+		// check first if file can be found in rootPath. 
+		// If not look for it from templates
+		def list = [];
+		def st = new SysReportTemplate( rootPath, o.name );
+		st.getResources().each {
+			list << it;
+		}
+
+		if ( !list ) {
+			st = new SysReportTemplate( templatePath, o.name );
+			st.getResources().each {
+				list << it;
+			} 
+		} 
+		return list;
+	}
+
+	@ProxyMethod
+	public def getContent( def o ) { 
+		def spath = rootPath;
+		spath = resolveFilePath( spath ); 
+		
+		def sname = resolveFilePath( o.name ); 
+
+		File f = new File( spath, sname );
+		//check if filename ends in .jasper. we only need to check if the jrxml file exists
+		if(!f.exists() && sname.endsWith(".jasper")) {
+			f = new File( spath, sname.replace(".jasper", ".jrxml"));
+		} 
+		if( !f.exists() ) {
+			spath = templatePath;
+		}
+		def st = new SysReportTemplate( spath );
+		return st.getContent( sname );
+	}
+
+	@ProxyMethod
+	public void saveContent( def o ) { 
+		def st = new SysReportTemplate( rootPath );
+		st.saveContent( o.name, o.content, (new Date()).getTime() );
+
+		//force the compilation. This is the only code at the moment
+		st.getContent( o.name.replace(".jrxml", ".jasper") );
+	}
+
+	@ProxyMethod
+	public def getHeader( def o ) {
+		if(!o.name) throw new Exception("name is required in SysReportTemplateService.getHeader");
+		def h = headerEm.find( [name: o.name] ).first();
+		if(h) {
+			def bis = null;
+			try {
+				def props = new Properties();
+				bis = new ByteArrayInputStream( h.value.replaceAll(";", "\n").getBytes() );
+				props.load( bis );
+				return props;
+			}
+			catch(e) {
+				//
+			}
+			finally {
+				try { bis.close(); }catch(Throwable t){;} 
+			}
+		}
+		return null;
+	}
+
+
+	@ProxyMethod
+	public def getImages() {
+		def handler = { file-> 
+			String name = file.name.toString(); 
+	        return ( 
+	        	name.toLowerCase().endsWith(".png") || 
+	        	name.toLowerCase().endsWith(".jpg") || 
+	        	name.toLowerCase().endsWith(".gif")
+	        );
+		}
+
+		def st = new SysReportTemplate( rootPath );
+		return st.getResources( handler ); 
+	}
+
+	@ProxyMethod
+	public void uploadImage( Map param ) {
+        if ( !param?.name ) 
+            throw new IllegalArgumentException("'param.name' argument is required");
+        if ( param?.bytes == null ) 
+            throw new IllegalArgumentException("'param.bytes' argument is required for resource '"+ param.name +"'");
+
+        String name = param.name.toString(); 
+        boolean pass = ( 
+        	name.toLowerCase().endsWith(".png") || 
+        	name.toLowerCase().endsWith(".jpg") || 
+        	name.toLowerCase().endsWith(".gif")
+        ); 
+
+        if ( !pass ) 
+        	throw new IllegalArgumentException("uploadImage requires the following format: png, jpg, gif");
+
+		def st = new SysReportTemplate( rootPath );
+		st.saveResource( name, param.bytes ); 
+	}
+
+	@ProxyMethod
+	public Map removeImage( Map param ) {
+        if ( !param?.name ) 
+            throw new IllegalArgumentException("'param.name' argument is required");
+
+        String name = param.name.toString(); 
+        boolean pass = ( 
+        	name.toLowerCase().endsWith(".png") || 
+        	name.toLowerCase().endsWith(".jpg") || 
+        	name.toLowerCase().endsWith(".gif")
+        ); 
+        if ( !pass ) 
+        	throw new IllegalArgumentException("removeImage requires the following format: png, jpg, gif");
+
+		def st = new SysReportTemplate( rootPath );
+		return [ result: st.removeResource( name )];
+	}
+
+	@ProxyMethod
+	public def getResource( def filename ) {
+		def tmp = new SysReportTemplate( rootPath );
+		File f = new File( rootPath , filename );
+		if(!f.exists() ) {
+			f = new File( templatePath, filename );
+		}
+		if( f.exists() ) {
+			def r = [:];
+			r.bytes = IOStream.toByteArray( f );
+			r.lastmodified = f.lastModified();
+			return r;
+		}
+		return null;
+	}
+
+
+	String resolveFilePath( String path ) {
+        if ( path == null ) { 
+            return path;
+        } 
+        String fileseparator = System.getProperty("file.separator", File.separator);
+        path = path.replace("\\", fileseparator).replace("/", fileseparator); 
+        if ( path.startsWith("\"") && path.endsWith("\"")) {
+            return path.substring(1, path.length()-1); 
+        }
+        return path; 
+    }
+}
+

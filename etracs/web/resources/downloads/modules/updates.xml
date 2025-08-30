@@ -38,5 +38,7 @@ admin.app.context=etracs25
    <import file="queue/updates.pxml"/>
 
    <import file="epayment/updates.pxml"/> 
+
+   <import file="obo/updates.pxml"/> 
 </modules>
 </app>

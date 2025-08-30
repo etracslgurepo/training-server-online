@@ -1,0 +1,119 @@
+import com.rameses.annotations.*;
+import com.rameses.util.*;
+import java.rmi.server.*;
+import obo.facts.*;
+import java.text.*;
+import treasury.utils.*;
+import treasury.facts.*;
+
+class CloudOboAppService {
+	
+    @Service(value='OrgService', connection="admin")
+    def orgSvc;
+
+	@Service(value="obo/PersistenceService", connection="cloud-server")
+    def persistenceSvc;
+
+	@Service(value="obo/QueryService", connection="cloud-server")
+    def querySvc;
+
+    @Env
+    def env;
+
+    //DATA RELATED TO APPLICATIONS
+    @ProxyMethod
+    public def getApplicationList( def o ) {
+        def orgcode = env.ORGID;
+        def m = [_schemaname: o._schemaname ];
+
+        def str =  "orgcode = :orgcode";
+        def params = [orgcode:env.ORGID];
+        if( o.state == 'ongoing' ) {
+            str += " AND (state IS NULL OR NOT(state = 'end')) ";    
+        }
+        else {
+            str += " AND state = 'end' "; 
+        }
+        m.where = [str, params];
+        if(o.searchtext) {
+            def srch = o.searchtext + "%";
+            def wlist = [];
+            wlist << [ "objid LIKE :txt", [txt: srch ]  ];
+            wlist << [ "applicant.name LIKE :txt", [txt: srch ]  ];
+            m.orWhereList = wlist;
+        }
+        if( o._start ) m.start = o._start ;    
+        if( o._limit ) m.limit = o._limit; 
+        return querySvc.getList( m );
+    }
+
+    @ProxyMethod
+    public def returnToApplicant( def  o  ) {
+        def m = [_schemaname: o._schemaname ];
+        m.objid = o.objid;
+        m.step = o.step - 1;
+        m.state = "OPEN";
+        persistenceSvc.update( m );
+    }
+
+    //DATA RELATED TO PROFESSIONALS
+    @ProxyMethod
+    public def getProfessionalList( def  o  ) {
+        def m = [_schemaname: "vw_obo_professional" ];
+        if( o._start ) m.start = o._start ;    
+        if( o._limit ) m.limit = o._limit; 
+        def str = null;
+        def params = [orgcode : env.ORGID];
+        if(o.scope == "local") {
+           str = "orgcode = :orgcode";
+        }
+        else {
+            str = " (orgcode IS NULL OR orgcode <> :orgcode) "
+        };
+        if(o.searchtext) {
+            def srch = o.searchtext + "%";
+            def wlist = [];
+            wlist << [ "lastname LIKE :txt", [txt: srch ]  ];
+            wlist << [ "prc.idno LIKE :txt", [txt: srch ]  ];
+            wlist << [ "profession LIKE :txt", [txt: srch ]  ];
+            m.orWhereList = wlist;
+        }
+        m.where = [str, params];
+        return querySvc.getList( m );
+    }
+
+
+    //DATA RELATED TO REQUIREMENTS
+    @ProxyMethod
+    public def findRequirementText( def o ) {
+        def orgcode = env.ORGID;
+        def apptype = o.apptype;
+        def m = [_schemaname: "obo_requirement_list"];
+        m.findBy = [orgcode: orgcode, apptype: apptype];
+        return querySvc.findFirst( m );
+    }
+
+    @ProxyMethod
+    public def findRequirementDefaultText( def o ) {
+        def m = [_schemaname: "obo_requirement_list"];
+        m.findBy = [apptype: o.apptype];
+        m.where = ["orgcode IS NULL"];
+        def retval =  querySvc.findFirst( m );
+        retval.orgcode = env.ORGID;
+        return retval;
+    }
+
+    @ProxyMethod
+    public def createRequirementText( def o ) {
+        o._schemaname = "obo_requirement_list";
+        return persistenceSvc.create( o );
+    }
+
+    @ProxyMethod
+    public def updateRequirementText( def o ) {
+        o._schemaname = "obo_requirement_list";
+        return persistenceSvc.update( o );
+    }
+
+
+}

@@ -1,0 +1,68 @@
+import com.rameses.annotations.*;
+import java.rmi.server.*;
+import com.rameses.util.*;
+import com.rameses.functions.*;
+import java.text.*;
+
+class OboMenuService {
+
+	@DataContext("obo_taskitem_type")
+	def taskitemEm;
+
+	@DataContext("obo_appclass")
+	def appClassEm;
+
+	@DataContext("obo_doctype")
+	def docTypeEm;
+
+	@DataContext("vw_obo_doctype")
+	def vwDocTypeEm;
+
+	@Env
+	def env;
+
+	@Service("UserRoleService")
+    def roleSvc;
+
+	@ProxyMethod
+	public def getTaskitemMenu() {
+		def m = [:];
+        m.roles = roleSvc.getRolesString([:]); 
+        m.orgid = (env.ORGROOT==1) ? "root" : env.ORGID;
+        return taskitemEm.getAllowedTypes( m );
+	}
+
+	@ProxyMethod
+	public def getStandalonePermitTypes() {
+		def m = [:];
+        m.roles = roleSvc.getRolesString([:]); 
+        def list = appClassEm.find([entityschemaname: 'standalone_permit']).orderBy("sortorder").list();
+        list.each {
+        	it.handler = "standalone_permit_list";
+        }
+        return list;
+	}
+
+	@ProxyMethod
+	public def getDocumentsForIssuance() {
+		def m = [:];
+        m.roles = roleSvc.getRolesString([:]); 
+        m.orgid = (env.ORGROOT==1) ? "root" : env.ORGID;
+		return docTypeEm.getDocumentsToIssue( m );
+	}
+
+	@ProxyMethod
+	public def getOboControlList() {
+        def str = "issuetype = 4 AND superseded = 0 ";
+        def parms = [:];
+        if( env.ORGROOT ) {
+        	str += " AND org.objid IS NULL";
+        }
+        else {
+        	str += " AND org.objid = :orgid";
+        	parms.orgid = env.ORGID;
+        }
+        return vwDocTypeEm.where( str, parms ).list().collect{ [objid: it.objid, title: it.title ]  } ;
+	}
+
+}

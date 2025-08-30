@@ -1,0 +1,49 @@
+import com.rameses.annotations.*; 
+
+class OboAppDocListInterceptor { 
+
+	@After(pattern="QueryService.getNodeList", eval="#{args[0]._schemaname == 'vw_obo_app_doc' }")
+	public void getNodeList(def evt) {
+		def result = evt.result;
+		result << [title: "Pending (Unissued)", id: 1 ];
+		result << [title: "Issued (Unpaid)", id: 2 ];
+		result << [title: "For Payment", id: 3 ];
+		result << [title: "Paid (Unissued)", id: 4 ];
+		result << [title: "Completed", id: 5 ];
+	}
+
+	@Before(pattern="QueryService.getList", eval="#{ args[0]._schemaname == 'vw_obo_app_doc' }")
+	public void loadList(def evt) {
+		def o = evt.args[0];
+		//o.debug = true;
+		if( !o.node?.id ) return;
+
+		def str = "";
+		def m = [:]
+		if(o.node.id == 1) {
+			str = " task.state NOT IN ('payment') AND controlid IS NULL  AND payment.refno IS NULL"
+		}
+		else if(o.node.id == 2) {
+			str = " NOT(controlid IS NULL) AND payment.refno IS NULL "
+		}		
+		else if(o.node.id == 3) {
+			str = " task.state = 'payment' AND payment.refno IS NULL "
+		}
+		else if(o.node.id == 4) {
+			str = " NOT(payment.refno IS NULL) AND controlid IS NULL "			
+		}
+		else {
+			str = " NOT(payment.refno IS NULL) AND NOT(controlid IS NULL)"
+		}
+
+		//add to first position of where
+		if( o.where ) {
+			o.where[0] = str + " AND " + o.where[0];	
+			o.where[1].putAll( m );
+		}
+		else {
+			o.where = [str, m];
+		}
+	}
+
+} 

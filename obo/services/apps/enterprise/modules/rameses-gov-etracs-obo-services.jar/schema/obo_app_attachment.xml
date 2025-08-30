@@ -1,0 +1,10 @@
+<schema>
+	<element tablename="obo_app_attachment">
+		<field name="objid" primary="true" />
+		<field name="appid" />
+		<field name="typeid" required="true"/>
+		<field name="description" />
+		<field name="version" />
+		<field name="supersededid" />
+	</element>
+</schema>

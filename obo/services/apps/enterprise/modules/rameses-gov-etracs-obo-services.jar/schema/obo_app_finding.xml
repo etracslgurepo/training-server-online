@@ -1,0 +1,21 @@
+<schema>
+	<element tablename="obo_app_finding">
+		<field name="objid" primary="true" prefix="OBOAPPFND"/>
+		<field name="appid" required="true"/>
+
+		<field name="particulars" />
+		<field name="dtcreated" />
+		<field name="createdby_objid" />
+		<field name="createdby_name" />
+		<field name="checklistitemid" required="true" />
+
+		<!-- 1=complied 2=disapproved 3=for later compliance -->
+		<field name="state" required="true"/>
+		
+		<field name="transmittalid" />
+		<complex name="values" serializer="default" required="false"/>
+		<field name="supersededid" />
+
+
+	</element>
+</schema>

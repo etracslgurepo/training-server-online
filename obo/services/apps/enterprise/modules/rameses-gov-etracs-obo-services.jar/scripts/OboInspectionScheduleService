@@ -1,0 +1,96 @@
+import com.rameses.annotations.*;
+import com.rameses.util.*;
+import com.rameses.http.*;
+import com.rameses.osiris3.server.*;
+import java.rmi.server.*;
+
+class OboInspectionScheduleService {
+	
+	@Service("DateService")
+	def dateSvc;
+
+	@DataContext("vw_obo_app")
+	def vwAppEm;
+
+	@DataContext("obo_appclass")
+	def appClassEm;
+
+	@DataContext(dynamic=true)
+	def dynEm;
+
+	@Service("Var")
+	def var;
+
+	@Service(dynamic=true)
+	def svc;
+
+	@DataContext("sys_email_queue")
+	def emailQueue;
+
+    @DataContext("sys_email_template")
+    def templateEm;
+
+    @ProxyMethod
+    public void checkHasInspectionDate( def o ) {
+        if(!o.refid) throw new Exception("refid is required in OboInspectionScheduleService.checkHasInspectionDate");
+
+        def app = vwAppEm.find( [objid: o.refid ] ).first();
+        if(!app.inspectiondate)
+            throw new Exception("Please indicate inspection date");
+    }
+
+    @ProxyMethod
+    public void transmitSchedule( def o ) {
+    	if(!o.appid) throw new Exception("appid is required in OccupancyInspectionScheduleService.addSchedule" );
+
+    	def app = vwAppEm.find( [objid: o.appid ] ).first();
+    	if(!app) throw new Exception("Occupancy certificate not found");
+
+    	if(!app.inspectiondate ) throw new Exception("Please specify inspection date");
+
+    	if(!o.sendmail && !o.use_google_calendar ) return;
+
+    	def emails = var.obo_inspection_calendar_group.replace("\n","").split(";").toList();
+    	if(!emails) throw new Exception("Please specify at least one email in obo_inspection_calendar_group");
+    	emails << app.contact.email;
+    	emails = emails.findAll{!!it}.unique();
+
+        def tmp = templateEm.find( [objid: "obo_app_inspection_schedule" ]).first();
+        if(!tmp) throw new Exception("Please specify obo_app_inspection_schedule in email template");
+
+        def templateEngine = new groovy.text.SimpleTemplateEngine(); 
+        def subject = templateEngine.createTemplate(tmp.subject).make(app)?.toString(); 
+        def msg = templateEngine.createTemplate(tmp.message).make(app)?.toString(); 
+
+    	if( o.use_google_calendar == true ) {
+    		def calSvc = svc.lookup("GoogleCalendarService");
+    		def p = [:];
+    		p.subject = subject;
+    		p.startdate = app.inspectiondate;
+    		p.enddate = dateSvc.add( app.inspectiondate, "5h" );
+    		p.emails = emails;
+	        p.msg = msg;
+	        calSvc.send( p );
+    	}
+
+    	if( o.sendmail == true ) {
+    		def q = [:];
+    		emails.each { m->
+    			q.objid = "EM" + new UID();
+	    		q.to = m;
+	    		q.refid = app.objid;
+	    		q.state = 0;
+	    		q.dtsent = dateSvc.getServerDate();
+	    		q.subject = subject;
+	    		q.connection = "obo-email-server";
+	    		q.title = subject; 
+	    		q.message = msg;
+	    		emailQueue.create(  q );
+    		}
+    	}
+
+    }
+
+   
+	
+}

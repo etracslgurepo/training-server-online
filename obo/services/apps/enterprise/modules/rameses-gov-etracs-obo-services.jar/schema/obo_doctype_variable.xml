@@ -1,0 +1,7 @@
+<schema>
+	<element tablename="obo_doctype_variable">
+		<field name="objid" primary="true" />
+		<field name="doctypeid"/>
+		<field name="varid"/>
+	</element>
+</schema>

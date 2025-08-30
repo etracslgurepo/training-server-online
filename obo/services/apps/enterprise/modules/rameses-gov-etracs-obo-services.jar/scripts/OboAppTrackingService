@@ -1,0 +1,203 @@
+import com.rameses.annotations.*;
+import com.rameses.functions.*;
+import com.rameses.util.*;
+
+class OboAppTrackingService {
+	
+	@DataContext("vw_obo_app")
+	def vwAppEm;
+
+	@DataContext("vw_obo_app_task")
+	def vwTaskEm;
+
+	@DataContext("obo_app_task")
+	def taskEm;
+
+	@DataContext("vw_obo_app_taskitem_task")
+	def vwTaskitemTaskEm;
+
+	@Service("DateService")
+	def dateSvc;
+
+	@Service(value="HolidayService", connection="enterprise")
+	def holidaySvc;
+
+	def formatTime = new java.text.SimpleDateFormat("HH:mm");
+	def formatDay = new java.text.SimpleDateFormat("yyyy-MM-dd");
+	def formatDateTime = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm");
+
+	def holidayProvider = { dt->
+		def h = holidaySvc.lookup(dt);
+		return (h!=null);
+	} as HolidayProvider;
+
+	// ****************************************************************
+	// This returns the no. of hours diff. considering the ff:
+	// start time of day is 8:00 and end on 17:00
+	// holidays, saturdays or sundays are not included
+	// ****************************************************************
+
+	public def getTimeDiff( def o ) {
+
+		def calcHrDiff = { tstart, tend->
+			def tmins = ((tend.getTime() - tstart.getTime()) / (1000*60));
+			def hrs = 0;
+			def mins = 0;
+			if( tmins > 0 ) {
+	        	hrs = (int)(tmins/60);
+	        	mins = (int)(tmins.doubleValue() % 60); 
+			}
+        	return [hours: hrs, minutes: mins];
+		}
+
+		boolean hasEnddate = true;
+		if(!o.enddate ) {
+			o.enddate = dateSvc.getServerDate();
+			hasEnddate = false;
+		}		
+		def startDate = formatDay.parse( formatDay.format( o.startdate ) );
+        def endDate = formatDay.parse( formatDay.format(o.enddate) ); 
+
+        def res = [:];
+        if( startDate == endDate ) {
+			res = calcHrDiff( o.startdate, o.enddate );
+        }
+        else {
+        	//loop all dates to exclude holidays
+        	int numdays = 0;
+        	def cdate = startDate;
+        	cdate = DateFunc.getFindNextWorkDay( cdate, holidayProvider, 0 );
+        	while( cdate < endDate ) {
+        		numdays ++;
+        		cdate = DateFunc.getFindNextWorkDay( cdate, holidayProvider, 0 );
+        	}
+        	res.days = numdays;
+
+        	//we have to compare using the same date so we can properly count the hours
+        	def t1 = formatTime.parse( formatTime.format( o.startdate ));
+        	def t2 = formatTime.parse( formatTime.format( o.enddate ));
+        	if( t1.before(t2)) {
+        		res = calcHrDiff( t1, t2 );
+				 
+        	}
+        	else {
+        		def s1 = formatTime.parse( "17:00");
+        		def s2 = formatTime.parse( "08:00");
+
+        		def res1 = calcHrDiff( t1, s1 );
+        		def res2 = calcHrDiff( s2, t2 );
+
+        		res.hours = res1.hours + res2.hours;
+        		res.minutes = res1.minutes + res2.minutes;
+
+        		if( res2.minutes > 60 ) {
+        			res.hours += 1;
+        			res.minutes -= 60;	
+        		}
+        		if( res.hours > 24 ) {
+        			res.days += 1;
+        			res.hours -= 24;
+        		}
+        	}
+        }	
+        res.text = String.format("%02d",res.hours) + ":" + String.format("%02d", res.minutes);
+        if( res.days ) res.text = res.days + " days " + res.text;
+
+        res.startdate = formatDateTime.format( o.startdate );
+        res.enddate = null;
+		if( hasEnddate == true ) res.enddate = formatDateTime.format( o.enddate );
+        return res;
+	}
+
+	@ProxyMethod
+	public def getInfo(  def o )  {
+		def p = [:];
+		if(o.appno) p.appno = o.appno;
+		else if(o.trackingno) p.trackingno = o.trackingno;
+		else if(o.refno) p.appno = o.refno;
+		else if(o.objid) p.objid = o.objid;
+		def app = vwAppEm.find( p ).first();
+		if(!app) throw new Exception("Application "  + p + " not found");
+
+		def r = [:];
+		r.title = app.doctitle;
+		r.trackingno = app.trackingno;
+		r.appno = app.appno;
+		r.doctitle = app.doctitle;
+		r.appdate = app.appdate;		
+		r.txntype = app.txntype;
+		r.applicant = app.applicant;
+		r.title = app.title;
+		r.location = app.location;
+
+		//temporary
+		r.applicant.txntype = r.txntype;
+
+		def nowdate = dateSvc.getServerDate();
+
+		def allSubTasks = taskEm.getAllSubTasks( [appid:app.objid] );
+
+		r.tasks = taskEm.getMainTaskList( [appid: app.objid ] );
+		
+		r.tasks.each { tsk->
+			def _startdate = tsk.startdate;
+			def _enddate = tsk.enddate;
+			if(!_enddate) _enddate = nowdate;
+ 
+			def t = getTimeDiff( [startdate:tsk.startdate, enddate:tsk.enddate] );
+			
+			tsk._hours = t.hours;
+			tsk._minutes = t.minutes;
+			tsk.startdate = t.startdate; 
+			tsk.enddate = t.enddate;
+			tsk.hours = t.text;
+			tsk.sections = [];
+
+			
+			def subtasks = allSubTasks.findAll{ itm->
+				if(!itm.enddate) itm.enddate = nowdate;
+				return (itm.parentprocessname == tsk.processname && itm.startdate >= _startdate && itm.enddate <= _enddate) 
+			};
+			
+			if(subtasks) {
+				def orgGrps = subtasks.groupBy{ it.org };
+				orgGrps.each { k,v->
+					if(!k.name) k.name = "OBO";
+					def vstartdate = v.min{ it.startdate }?.startdate;
+					def venddate = v.max{ it.enddate }?.enddate;
+					def st = getTimeDiff( [startdate:vstartdate, enddate:venddate] );
+					def m = [:];
+					m.title = v.first().title;
+					m.startdate = st.startdate;
+					m.enddate = st.enddate;
+					m.hours = st.text;
+					m.status = v.last()?.status;
+
+					def procname = v.first().processname;
+
+					m.subtasks = allSubTasks.findAll{ sitm-> 
+						if(!sitm.enddate) sitem.enddate = nowdate;
+						return (sitm.parentprocessname == procname && sitm.startdate >= vstartdate && sitm.enddate <= venddate)		
+					}.collect { x->
+						def sst = getTimeDiff( [startdate:x.startdate, enddate:x.enddate]);
+						def mm = [:];
+						mm.title = x.title;
+						mm.startdate = sst.startdate;
+						mm.enddate = sst.enddate;
+						mm.hours = sst.text;
+						mm.status = x.status;
+						return mm;
+					} 
+					tsk.sections << m;
+				}
+			}
+		}
+
+		r.duration = [:];
+		return r;
+
+	}
+
+
+
+}

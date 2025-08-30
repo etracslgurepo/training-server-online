@@ -1,0 +1,48 @@
+import com.rameses.annotations.*; 
+
+class OboDocTypeListInterceptor { 
+
+	@DataContext("obo_doctype")
+	def docType;
+
+	@Service("LOVService")
+    def LOV;
+
+	@After(pattern="QueryService.getNodeList", eval="#{args[0]._schemaname == 'vw_obo_doctype' }")
+	public void getNodeList(def evt) {
+		def result = evt.result;
+		LOV.OBO_DOCTYPE_TYPE*.key.each {
+			result << [ title: it ];
+		}
+
+		/*
+		result << [title: "MAIN" ];
+		result << [title: "ANCILLARY" ];
+		result << [title: "ACCESSORY" ];
+		result << [title: "REGULAR" ];
+		result << [title: "BARANGAY" ];
+		result << [title: "REPORT" ];
+		result << [title: "NOD" ];
+		result << [title: "OTHER" ];
+		*/
+	}
+
+	@Before(pattern="QueryService.getList", eval="#{args[0]._schemaname == 'vw_obo_doctype' }")
+	public void loadList(def evt) {
+		def o = evt.args[0];
+		if( !o.node?.title ) return;
+
+		def str = " type = :type ";
+		def m = [type: o.node.title ];
+
+		//add to first position of where
+		if( o.where ) {
+			o.where[0] = str + " AND " + o.where[0];	
+			o.where[1].putAll( m );
+		}
+		else {
+			o.where = [str, m];
+		}
+	}
+
+} 

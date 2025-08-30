@@ -1,0 +1,37 @@
+import com.rameses.annotations.*; 
+
+class OccupancyCertificateListInterceptor { 
+
+	@Service("DateService")
+	def dateSvc;
+
+
+	@Before(pattern="QueryService.getList", eval="#{args[0]._schemaname == 'vw_occupancy_certificate' && args[0]._tag !=null }")
+	public void loadList(def evt) {
+		def o = evt.args[0];
+		
+		def str = "task.state = :state ";
+		def m = [state: o._tag ];
+
+		if( o._tag == 'schedule-inspection' ) {
+			m.state = "inspection-wait-state";
+			m.duedate = dateSvc.getServerDate();
+			str += " AND NOT(inspectiondate IS NULL) AND inspectiondate > :duedate  ";	
+		}
+		if( o._tag == 'pending-inspection' ) {
+			m.state = "inspection-wait-state";
+			m.duedate = dateSvc.getServerDate();
+			str += " AND  inspectiondate <= :duedate  ";	
+		}
+
+		//add to first position of where
+		if( o.where ) {
+			o.where[0] = str + " AND " + o.where[0];	
+			o.where[1].putAll( m );
+		}
+		else {
+			o.where = [str, m];
+		}
+	}
+
+} 

@@ -1,0 +1,14 @@
+<schema>
+	<element tablename="standalone_permit" extends="obo_app">
+		<field name="objid" primary="true" prefix="STDALON" visible="true"/>
+
+		<complex name="bldgpermit" ref="vw_building_permit" jointype="many-to-one" required="true">
+			<key field="bldgpermitid" target="objid" />
+		</complex>	
+
+		<field name="title"  />
+		<field name="description" />
+		<field name="inspectiondate" type="date" />
+	</element>
+</schema>
+

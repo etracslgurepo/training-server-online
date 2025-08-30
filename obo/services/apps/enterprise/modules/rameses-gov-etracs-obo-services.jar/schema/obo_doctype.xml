@@ -1,0 +1,48 @@
+<schema>
+	<element tablename="obo_doctype">
+		<field name="objid" primary="true" />
+		<field name="title" searchable="true"/>
+		<field name="sortorder" />
+
+		<!-- Type is any of the ff: STANDARD OR REPORT -->
+		<field name="type" indexed="true"/>
+
+		<complex name="section" ref="obo_section" jointype="many-to-one" required="false">
+			<key field="sectionid" target="objid" />
+		</complex>	
+
+		<!-- 0=fees not required 1=fees required before section approval  2=fees required before assessment -->
+		<field name="requirefee" />
+
+		<!-- if not null, this would allow display of the report -->
+		<field name="template" />
+		<field name="reportheader" />
+		<field name="reportid"/>
+		<field name="checklistid"/>
+
+		<!--  0 - no issuance required, 1=manual issue,  2=auto issue(basic)  -->
+		<field name="issuetype"  type="integer"/>
+
+		<field name="controlnopattern"/>
+
+		<!-- This refers to an accompanying document of the specified refdoc -->
+		<field name="refdoc"/>
+
+		<field name="system"/>
+		<field name="role"/>
+		<field name="includeinemail"/>
+
+
+		<complex name="endorser" ref="sys_signature" jointype="many-to-one" required="false" includefields="userid,displayname,position">
+			<key field="endorserid" target="objid"/>
+		</complex>
+		<complex name="approver" ref="sys_signature" jointype="many-to-one" required="false" includefields="userid,displayname,position">
+			<key field="approverid" target="objid"/>
+		</complex>
+			
+		<field name="code" searchable="true" indexed="true" caption="Code"/>
+		<field name="version" />
+		<field name="supersededid" />
+
+	</element>
+</schema>

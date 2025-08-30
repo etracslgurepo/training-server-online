@@ -1,0 +1,21 @@
+<schema>
+	<element tablename="obo_app_transmittal">
+		<field name="objid" primary="true" visible="true"/>
+		<field name="appid" required="true" />
+		<field name="state" required="true" type="integer" />		
+		<field name="dtcreated" required="true" />
+
+		<field name="createdby_objid" required="true" />
+		<field name="createdby_name" required="true" />
+		
+		<complex name="app" ref="vw_obo_app" jointype="many-to-one">
+			<key field="appid" target="objid" />
+		</complex>	
+
+		<complex name="doctype" ref="obo_doctype" jointype="many-to-one" required="true">
+			<key field="doctypeid" target="objid" />
+		</complex>	
+
+	</element>
+</schema>
+

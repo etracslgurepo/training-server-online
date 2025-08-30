@@ -1,0 +1,114 @@
+import com.rameses.annotations.*; 
+import java.rmi.server.*;
+import obo.util.*;
+
+class OboAppFindingService {
+
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("ControlnoGeneratorService")
+	def controlNoSvc;
+	
+	@DataContext("vw_obo_app_finding")
+	def vwFindingEm;
+	
+	@DataContext("obo_app_finding")
+	def findingEm;
+
+	@DataContext("obo_app_transmittal")
+	def transmittalEm;
+
+	@DataContext("vw_obo_app")
+	def vwAppEm;
+
+	@DataContext("obo_appclass")
+	def appClassEm;
+
+	@Env
+	def env;
+
+	@ProxyMethod
+	public void checkUnresolvedItems( def o ) {
+		if(!o.appid) throw new Exception("appid is required in OboAppReqFindingService.checkUnresolvedItems");
+		//check if there are pending findings
+		def t = vwFindingEm.find( [appid: o.appid] ).select("c:{COUNT(*)}").where("state=2 AND superseded=0 AND NOT(transmittalid IS NULL) ").val();
+		if( t > 0) throw new Exception("There are unresolved findings. Please resolve open issues before proceeding");
+	}
+
+
+	@ProxyMethod
+	public def checkHasFindings( def o ) {
+		if(!o.appid) throw new Exception("appid is required in OboAppReqFindingService.checkHasFindings");
+		def ex = vwFindingEm.find( [appid: o.appid ] ).where("superseded = 0 AND state = 2").exists();
+		if( ex ) {
+			return [hasfindings: true];
+		}
+		else {
+			return [hasfindings: false];
+		}
+	}
+
+	@ProxyMethod
+	public def createTransmittal( def o ) {
+		if(!o.appid) throw new Exception("appid is required in OboAppFindingService.createTransmittal");
+
+		def app = vwAppEm.find( [objid: o.appid ] ).first();
+		if(!app) throw new Exception("App not found in OboAppFindingService.createTransmittal")
+
+		def items = vwFindingEm.find([ appid:o.appid ]).where("superseded=0 AND state=2 AND transmittalid IS NULL").list();
+		if(!items) throw new Exception("There are no items found that are not complied");	
+
+		def appClass = appClassEm.find( [objid: app.appclass ] ).first(); 	
+		def doctype = appClass.nod;	
+	
+		if(!doctype?.controlnopattern) throw new Exception("Please define controlnopattern in " + doctype?.objid );
+		def t = [:];
+		t.objid = controlNoSvc.getNextNo( doctype.controlnopattern );
+		t.appid = o.appid;
+		t.app = [objid: o.appid];
+		t.doctype = doctype;
+		t.createdby = [objid: env.USERID, name: env.FULLNAME ];
+		t.dtcreated = dateSvc.getServerDate();
+		t.state = 0;
+
+		transmittalEm.create( t );
+		items.each {
+			findingEm.find([objid: it.objid]).update( [transmittalid: t.objid] );
+		}
+		return t;	
+	}
+
+
+	@ProxyMethod
+	public def checkHasPostRequirements( def o ) {
+		if(!o.appid) throw new Exception("appid is required in OboAppFindingService.checkHasPostRequirement");
+		def ex = vwFindingEm.find( [appid: o.appid ] ).where("superseded = 0 AND state = 3").exists();
+		if( ex ) {
+			return [hasfindings: true];
+		}
+		else {
+			return [hasfindings: false];
+		}
+	}
+
+	@ProxyMethod
+	public def validatePostRequirements( def o ) {
+		if(!o.appid) throw new Exception("appid is required in OboAppFindingService.validatePostRequirement");
+		def ex = vwFindingEm.find( [appid: o.appid ] ).where("superseded = 0 AND state = 3").exists();
+		if( ex ) {
+			throw new Exception("There are still unresolved issues in the post requirements. Please comply all first");
+		}
+	}
+
+	@ProxyMethod
+	public def getOpenPostRequirementList( def o ) {
+		if(!o.appid) throw new Exception("appid in OboAppFindingService.getOpenPostRequirementList is required");
+		def finder = [appid: o.appid ];
+		def sortfld = "checklistitem.indexno ASC"
+		def items = vwFindingEm.find(finder).where("superseded = 0 AND state = 3").orderBy(sortfld).list();
+		def ch = new ServerCheckListUtil();
+        return ch.formatList( items );
+	}
+
+}	

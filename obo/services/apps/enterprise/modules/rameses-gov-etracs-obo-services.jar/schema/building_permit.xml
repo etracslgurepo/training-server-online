@@ -1,0 +1,40 @@
+<schema>
+	<element tablename="building_permit" extends="obo_app">
+		<field name="objid" primary="true" prefix="OBOBP" visible="true"/>
+
+		<!-- VALUES ARE SIMPLE OR COMPLEX -->
+		<field name="title" />
+		<field name="description" />
+		<field name="occupancytypeid" required="true"/>
+		<field name="numunits" type="integer"/>
+		<field name="numfloors" type="integer"/>
+		<field name="totalfloorarea" type="decimal"/>
+		<field name="height" type="decimal"/>
+
+		<!-- fixed cost is a computed value -->
+		<field name="fixedcost" type="decimal"/>
+		<field name="projectcost" type="decimal"/>
+
+		<field name="dtproposedconstruction" type="date" />
+		<field name="dtexpectedcompletion" type="date"/>
+
+		<field name="location_lotno" />
+		<field name="location_blockno" />
+
+		<field name="location_unitno" />
+		<field name="location_bldgno" />
+		<field name="location_bldgname" />
+		
+		<field name="location_subdivision" />
+		<field name="location_lotarea" />
+
+		<field name="location_street" />
+		<field name="location_barangay_name" />
+		<field name="location_barangay_objid" />
+
+		<complex name="worktypes" type="list" serializer="default" required="false"/>
+		<field name="supervisorid" />
+
+	</element>
+</schema>
+

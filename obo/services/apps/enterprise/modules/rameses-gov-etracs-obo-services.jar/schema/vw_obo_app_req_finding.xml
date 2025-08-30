@@ -1,0 +1,28 @@
+<schema>
+	<element tablename="vw_obo_app_req_finding">
+		<field name="objid" primary="true" />
+		<field name="appid" required="true"/>
+
+		<field name="particulars" />
+		<field name="dtcreated" />
+		<field name="createdby_objid" />
+		<field name="createdby_name" />
+
+		<!-- 1=closed 2=open -->
+		<field name="state" />
+		
+		<field name="transmittalid" />
+
+		<field name="supersededid" />
+		<field name="superseded" />
+
+		<field name="checklistitem_title" />
+		<field name="checklistitem_indexno" />
+		<field name="checklistitem_category" />
+		<field name="checklistitem_params" />
+
+		<complex name="values" serializer="default" required="false"/>
+		<field name="checklistitemid"  />
+
+	</element>
+</schema>

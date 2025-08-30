@@ -1,0 +1,11 @@
+<schema>
+	<element tablename="obo_lookupvalue">
+		<field name="objid" primary="true" />
+		<field name="listname" />
+		<field name="key" caption="Key" />
+		<field name="title" caption="Title" />
+		<field name="system" />	
+		<field name="sortorder" />		
+	</element>
+</schema>
+		

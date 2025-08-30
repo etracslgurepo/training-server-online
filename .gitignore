@@ -18,3 +18,9 @@ _tmp
 /custom-template
 **/resources/platform/etracs255-platform/**
 zzz-custom
+/obo/fileserver
+/obo/output
+/obo/report-files
+/obo/reportcache
+/obo/templates/custom
+/obo/web/resources/downloads/modules/custom

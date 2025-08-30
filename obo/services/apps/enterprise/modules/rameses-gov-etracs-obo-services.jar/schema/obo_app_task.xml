@@ -1,0 +1,23 @@
+<schema>
+
+	<element tablename="obo_app_task">
+		<field name="taskid" primary="true"  prefix="OBOTSK" visible="true"/>
+		<complex name="app" ref="vw_obo_app" jointype="many-to-one" required="false"
+			includefields="appno,appclass,apptype,appdate,owner.name,description,projectcost,fixedcost"> 
+			<key field="refid" target="objid"/>
+		</complex>
+		<field name="parentprocessid" />
+		<field name="state" required="true"/>
+		<field name="dtcreated" required="true"/>
+		<field name="startdate" />
+		<field name="enddate" />
+		<field name="assignee_objid" />
+		<field name="assignee_name" caption="Assigned To" />
+		<field name="actor_objid" />
+		<field name="actor_name" />
+		<field name="message" />	
+		<field name="prevtaskid" />	
+	</element>
+
+</schema>
+		
