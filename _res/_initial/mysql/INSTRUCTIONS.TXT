@@ -56,4 +56,9 @@ running the ETRACS application.
    mysql -u root -p -f  <  14-patch-etracs-rptis.sql
 
 
+10. Patch the "obo" database 
+
+    mysql -u root -p -f  <  15-patch-obo.sql
+
+
 DONE !!!
