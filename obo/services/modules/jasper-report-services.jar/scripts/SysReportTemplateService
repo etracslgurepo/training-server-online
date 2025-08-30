@@ -19,11 +19,11 @@ class SysReportTemplateService {
 
 
 	public String getRootPath() {
-		return FileBootLoader.getReportFilesDir().getAbsolutePath(); 
+		return BootLoader.getReportFilesDir().getAbsolutePath(); 
 	}
 
 	public String getTemplatePath() {
-		def dir = FileBootLoader.getReportFilesDir().getParentFile(); 
+		def dir = BootLoader.getReportFilesDir().getParentFile(); 
 		return new File( dir, "report-templates" ).getAbsolutePath(); 
 	}
 
