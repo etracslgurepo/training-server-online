@@ -43,6 +43,15 @@ delete from sys_wf_transition where processname = 'business_application' and par
 INSERT INTO `sys_wf_transition` (`parentid`, `processname`, `action`, `to`, `idx`, `eval`, `properties`, `permission`, `caption`, `ui`) VALUES ('start', 'business_application', '', 'assign-assessor', -1, 'return (data.apptype.toString().matches(\"ADDITIONAL|RETIRELOB|RETIRE\"));', NULL, NULL, NULL, '[:]');
 INSERT INTO `sys_wf_transition` (`parentid`, `processname`, `action`, `to`, `idx`, `eval`, `properties`, `permission`, `caption`, `ui`) VALUES ('start', 'business_application', '', 'start-offices', 0, NULL, NULL, NULL, NULL, '[:]');
 
+
+
+INSERT IGNORE INTO `sys_fileloc` (`objid`, `url`, `rootdir`, `defaultloc`, `loctype`, `user_name`, `user_pwd`, `info`) 
+VALUES ('bpls-fileserver', '192.168.2.22', 'bpls', 0, 'ftp', 'ftpuser', 'ftpuser1234', NULL)
+;
+INSERT IGNORE INTO `sys_fileloc` (`objid`, `url`, `rootdir`, `defaultloc`, `loctype`, `user_name`, `user_pwd`, `info`) 
+VALUES ('bpls-fileserver-pub', '192.168.2.22', 'bpls', 0, 'ftp', 'ftpuser', 'ftpuser1234', NULL)
+;
+
 -- 
 -- DONE 
 -- 
