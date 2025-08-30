@@ -1,9 +1,13 @@
 import com.rameses.annotations.*;
-import groovy.text.*;
-import java.util.regex.*;
+import com.rameses.server.BootLoader;
 import com.rameses.osiris2.reports.*;
 import com.rameses.io.*;
+
+import groovy.text.*;
+import java.io.*;
+import java.util.regex.*;
 import jasper.*;
+
 
 class SysReportTemplateService {
 	
@@ -13,8 +17,16 @@ class SysReportTemplateService {
 	@DataContext("sys_report_header")
 	def headerEm;
 
-	String rootPath = "/report-files";
-	String templatePath = "/report-templates";
+
+	public String getRootPath() {
+		return FileBootLoader.getReportFilesDir().getAbsolutePath(); 
+	}
+
+	public String getTemplatePath() {
+		def dir = FileBootLoader.getReportFilesDir().getParentFile(); 
+		return new File( dir, "report-templates" ).getAbsolutePath(); 
+	}
+
 
 	@ProxyMethod
 	public def getMasterTemplateList() {
