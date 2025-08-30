@@ -1,33 +1,41 @@
 import com.rameses.annotations.*;
-import net.sf.jasperreports.engine.*;
-import net.sf.jasperreports.engine.util.*;
 import com.rameses.osiris2.reports.*;
-import java.io.*;
 import com.rameses.util.*;
 import java.rmi.server.*;
+import java.io.*;
 import java.net.*;
+import net.sf.jasperreports.engine.*;
 import net.sf.jasperreports.engine.util.*;
+
+import com.rameses.server.BootLoader;
 
 class JasperReportService  {
 	
 	@Context
 	def appContext;
 
-	String outputReportPath = "/apps/server/output/";
-	String templatePath = "/apps/server/templates/";
-	String customPath = "/apps/server/templates/custom/";
+	@Service
+	def self; 
 
 	@Service(dynamic=true)
 	def dSvc;
-
-	@Service
-	def self; 
 
 	@DataContext("sys_report_template")
 	def reportTemplateEm;
 
 	@Service("SysReportTemplateService")
 	def sysReportTemplateSvc;
+
+
+	String getOutputReportPath() {
+		return BootLoader.getOutputDirPath() +"/"; 
+	}
+	String getTemplatePath() {
+		return BootLoader.getTemplatesDirPath() +"/"; 
+	}
+	String getCustomPath() {
+		return BootLoader.getTemplatesDirPath() +"/custom/"; 
+	}
 
 	@ProxyMethod
 	public def generateReport( def o ) {

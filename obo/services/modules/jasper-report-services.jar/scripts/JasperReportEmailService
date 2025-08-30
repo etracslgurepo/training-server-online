@@ -1,14 +1,15 @@
 import com.rameses.annotations.*;
+import com.rameses.server.BootLoader;
 import java.io.*;
 import com.rameses.util.*;
 import java.rmi.server.*;
 import java.util.zip.*;
 
+
 class JasperReportEmailService  {
 	
 	final String DEFAULT_EMAIL_CONNECTION = "primary-email-server";
 
-	final String outputReportPath = "/apps/server/output/";
 
 	@XConnection(dynamic=true)
 	def connDb;
@@ -18,6 +19,12 @@ class JasperReportEmailService  {
 
 	@DataContext( dynamic=true )
 	def dynaEm;
+
+
+	String getOutputReportPath() {
+		return BootLoader.getOutputDirPath() +"/"; 
+	}
+
 
 	@ProxyMethod
 	@Async
