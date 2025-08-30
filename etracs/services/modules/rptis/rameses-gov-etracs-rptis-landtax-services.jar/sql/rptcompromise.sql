@@ -137,7 +137,7 @@ select
 	rci.amtpaid,
 	rci.priority,
 	rci.taxdifference,
-	0 as system
+	0 as `system`
 from rptcompromise rc 
 inner join rptcompromise_item rci on rc.objid = rci.parentid 
 inner join rptledgerfaas rlf on rci.rptledgerfaasid = rlf.objid 
