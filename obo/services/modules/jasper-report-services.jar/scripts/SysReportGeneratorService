@@ -197,11 +197,14 @@ class SysReportGeneratorService  {
 
 		def tmp = reportTemplateEm.find([name: reportDef.template]).first();
 		
+		def reportFilesDir = BootLoader.getReportFilesDir();
+		def reportTemplatesDir = new java.io.File( reportFilesDir.getParentFile(), "report-templates" );
+
 		def getRootPath = { _fpath ->
-			String _spath = "/report-files";
+			String _spath = reportFilesDir.getAbsolutePath();
 			File ff = new File( _spath + "/" + _fpath );
 			if( !ff.exists() ) {
-				_spath = "/report-templates";
+				_spath = reportTemplatesDir.getAbsolutePath(); 
 			}
 			return _spath;
 		}
