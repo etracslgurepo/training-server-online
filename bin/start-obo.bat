@@ -22,9 +22,9 @@ set START_RUN_DIR=%START_BASE_DIR%\bin
 
 rem This will be the base directory
 set REPO_DIR=%START_BASE_DIR%
-set ETRACS_DIR=%START_BASE_DIR%\obo
-set BASE_DIR=%ETRACS_DIR%
-set RUN_DIR=%ETRACS_DIR%\bin
+set APP_DIR=%START_BASE_DIR%\obo
+set BASE_DIR=%APP_DIR%
+set RUN_DIR=%APP_DIR%\bin
 
 
 set JAVA_OPT_XMX=1500
