@@ -49,7 +49,7 @@ rpt.app.context=etracs25
    <module version="1.01" file="modules/rameses-client-ui-bio.jar"  />
    <module version="1.01" file="modules/rameses-client-ui-jfx.jar"  />
    <module version="1.01" file="modules/rameses-client-ui-support.jar"  />
-   <module version="1.01" file="modules/rameses-client-ui.jar"  />
+   <module version="1.02" file="modules/rameses-client-ui.jar"  />
    <module version="1.02" file="modules/rameses-common2.jar"  />
    <module version="1.01" file="modules/rameses-custom-impl.jar"  />
    <module version="1.01" file="modules/rameses-email-client.jar"  />
