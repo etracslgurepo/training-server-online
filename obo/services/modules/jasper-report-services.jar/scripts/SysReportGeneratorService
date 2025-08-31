@@ -203,14 +203,13 @@ class SysReportGeneratorService  {
 		def getRootPath = { _fpath ->
 			File ff = new File( reportFilesDir, _fpath );
 			if( !ff.exists() ) {
-				return reportTemplatesDir.getName(); 
+				return reportTemplatesDir.getAbsolutePath(); 
 			}
-			return reportTemplatesDir.getName(); 
+			return reportFilesDir.getAbsolutePath(); 
 		}
 		
 		//check first if file exists in report files. If not exist use /report-templates
 		def spath = getRootPath( tmp.filepath );
-		println 'spath => ' + spath; 
 
 		def tp = new SysReportTemplate( spath, tmp.filepath );
 		def jReport = tp.getReport(tmpSrc);
