@@ -1,9 +1,9 @@
 provider=kafka
 clientId=kafka-sms
-group.id=licensing
+xgroup.id=kafka-sms
 debug=false
 topic=kafka-sms
-bootstrap.servers=${gdx_proxy_server_ip}:9092
+bootstrap.servers=${kafka_server_ip}:9092
 producer.type=async
 batch.size=500
 partitions=1

@@ -1,9 +1,9 @@
 provider=kafka
 clientId=kafka-email
-group.id=licensing
+xgroup.id=kafka-email
 debug=false
 topic=kafka-email
-bootstrap.servers=${gdx_proxy_server_ip}:9092
+bootstrap.servers=${kafka_server_ip}:9092
 producer.type=async
 batch.size=500
 partitions=1
