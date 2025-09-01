@@ -44,5 +44,5 @@ echo .=================================================================
 echo .
 
 
-"%JAVA%" "%JAVA_OPT%" -cp gdx/lib/*;. com.rameses.main.bootloader.MainBootLoader
+"%JAVA%" "%JAVA_OPT%" -cp gdx/lib/*;gdx/lib/ext/kafka/*;gdx/lib/ext/s3/*;. com.rameses.main.bootloader.MainBootLoader
 pause

@@ -1,0 +1,29 @@
+import com.rameses.annotations.*;
+
+import java.util.concurrent.*;
+
+public class KafkaEmailMessageHandler {
+
+	@Service("SMSService")
+	def smsSvc;
+
+    @OnMessage("kafka-sms")
+   	public void rerouteSMS(def o) {
+		println "About to send SMS now. Inspecting the SMS contents";
+		o.each { k,v->
+			println k+"="+v;
+		}
+
+		/*
+		try {
+			smsSvc.send( o );
+		}
+		catch(ex) {
+			ex.printStackTrace();
+		} 
+		*/
+   	}
+
+}
+
+

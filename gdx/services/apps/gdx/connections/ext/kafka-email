@@ -1,0 +1,12 @@
+provider=kafka
+clientId=kafka-email
+group.id=licensing
+debug=false
+topic=kafka-email
+bootstrap.servers=${gdx_proxy_server_ip}:9092
+producer.type=async
+batch.size=500
+partitions=1
+compression.codec=1
+compression.topic=kafka-email
+partition.assignment.strategy=org.apache.kafka.clients.consumer.RoundRobinAssignor

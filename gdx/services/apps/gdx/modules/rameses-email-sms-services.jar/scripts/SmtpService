@@ -29,10 +29,10 @@ public class SmtpService {
 		String txtmsg = o.message;
 
 		Properties properties = System.getProperties();  
-		properties.setProperty("mail.smtp.host", smtphost); 
-        if ( smtpport ) {
-            properties.setProperty("mail.smtp.port", smtpport); 
-        } 
+		properties.setProperty("mail.smtp.host", smtphost);  
+		if ( smtpport ) {
+			properties.setProperty("mail.smtp.port", smtpport);  
+		}
 
 		Session session = Session.getDefaultInstance( properties );   
 
@@ -44,7 +44,7 @@ public class SmtpService {
 
 		    if ( o.attachments ) {
 		     	BodyPart messageBodyPart = new MimeBodyPart();
-		     	if ( txtmsg ) messageBodyPart.setText( txtmsg );
+		     	if ( txtmsg ) messageBodyPart.setContent(txtmsg, "text/html");
 
 		     	Multipart multipart = new MimeMultipart();
 		     	multipart.addBodyPart(messageBodyPart);

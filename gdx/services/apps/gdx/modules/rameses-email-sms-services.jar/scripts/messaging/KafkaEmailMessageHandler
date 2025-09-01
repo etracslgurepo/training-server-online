@@ -1,0 +1,51 @@
+import com.rameses.annotations.*;
+
+import java.util.concurrent.*;
+
+public class KafkaEmailMessageHandler {
+
+	@XConnection(dynamic=true)
+	def emailConn;
+
+    @OnMessage("kafka-email")
+   	public void rerouteEmail(def o) {
+   		println "about to send email " + o.to +  " " + o.subject;
+   		o.each{
+   			println '>> '+ it; 
+   		}
+
+   		if( o.attachments ) {
+   			//check if each file exists
+		    def q = new LinkedBlockingQueue();
+   			o.attachments.each { att->
+   				def file = new File( att.filename );
+   				println '=== reading file ==> '+ file.getAbsolutePath(); 
+		        int retries = 0;
+		        while( !file.exists() ) {
+		        	q.poll(1000, TimeUnit.MILLISECONDS );
+		        	if( (retries++) >= 100 ) {
+		        		println "file not found->" + att.filename;
+		            	break;
+		            }
+		        } 
+   			} 
+   		} 
+
+		try {
+			println '=== lookup connection ==> ' + o.connection; 
+			def emailSvc = emailConn.lookup( o.connection );
+			println '=== emailSvc.send'
+			emailSvc.send( o );
+			o.attachments.each {f->
+				def file = new File(f.filename); 
+				println '=== deleting file ==> '+ file.getAbsolutePath(); 
+				file.delete();
+			};
+		}
+		catch(ex) {
+			ex.printStackTrace();
+		} 
+   	}
+
+}
+
