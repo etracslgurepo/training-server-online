@@ -1,8 +1,8 @@
 
-set @_province_pin  = '043';
-set @_province_name = 'CEBU';
+set @_province_pin  = '000';
+set @_province_name = 'PROV';
 
-set @_municipal_pin  = '043-00';
+set @_municipal_pin  = '000-00';
 set @_municipal_name = 'MUNI';
 
 
@@ -12,7 +12,11 @@ set @_municipal_name = 'MUNI';
 -- 
 set @_province_id   = replace(@_province_pin,'-','');
 set @_municipal_id  = replace(@_municipal_pin,'-','');
-set @_municipal_idx = substring(@_municipal_id, 4, 2);
+set @_municipal_idx = (case 
+	when LENGTH(@_municipal_id) >= 5 then substring(@_municipal_id, 4) 
+	else @_municipal_id
+end); 
+
 
 -- 
 -- delete previous data
