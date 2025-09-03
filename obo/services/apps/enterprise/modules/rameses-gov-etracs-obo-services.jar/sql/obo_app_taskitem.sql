@@ -119,12 +119,14 @@ FROM
   FROM obo_taskitem_type tp
   WHERE tp.required = 1
   AND tp.parentprocessname = $P{parentprocessname}
+  AND tp.activationstate = $P{state}
   UNION 
   SELECT 
   tp.objid AS typeid
   FROM obo_taskitem_type tp
   WHERE tp.required = 0 
   AND tp.parentprocessname = $P{parentprocessname}
+  AND tp.activationstate = $P{state}
   AND EXISTS 
   (
       SELECT 1   
@@ -152,6 +154,7 @@ INNER JOIN obo_taskitem_type tp ON ti.typeid = tp.objid
 LEFT JOIN obo_app_taskitem ss ON ss.supersededid = ti.objid
 WHERE ti.appid = $P{appid}
 AND tp.parentprocessname = $P{parentprocessname}
+AND tp.activationstate = $P{state}
 AND ss.objid IS NULL 
 AND NOT(tp.sectionid IS NULL) 
 AND EXISTS 
@@ -174,6 +177,7 @@ INNER JOIN obo_taskitem_type tp ON ti.typeid = tp.objid
 LEFT JOIN obo_app_taskitem ss ON ss.supersededid = ti.objid
 WHERE ti.appid = $P{appid}
 AND tp.parentprocessname = $P{parentprocessname}
+AND tp.activationstate = $P{state}
 AND ss.objid IS NULL 
 AND tp.sectionid IS NULL
 AND EXISTS 
