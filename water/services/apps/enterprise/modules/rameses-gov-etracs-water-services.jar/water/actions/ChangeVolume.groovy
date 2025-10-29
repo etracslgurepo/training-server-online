@@ -16,12 +16,22 @@ public class ChangeVolume  implements RuleActionHandler {
 
 		def bill = params.bill;
 		
+		def newVol = params.volume.eval(); 
+		def oldVol = (bill.volume ? bill.volume : 0); 
+
 		boolean zeroVol = (bill.volume == 0);
 
-		bill.volume = params.volume.eval();
-		
-		//if original volume is zero then we need to mark this as needs update in bill
-		if( zeroVol ) {
+		bill.volume = newVol;
+
+		if ( oldVol != newVol ) {
+			// this is a newly added implementation on volumeChanged
+			bill.volumeChanged = true; 
+		}
+
+		else if ( zeroVol ) {
+			// this is the original implementation on volumeChanged
+
+			//if original volume is zero then we need to mark this as needs update in bill
 			bill.volumeChanged = true;	
 		}
 
