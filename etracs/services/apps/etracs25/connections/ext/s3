@@ -1,7 +1,7 @@
 provider=s3
 region=US_WEST_2
 bucket=output-docs
-credentials=GsqpCUdJneTldb4ZTSQATElmLtu9KGTnHhNH9tCj1luUcNlTD8yyOVWK6ilBJdXICHgK9AHAuhKBx64GQFBmFw==
+credentials=OPKtC1/OUl2gi8L9hvG11ykddTW+3ll8FWvNWu/hJyjNX7xaM77Zq2BA9lIYTh0hqLS68JdhYGERiF3Nwnfbyg==
 
 viewer.scheme=${filipizen_server_scheme}
 viewer.host=${filipizen_server_host}
