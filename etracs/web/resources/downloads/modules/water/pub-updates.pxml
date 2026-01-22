@@ -1,0 +1,11 @@
+<app>
+<env>
+water.app.host=${app_server_ip}:18040
+water.app.context=enterprise
+water.filemgmt.connection=local-ftp
+</env>
+<modules>
+   <module version="2.04" file="modules/water/rameses-gov-etracs-water-common.jar" />
+   <module version="1.03" file="modules/water/rameses-gov-etracs-water-treasury.jar" />
+</modules>
+</app>
