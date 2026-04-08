@@ -349,23 +349,25 @@ class OnlineBusinessRegistrationService {
 		param.reg = [:]; 
 		param.orgtypeid = param.orgtype.id.toString().toUpperCase(); 
 
-		if ( param.orgtypeid == 'CORP' ) {
-			if ( !param.applicant.name ) 
-				throw new Exception("'applicant.name'  parameter is required in "+ callingMethodName);
-
-			param.reg.reftype = 'SEC'; 
-		}
-		else if ( param.orgtypeid == 'COOP') {
-			if ( !param.applicant.name ) 
-				throw new Exception("'applicant.name'  parameter is required in "+ callingMethodName);
-
-			param.reg.reftype = 'CDA'; 
-		}
-		else {
+		if ( param.orgtypeid.toString().toUpperCase().startsWith('SING')) { 
 			if ( !param.applicant?.lastname ) throw new Exception("'applicant.lastname'  parameter is required in "+ callingMethodName);
 			if ( !param.applicant?.firstname ) throw new Exception("'applicant.firstname'  parameter is required in "+ callingMethodName); 
 
 			param.reg.reftype = 'DTI'; 
+		} 
+		else {
+			if ( !param.applicant.name ) 
+				throw new Exception("'applicant.name'  parameter is required in "+ callingMethodName);
+
+			if ( param.orgtypeid == 'GOV' ) {
+				param.reg.reftype = 'EO'; 
+			}
+			else if ( param.orgtypeid == 'COOP') {
+				param.reg.reftype = 'CDA'; 
+			}
+			else {
+				param.reg.reftype = 'SEC'; 
+			}
 		}
 
 		param.reg.refno = param.orgtype.regno; 
@@ -391,21 +393,15 @@ class OnlineBusinessRegistrationService {
 	}
 
 	void resolveAddress( Map addr ) {
-		if ( addr.inlgumarketrental.toString().matches('true|1')) { 
-			addr.type = 'government'; 
-			addr.bldgname = addr.bldgname ?: addr.market?.market; 
-			addr.monthlyrent = addr.monthlyrent ?: addr.market?.rent; 
-		}
-		else if ( addr.rented.toString().matches('true|1')) {
+		if ( addr.rented.toString().matches('true|1')) {
 			addr.type = 'rented'; 
+		}
+		else if ( addr.inlgumarketrental.toString().matches('true|1')) { 
+			addr.type = 'government'; 
 		}
 
 		if ( !addr.type ) { 
 			addr.type = 'local'; 
-		}
-
-		if ( addr.monthlyrent != null && addr.monthlyrent.toString().trim().length() == 0 ) {
-			addr.monthlyrent = null; 
 		}
 
 		if ( !(addr.barangay instanceof Map)) {
