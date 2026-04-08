@@ -39,7 +39,8 @@ class BusinessClosureCertificateService {
 				info.fullname = 'MR. '+ info.ind.name; 
 			}
 			else if ( info.ind?.gender.toString().toUpperCase() == 'F') {
-				info.fullname = 'MRS. '+ info.ind.name; 
+				def title = (info.ind?.civilstatus.toString().toUpperCase() == 'SINGLE') ? "MS." : "MRS."; 
+				info.fullname = title +' '+ info.ind.name; 
 			}
 			else if ( info.ind?.gender ) {
 				info.fullname = info.ind.name; 

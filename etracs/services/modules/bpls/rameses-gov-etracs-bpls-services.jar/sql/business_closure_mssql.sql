@@ -5,7 +5,15 @@ select
 	c.objid as closure_objid, c.dtceased as closure_dtceased, 
 	c.dtissued as closure_dtissued, c.remarks as closure_remarks, 
 	ei.objid as ind_objid, ei.gender as ind_gender,  
-	(ei.firstname + (case when ei.middlename is null then ' ' else (' '+ ei.middlename +' ') end) + ei.lastname) as ind_name 
+	(
+		ei.firstname + 
+		(case 
+			when ei.middlename is null then ' ' 
+			else (' '+ ei.middlename +' ') 
+		end) + 
+		ei.lastname
+	) as ind_name, 
+	ei.civilstatus as ind_civilstatus 
 from business b 
 	left join business_closure c on c.businessid = b.objid 
 	inner join entity e on e.objid = b.owner_objid 
