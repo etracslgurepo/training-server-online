@@ -1,5 +1,5 @@
 
-set @_url  = '192.168.0.26'
+set @_url  = '192.168.2.22'
 ;
 
 
@@ -9,6 +9,6 @@ set @_url  = '192.168.0.26'
 -- 
 use training_etracs_2_5_05_03
 ;
-update sys_fileloc set url = @_url 
+update sys_fileloc set url = @_url
 ;
  
