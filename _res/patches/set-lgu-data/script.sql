@@ -1,22 +1,20 @@
 
-set @_province_pin  = '043';
-set @_province_name = 'CEBU';
-
-set @_municipal_pin  = '043-00';
-set @_municipal_name = 'MUNI';
+set @_city_pin  = '043';
+set @_city_name = 'CITY';
 
 
 
 -- 
 -- BEGIN PROCESS
 -- 
-set @_province_id   = replace(@_province_pin,'-','');
-set @_municipal_id  = replace(@_municipal_pin,'-','');
-set @_municipal_idx = substring(@_municipal_id, 4, 2);
+set @_city_id  = replace(@_city_pin,'-','');
+set @_city_idx = @_city_id;
 
 -- 
 -- delete previous data
 -- 
+set foreign_key_checks=0;
+
 delete from barangay;
 delete from municipality;
 delete from city;
@@ -25,6 +23,7 @@ update sys_org set parent_objid=null, parent_orgclass=null;
 delete from sys_org; 
 delete from sys_orgclass; 
 
+set foreign_key_checks=1;
 
 
 -- 
@@ -34,49 +33,27 @@ INSERT INTO `sys_orgclass` (`name`, `title`, `parentclass`, `handler`)
 VALUES ('EE', 'ECONOMIC ENTERPRISE', NULL, NULL);
 
 INSERT INTO `sys_orgclass` (`name`, `title`, `parentclass`, `handler`) 
-VALUES ('PROVINCE', 'PROVINCE', NULL, 'province');
+VALUES ('CITY', 'CITY', null, 'city');
 
 INSERT INTO `sys_orgclass` (`name`, `title`, `parentclass`, `handler`) 
-VALUES ('MUNICIPALITY', 'MUNICIPALITY', 'PROVINCE', 'municipality');
+VALUES ('DISTRICT', 'DISTRICT', 'CITY', 'district');
 
 INSERT INTO `sys_orgclass` (`name`, `title`, `parentclass`, `handler`) 
-VALUES ('BARANGAY', 'BARANGAY', 'MUNICIPALITY', 'barangay');
+VALUES ('BARANGAY', 'BARANGAY', 'DISTRICT', 'barangay');
 
 
 -- 
 -- insert org
 -- 
 INSERT INTO `sys_org` (`objid`, `name`, `orgclass`, `parent_objid`, `parent_orgclass`, `code`, `root`, `txncode`) 
-VALUES (@_province_id, @_province_name, 'PROVINCE', NULL, NULL, @_province_pin, 0, NULL);
-
-INSERT INTO `sys_org` (`objid`, `name`, `orgclass`, `parent_objid`, `parent_orgclass`, `code`, `root`, `txncode`) 
-VALUES (@_municipal_id, @_municipal_name, 'MUNICIPALITY', @_province_id, 'PROVINCE', @_municipal_pin, 1, NULL);
+VALUES (@_city_id, @_city_name, 'CITY', null, null, @_city_pin, 1, NULL)
+;
 
 
 -- 
--- insert province
+-- insert city
 -- 
-INSERT INTO `province` (
-	`objid`, `state`, `indexno`, `pin`, `name`, 
-	`governor_name`, `governor_title`, `governor_office`, 
-	`assessor_name`, `assessor_title`, `assessor_office`, 
-	`treasurer_name`, `treasurer_title`, `treasurer_office`, 
-	`address`, `fullname`
-) 
-VALUES (
-	@_province_id, 'DRAFT', @_province_pin, @_province_pin, @_province_name, 
-	'-', 'GOVERNOR', 'OFFICE OF THE GOVERNOR', 
-	'-', 'PROVINCIAL ASSESSOR', 'OFFICE OF THE PROVINCIAL ASSESSOR', 
-	'-', 'PROVINCIAL TREASURER', 'OFFICE OF THE PROVINCIAL TREASURER', 
-	upper(concat(@_province_name, ', PHILIPPINES')), 
-	upper(concat('PROVINCE OF ', @_province_name))
-);
-
-
--- 
--- insert municipality
--- 
-INSERT INTO `municipality` (
+INSERT INTO `city` (
 	`objid`, `state`, `indexno`, `pin`, `name`, `parentid`, 
 	`mayor_name`, `mayor_title`, `mayor_office`, 
 	`assessor_name`, `assessor_title`, `assessor_office`, 
@@ -84,10 +61,10 @@ INSERT INTO `municipality` (
 	`address`, `fullname`
 ) 
 VALUES (
-	@_municipal_id, 'DRAFT', @_municipal_idx, @_municipal_pin, @_municipal_name, @_province_id, 
-	'-', 'MUNICIPAL MAYOR', 'OFFICE OF THE MUNICIPAL MAYOR', 
-	'-', 'MUNICIPAL ASSESSOR', 'OFFICE OF THE MUNICIPAL ASSESSOR', 
-	'-', 'MUNICIPAL TREASURER', 'OFFICE OF THE MUNICIPAL TREASURER', 
-	upper(concat(@_municipal_name, ', PHILIPPINES')), 
-	upper(concat('MUNICIPALITY OF ', @_municipal_name))
+	@_city_id, 'DRAFT', @_city_idx, @_city_pin, @_city_name, @_province_id, 
+	'-', 'CITY MAYOR', 'OFFICE OF THE CITY MAYOR', 
+	'-', 'CITY ASSESSOR', 'OFFICE OF THE CITY ASSESSOR', 
+	'-', 'CITY TREASURER', 'OFFICE OF THE CITY TREASURER', 
+	upper(concat(@_city_name, ', PHILIPPINES')), 
+	upper(concat('CITY OF ', @_city_name))
 );
