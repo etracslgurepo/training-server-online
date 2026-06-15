@@ -1,8 +1,8 @@
 <schema>
 	<element tablename="vw_water_bill">
 		<field name="objid" primary="true"/>
-		<field name="billno" caption="Bill No"  indexed="true"/>
-		<field name="acctno" caption="Acct No" indexed="true"/>
+		<field name="billno" caption="Bill No" indexed="true" searchable="true"/>
+		<field name="acctno" caption="Acct No" indexed="true" searchable="true"/>
 		<field name="acctname" caption="Acct Name" searchable="true" indexed="true"/>
 
 		<field name="batchid" />

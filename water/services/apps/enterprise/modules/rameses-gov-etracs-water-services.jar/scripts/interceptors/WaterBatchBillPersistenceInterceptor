@@ -54,4 +54,18 @@ class WaterBatchBillPersistenceInterceptor {
 			billgroupEm.find( [objid: p.billgroupid ] ).update( [currentbatchid: prevBatch.objid ] );	
 		}
 	}
-}	
+
+
+	@After(pattern="PersistenceService.update", eval="#{args[0]._schemaname == 'water_batch_bill' }")
+	public void afterUpdate(def evt) {
+		def p = evt.args[0];
+		if ( !p.objid ) return;		
+
+		def batchid = p.objid; 
+
+		if ( p.reader?.objid ) {
+			// update reader info for all bills
+			waterBillEm.find([ batchid: batchid ]).update([ reader: p.reader ]);
+		}
+	}	
+} 

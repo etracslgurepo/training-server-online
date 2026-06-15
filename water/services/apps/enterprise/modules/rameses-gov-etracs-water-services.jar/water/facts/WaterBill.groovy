@@ -17,13 +17,13 @@ public class WaterBill extends Bill {
 
 	public WaterBill(def o ) {
 		super(o);
-		if(o.year) this.year = o.year;
-		if(o.month) this.month = o.month;
-		if(o.volume) this.volume = o.volume;
-		if(o.rate) this.rate = o.rate;		
-		if(o.reading) this.reading = o.reading;
-		if(o.prevreading) this.prevreading = o.prevreading;
-		if(o.units) this.units = o.units;
+		if(o.year != null) this.year = o.year;
+		if(o.month != null) this.month = o.month;
+		if(o.volume != null) this.volume = o.volume;
+		if(o.rate != null) this.rate = o.rate;		
+		if(o.reading != null) this.reading = o.reading;
+		if(o.prevreading != null) this.prevreading = o.prevreading;
+		if(o.units != null) this.units = o.units;
 	}
 
 	public def toMap() {

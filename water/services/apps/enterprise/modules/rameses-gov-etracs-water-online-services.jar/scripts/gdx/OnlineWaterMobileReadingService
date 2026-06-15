@@ -7,6 +7,12 @@ class OnlineWaterMobileReadingService {
 
 
 	@ProxyMethod
+	public def getServerDate() { 
+		def svc = dynaSvc.lookup('DateService'); 
+		return svc.getServerDate(); 
+	}
+
+	@ProxyMethod
 	public def compute( def param ) { 
 		def svc = dynaSvc.lookup('WaterMobileReadingService'); 
 		return svc.compute( param ); 

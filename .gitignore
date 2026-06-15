@@ -18,3 +18,9 @@ _tmp
 /custom-template
 **/resources/platform/etracs255-platform/**
 zzz-custom
+/water/fileserver
+/water/output
+/water/report-files
+/water/reportcache
+/water/templates/custom
+/water/web/resources/downloads/modules/custom

@@ -47,17 +47,20 @@ class WaterConsumptionService {
 	def executeRules( def ruleData ) {
 		def o = ruleData; 
 
-		if ( o.prevreading ) o.bill.prevreading = o.prevreading;
-		if ( o.reading ) o.bill.reading = o.reading;
-		if ( o.volume ) o.bill.volume = o.volume;
+		if ( o.prevreading != null ) 
+			o.bill.prevreading = o.prevreading;
+		if ( o.reading != null ) 
+			o.bill.reading = o.reading;
+		if ( o.volume != null ) 
+			o.bill.volume = o.volume;
 
 		// set rate to zero so we can reacalculate
 		o.bill.rate = 0;
 
 		def facts = [];
 		facts << new TransactionDate( o.txndate );
-		facts << new WaterBill( o.bill );
 		facts << new WaterAccount( o.acct );
+		facts << new WaterBill( o.bill );
 
 		if ( o.acct.meter ) {
 			facts << new WaterMeter( o.acct.meter );
@@ -76,7 +79,7 @@ class WaterConsumptionService {
 
 		def res = [:];
 		res.rate = wb.rate;
-		res.volume = ( o.volume ? o.volume : wb.volume );
+		res.volume = ( o.volume == null ? wb.volume : o.volume );
 		return res;
 	} 
 }
