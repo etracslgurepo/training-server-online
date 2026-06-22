@@ -41,10 +41,13 @@ class PaymentOrderPaidInterceptor {
 
 
 	void resolveData( req, res ) {
+		if ( res == null ) return; 
+
 		def svc = dynaSvc.lookup('PaymentOrderService');
 		def bc = svc.getBarcodePrefix( req?._connection ); 
 		res.txncode = bc?.barcodeid +":"+ res.objid; 
 		res.checksum = svc.buildCheckSum( res.objid ); 
+		res.state = 'PAID'; 
 	}
 
 

@@ -229,7 +229,6 @@ class PaymentOrderService {
 		return com.rameses.util.Encoder.MD5.encode( buff.toString(), po.objid);
 	}
 
-
 	@ProxyMethod
 	public def verify( objid, amount ) {
 		if ( !objid ) throw new Exception("objid  argument is required");
@@ -241,5 +240,16 @@ class PaymentOrderService {
 
 		if ( amount != po.amount ) 
 			throw new Exception("Payment Order amount mismatched"); 
+	} 
+
+	@ProxyMethod
+	public def findStatus( params ) {
+		if ( !params?.refno ) throw new Exception("params.refno is required in findStatus"); 
+
+		def em = dynaEm.lookup('paymentorder'); 
+		def po = em.findStatus([ refno: params.refno ]); 
+		if ( po == null ) return [ error: "not_found" ]; 
+
+		return po; 
 	} 
 }

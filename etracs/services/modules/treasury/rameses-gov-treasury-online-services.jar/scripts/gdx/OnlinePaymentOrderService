@@ -24,4 +24,12 @@ public class OnlinePaymentOrderService {
 		res.refno = data.refno;
 		return res; 
 	}
+
+	@ProxyMethod
+	public def read( params ) { 
+		params._origin = 'gdx'; 
+
+		def svc = dynaSvc.lookup('OnlinePaymentOrderService'); 
+		return svc.read( params); 
+	}
 }
