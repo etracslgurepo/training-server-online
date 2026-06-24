@@ -80,6 +80,11 @@ class WaterConsumptionService {
 		def res = [:];
 		res.rate = wb.rate;
 		res.volume = ( o.volume == null ? wb.volume : o.volume );
+
+		println 'executeRules...'
+		println 'o='+ o +', res='+ res; 
+		if ( true ) throw new Exception('stop'); 
+		
 		return res;
 	} 
 }
