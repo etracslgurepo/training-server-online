@@ -78,13 +78,12 @@ class WaterConsumptionService {
 		def wb = facts.find{ it instanceof WaterBill }
 
 		def res = [:];
+		if ( o.bill?.reading == null ) {
+			return res; 
+		}
+
 		res.rate = wb.rate;
 		res.volume = ( o.volume == null ? wb.volume : o.volume );
-
-		println 'executeRules...'
-		println 'o='+ o +', res='+ res; 
-		if ( true ) throw new Exception('stop'); 
-		
 		return res;
 	} 
 }
