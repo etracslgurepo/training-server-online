@@ -43,6 +43,9 @@ delete from sys_wf_transition where processname = 'business_application' and par
 INSERT INTO `sys_wf_transition` (`parentid`, `processname`, `action`, `to`, `idx`, `eval`, `properties`, `permission`, `caption`, `ui`) VALUES ('start', 'business_application', '', 'assign-assessor', -1, 'return (data.apptype.toString().matches(\"ADDITIONAL|RETIRELOB|RETIRE\"));', NULL, NULL, NULL, '[:]');
 INSERT INTO `sys_wf_transition` (`parentid`, `processname`, `action`, `to`, `idx`, `eval`, `properties`, `permission`, `caption`, `ui`) VALUES ('start', 'business_application', '', 'start-offices', 0, NULL, NULL, NULL, NULL, '[:]');
 
+INSERT INTO `collectiontype` (`objid`, `state`, `name`, `title`, `formno`, `handler`, `allowbatch`, `barcodekey`, `allowonline`, `allowoffline`, `sortorder`, `org_objid`, `org_name`, `fund_objid`, `fund_title`, `category`, `system`, `queuesection`, `allowpaymentorder`, `allowkiosk`, `allowcreditmemo`, `info`, `connection`, `servicename`) VALUES ('COLLTYPE-e032efd:19ef239a66b:-7d82', 'ACTIVE', 'WATER_COLLECTION', 'Water Collection', '51', 'water', 0, NULL, 1, 0, 0, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0, 0, 0, '[:]', 'water', 'WaterCashReceiptService');
+INSERT INTO `sys_domain` (`name`, `connection`) VALUES ('WATER', 'water');
+
 -- 
 -- DONE 
 -- 
