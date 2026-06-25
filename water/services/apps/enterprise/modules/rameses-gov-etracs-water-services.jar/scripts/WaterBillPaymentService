@@ -34,7 +34,7 @@ class WaterBillPaymentService {
 			}
 
 			def acct = vwAcctEm.find([ acctno: o.acctno.toString() ]).first(); 
-			if ( !acct ) throw new Exception("account '"+ acctno +"' not found");
+			if ( !acct ) throw new Exception("account '"+ o.acctno +"' not found");
 
 			o.billid = acct.lastbillid;
 		}		
