@@ -358,8 +358,11 @@ class WaterBillingService {
 		
 		//if there is previous bill, change status to POSTED from CLOSED and update account last billid 
 		if ( bill.prevbillid ) {
-			billEm.find([ objid: bill.prevbillid ]).update([ state: "POSTED" ]);
-			acctEm.find([ objid: bill.acctid ]).update([ lastbillid: bill.prevbillid ]);	
+			def prevbill = billEm.find([ objid: bill.prevbillid ]).select('objid').first();
+			if ( prevbill ) {
+				billEm.find([ objid: bill.prevbillid ]).update([ state: "POSTED" ]); 
+				acctEm.find([ objid: bill.acctid ]).update([ lastbillid: bill.prevbillid ]); 
+			}
 		}
 		
 		//return the cancelled bill
