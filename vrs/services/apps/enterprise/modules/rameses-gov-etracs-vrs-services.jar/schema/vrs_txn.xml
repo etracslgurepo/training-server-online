@@ -1,0 +1,21 @@
+<schema>
+	<element tablename="vrs_txn">
+		<field name="objid" primary="true" prefix="VRSTXN" />
+		<field name="appno" indexed="true" searchable="true" />
+		<field name="appdate" />
+		<field name="state" />
+		<field name="txnmode" />
+		<field name="txntypeid" required="true"/>
+		<field name="headerinfoid" />
+		<field name="acctyearid" varchar="50" />
+		<field name="txndate" required="true"/>
+		<field name="dtposted" />
+		<field name="createdby_objid" />
+		<field name="createdby_name" />
+		<field name="dtcreated" />
+		<field name="billid" />
+		<field name="supersededid" />
+		<field name="taskid" />
+		<field name="billid" />
+	</element>
+</schema>		

@@ -1,0 +1,9 @@
+<schema>
+	<element tablename="vrs_account">
+		<field name="objid" primary="true" prefix="VRSACCT"/>
+		<field name="acctno" required="true"/>
+		<field name="headerinfoid" required="true" />
+		<field name="acctyearid" />
+		<field name="vehicletypeid" required="true"/>
+	</element>
+</schema>

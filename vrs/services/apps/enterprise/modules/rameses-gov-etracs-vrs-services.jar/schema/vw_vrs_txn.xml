@@ -1,0 +1,75 @@
+<schema>
+	<element tablename="vw_vrs_txn">
+		<field name="objid" primary="true"/>
+		<field name="appno" indexed="true" searchable="true" caption="App No"/>
+		<field name="appdate" />
+		<field name="state" />
+		<field name="txntypeid" />
+		<field name="txnmode" />
+
+		<field name="contact_email" />
+		<field name="contact_mobileno" />
+		<field name="contact_phoneno" />
+
+		<field name="headerinfoid" />
+		<field name="acctid" />
+		<field name="acctyearid" />
+		<field name="txndate" />
+		<field name="dtposted" />
+		<field name="createdby_objid" />
+		<field name="createdby_name" />
+		<field name="dtcreated" />
+		<field name="billid" />
+		<field name="supersededid" />
+		<field name="taskid" />
+		<field name="task_state" />
+		<field name="task_dtcreated" />
+		<field name="task_startdate" />
+		<field name="task_enddate" />
+		<field name="task_assignee_objid" />
+		<field name="task_assignee_name" />
+		<field name="task_actor_objid" />
+		<field name="task_actor_name" />
+		<field name="task_title" />
+		<field name="task_tracktime" />
+		<field name="task_properties" />
+		<field name="txntype_name" />
+		<field name="txntype_title" />
+		<field name="txntype_processname" />
+
+		<field name="vehicletypeid" />
+		<field name="vehicletype_title" />
+		<field name="vehicletype_objid" />
+		<field name="vehicletype_permitdoctypeid" />
+		<field name="vehicletype_franchisedoctypeid"/>
+		
+		<field name="acctno" />
+		<field name="activeyear" />
+		<field name="lastyearrenewed" />
+		<field name="apptype" />
+
+		<field name="owner_name" caption="Owner Name"/>
+		<field name="owner_address_text" />
+
+		<field name="acctgroup_fullpath"/>
+		<field name="acctgroup_name"/>
+		<field name="acctgroup_description"/>
+
+		<field name="permitid" />
+		
+
+		<field name="permit_objid" />
+		<field name="permit_doctypeid" />
+		<field name="permit_issueno"  caption="Permit No"/>
+		<field name="permit_dtissued" caption="Date Issued" type="date"/>
+		<field name="permit_expirydate"  caption="Expiry Date" type="date"/>
+
+		<field name="franchise_objid" />
+		<field name="franchise_doctypeid" />
+		<field name="franchise_franchiseno" caption="Franchise No" />
+		<field name="franchise_particulars" />
+		<field name="franchise_dtissued"  caption="Date Issued" type="date"/>
+		<field name="franchise_expirydate"  caption="Expiry Date" type="date"/>
+		<field name="franchise_expired" />
+	</element>
+</schema>		

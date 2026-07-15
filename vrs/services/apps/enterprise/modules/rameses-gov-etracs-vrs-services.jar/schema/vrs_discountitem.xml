@@ -1,0 +1,14 @@
+<schema>
+	<element tablename="vrs_discountitem">
+		<field name="objid" primary="true" prefix="VRSDISC"/>
+		<field name="itemid"  required="true"/>
+		<field name="amount" type="decimal"  required="true"/>
+		<field name="voidamount" type="decimal"  required="true"/>
+		<complex name="billitem" ref="vrs_abstract_billitem" jointype="many-to-one" required="true">
+			<key field="billitemrefid" target="objid" />
+		</complex>	
+		<complex name="payment" ref="vrs_payment" jointype="many-to-one" required="true">
+			<key field="paymentid" target="objid" />
+		</complex>	
+	</element>
+</schema>

@@ -1,0 +1,143 @@
+import com.rameses.annotations.*;
+import com.rameses.functions.*;
+import com.rameses.functions.*;
+import vrs.facts.*;
+import com.rameses.util.*;
+import treasury.utils.*;
+import treasury.facts.*;
+import enterprise.facts.*;
+import java.rmi.server.*;
+
+class VrsBillingRuleService {
+	
+	@Service("RuleExecutorService")
+	def ruleSvc;
+
+	@DataContext("vrs_payment")
+	def pmtEm;
+
+	@DataContext("vrs_paymentitem")
+	def pmtItem;
+
+	@DataContext("vw_vrs_billitem")
+	def vwBillItemEm;
+
+	@DataContext("vw_vrs_billitem_subitem")
+	def subItemEm;
+
+
+	@DataContext("vrs_credit_billitem")
+	def creditItemEm;
+
+	@DataContext("vrs_credit_paymentitem")
+	def paymentItemEm;
+
+	@DataContext("vw_vrs_bill")
+	def vwBillEm;
+
+	@DataContext("vw_vrs_account")
+	def vwAcctEm;
+
+	@DataContext("vw_vrs_detail_info")
+	def vwAcctInfoEm;
+
+	@DataContext("vw_vrs_txn")
+	def vwTxnEm;
+
+	@Service("DateService")
+	def dateSvc;
+
+	@DataContext("vrs_date_extension")
+	def dateExtEm;
+
+	@ProxyMethod
+	public def executeRules( def ruleName, def o ) {
+		if(!o.bill && !o.billid) throw new Exception("bill or billid is required in VrsBillingRuleService.executeRules")
+		if(!o.txndate) throw new Exception("txndate is required in VrsBillingRuleService.executeRules")
+
+		def bill = o.bill;
+		def acct = o.acct;
+		
+		if(!bill) bill = vwBillEm.find( [objid: o.billid ] ).first();
+		if(!acct) acct = vwAcctEm.find( [objid: bill.acctid ]).first();
+		def txn = vwTxnEm.find([objid: bill.txnid] ).first();
+		def infos = vwAcctInfoEm.find( [acctid: bill.acctid ] ).list();
+
+		def facts = [];
+		facts << new Bill( bill );
+		facts << new VrsAccount( acct );
+		facts << new TransactionDate( o.txndate );
+		facts << new VrsTxn( txn );
+
+		if( txn.franchise?.objid ) {
+			def fran = txn.franchise;
+			facts << new VrsFranchise( franchiseno: fran.franchiseno, expirydate: fran.expirydate, expired: (fran.expired==1)  );
+		}
+
+		def dtExt = dateExtEm.find( [vehicletypeid: txn.vehicletypeid, year:txn.activeyear ] ).first();
+		if( dtExt?.duedate ) {
+			facts << new VarDate( dtExt.duedate, "duedate" );
+		}
+
+		def startYr = (!acct.lastyearrenewed) ? acct.activeyear : (acct.lastyearrenewed+1);
+		(startYr..acct.activeyear).each {
+			facts << new TransactionYear( year: it )
+		}
+
+		infos.each {
+			if( it.datatype == 'decimal' ) facts << new DecimalInfo(it); 
+			else if( it.datatype == 'integer' ) facts << new IntegerInfo(it); 
+			else if( it.datatype == 'date' ) facts << new DateInfo(it); 
+			else if( it.datatype == 'boolean' ) facts << new BooleanInfo(it); 
+			else facts << new StringInfo(it); 
+		}
+
+		if( o.amtpaid ) {
+			def pmt = new Payment( amount: o.amtpaid );
+			if(o.reftype) pmt.reftype = o.reftype;
+			facts << pmt;
+		};
+
+		//load billitems
+		def pp = [billid: bill.objid, txndate: o.txndate ];
+		def billitemList = vwBillItemEm.find( [billid: o.billid ] ).where( " superseded = 0 ").list();
+		def subItemList = subItemEm.find( [billid: o.billid ] ).where( " superseded = 0 ").list();		
+		def creditItemList = creditItemEm.find( [billid: o.billid ]).where( "(amount - amtpaid) <> 0 ").list();
+		
+		billitemList.each {
+			//we need to correct the mapping
+			def mb = new VrsBillItem(it);
+			mb.input = true;
+			facts << mb;
+			def pItems = subItemList.findAll{ r-> r.billitemrefid == mb.objid };
+			if(pItems) {
+				pItems.each { sb->
+					def rb = null;
+					if(sb.type?.equalsIgnoreCase("SURCHARGE")) {
+						rb = new SurchargeItem(sb);
+					} 
+					else {
+						rb = new InterestItem(sb);
+					}	
+					rb.input = true;
+					mb.addSubItem( rb );
+					facts << rb;
+				}	
+			} 
+		};
+
+		creditItemList.each {
+			def cb = new CreditBillItem(it);
+			cb.input = true;
+			facts << cb;	
+		}
+
+		ruleSvc.execute( ruleName, facts, null, null );
+		return facts;
+	}
+
+	
+	
+
+
+}

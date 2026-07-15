@@ -1,0 +1,23 @@
+<schema>
+	<element tablename="vw_vrs_account_case">
+		<field name="objid" primary="true" prefix="VRSCASE"/>
+		<field name="state" />
+		<field name="acctid" />
+		<field name="casetypeid" />
+		<field name="particulars" />
+		<field name="workgroupid" />
+		<field name="supersededid" />
+		<field name="dtissued"  type="date"/>
+		<field name="dtcreated" type="timestamp"/>
+		<field name="createdby_objid" />
+		<field name="createdby_name" />
+		<!-- links to OVS system -->
+		<field name="refid" />
+		<field name="refno" />
+
+		<field name="superseded" />
+		<field name="prev_objid" />
+		<field name="prev_particulars" />
+
+	</element>
+</schema>

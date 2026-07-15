@@ -1,0 +1,176 @@
+import com.rameses.annotations.*;
+import java.text.*;
+
+public class VrsTxnWfUtilService  {
+
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("VrsDocService")
+	def docService;
+
+	@DataContext("vrs_txn")
+	def txnEm;
+
+	@DataContext("vw_vrs_txn")
+	def vwTxnEm;
+
+	@DataContext("vrs_bill")
+	def billEm;
+
+	@DataContext("vrs_billitem")
+	def billItemEm;
+
+	@DataContext("vw_vrs_doc")
+	def vwDocEm;
+
+	@DataContext("vrs_account_year")
+	def acctYearEm;
+
+	@DataContext("vw_vrs_doctype")
+	def vwDocTypeEm;
+
+	@DataContext("vrs_account")
+	def acctEm;
+
+	@DataContext("vrs_header_info")
+	def headerInfoEm;
+
+	@DataContext("vrs_detail_info")
+	def detailInfoEm;
+
+
+
+	//called during approval
+	@ProxyMethod
+	public void checkHasBill(def o) {
+		def r = txnEm.find(  [objid: o.refid ] ).first();
+		if(!r) throw new Exception("Txn not found for refid " + o.refid );
+		if(!r.billid) throw new Exception("Please create a bill for this transaction");
+	}
+
+	@ProxyMethod
+	public def checkPaymentMade(def o) {
+		def r = txnEm.find(  [objid: o.refid ] ).first();
+		if(!r) throw new Exception("Txn not found for refid " + o.refid );
+		if(!r.billid) throw new Exception("There is no bill associated with this transaction");
+
+
+		def hasUnpaid = billItemEm.find( [billid: r.billid] ).where(" (amount - amtpaid) > 0").exists();
+		if(hasUnpaid) {
+			return [ paymentcomplete: false ];
+		}
+		else {
+			return [ paymentcomplete: true ];
+		}
+	}
+
+	private void checkDocumentsIssued( def o ) {
+		//check if there are issuable documents that do not have issuances
+		def doclist = vwDocEm.find( [txnid: o.refid ] ).where( " doctype.issuetype > 0 ").list();
+		def errs = [];
+		doclist.findAll{ !it.issueno }.each {
+			errs << it.doctype.title;
+		}
+		if(errs) {
+			throw new Exception("Please release the following documents first \n" + errs.join("\n") );
+		}
+	}
+
+	private def findCorrectDoc(def doctypeid, def txnid ) {
+		def oldType = vwDocTypeEm.find( [objid: doctypeid ] ).first();
+
+		//find the document having the same doctype name. This is to ensure that no matter what version the document was
+		//created it will still work!
+
+		def doc = vwDocEm.find( [txnid: txnid ] ).where( "doctype.name = :name", [name: oldType.name ] ).first();
+		if(!doc) throw new Exception("Document with " + oldType.name + " not found. Please add in transaction" );
+		if(!doc.issuanceid) throw new Exception("This document is not yet issued. Please create an issuance first");
+		return doc;
+	}
+
+	@ProxyMethod
+	public def updatePermitIssued(def o) {
+		if(!o.refid ) throw new Exception("refid is required in VrsTxnWfUtilService.updatePermitIssued");
+		def txn = vwTxnEm.find(  [objid: o.refid ] ).first();
+		
+		if(txn.vehicletype?.franchisedoctypeid) {
+			if( !txn.franchise?.objid ) throw new Exception("Please assign a franchise");
+		}
+
+		//auto issue docs first before proceeding
+		if(txn.txnmode == 'ONLINE') {
+			def docList = vwDocEm.find( [txnid: txn.objid ]).list();
+			docList.each {
+				//find the latest doctype
+				def ldoctype = vwDocTypeEm.find( [name: it.doctype.name ] ).where("superseded=0").first();
+				if(it.doctype.issuetype == 1) {
+					docService.issue([docid:it.objid, txnid:txn.objid, doctypeid: ldoctype.objid ]);
+				}	
+			}
+		}
+
+		def doctypeid = txn.vehicletype.permitdoctypeid;	
+		if(!doctypeid) throw new Exception("Vehicle permit doctype not defined in vehicle type")
+		def doc = findCorrectDoc( doctypeid, txn.objid  );
+		
+		acctYearEm.find( [objid: txn.acctyearid ] ).update( [ permitid: doc.issuanceid ] );
+	}
+
+	
+	@ProxyMethod
+	public def updateHeaderInfo( def o ) {
+		def txn = vwTxnEm.find( [objid: o.refid ]).first();
+		if(!txn) throw new Exception("Txn not found for objid " + o.refid );
+		def newHead = headerInfoEm.find( [txnid: txn.objid ] ).first();
+		if(!newHead) {
+			//check if there are info changes
+			def cnt = detailInfoEm.find( [txnid: txn.objid ] ).select( "cnt:{COUNT(*)}").val();
+			if(!cnt)
+				throw new Exception("There must be at least one data change in the account");
+		}	
+		else {
+			acctEm.find( [objid: txn.acctid ] ).update( [headerinfoid: newHead.objid] );
+		}
+	}
+
+	@ProxyMethod
+	public def closeAccount( def o ) {
+		def txn = vwTxnEm.find( [objid: o.refid ]).first();
+		if(!txn) throw new Exception("Txn not found for objid " + o.refid );
+	}
+
+
+	@ProxyMethod
+	public def checkHasFranchise( def o ) {
+		if(!o.refid) throw new Exception("refid is required in VrsFranchiseService.checkHasFranchise");
+
+		//we use txn not vwTxn because the task is not created yet at this moment.
+		def txn = txnEm.find( [objid: o.refid ] ).first();
+		def ay = acctYearEm.find( [objid: txn.acctyearid ] ).first();
+
+		if( !ay.franchiseid ) {
+			return [ has_franchise: false ];
+		}
+		else {
+			return [has_franchise: true ];
+		}
+	}
+
+	@ProxyMethod
+	public void verifyHasFranchise( def o ) {
+		if(!o.refid) throw new Exception("refid is required in VrsFranchiseService.checkHasFranchise");
+		def txn = vwTxnEm.find( [objid: o.refid ] ).first();
+		if( !txn.franchise?.objid  )
+			throw new Exception("Please assign a franchise");
+		if( txn.franchise.expirydate ) {
+			def df = new SimpleDateFormat("yyyy-MM-dd");
+			def exp = df.parse( txn.franchise.expirydate.toString() );
+			def dt = dateSvc.getBasicServerDate(); 
+			if( dt.after(exp) ) 
+				throw new Exception("Franchise is already expired. Please renew franchise first");		
+		} 
+	}
+
+
+}	

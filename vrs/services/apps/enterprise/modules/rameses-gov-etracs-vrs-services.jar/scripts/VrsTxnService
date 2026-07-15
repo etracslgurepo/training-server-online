@@ -1,0 +1,295 @@
+import com.rameses.annotations.*;
+
+public class VrsTxnService  {
+
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("VrsControlnoService")
+	def controlNoSvc;
+
+	@Service("VrsDocService")
+	def docSvc;
+
+
+	@Service("WorkflowTaskService")
+	def taskSvc;
+
+	@DataContext("vrs_txntype")
+	def txnTypeEm;
+
+	@DataContext("vrs_account_year")
+	def acctYearEm;
+
+	@DataContext("vrs_account")
+	def acctEm;
+
+	@DataContext("vw_vrs_account")
+	def vwAcctEm;
+
+	@DataContext("vrs_header_info")
+	def headerInfoEm;
+
+	@DataContext("vrs_detail_info")
+	def acctInfoEm;
+
+	@DataContext("vrs_txn")
+	def txnEm;
+
+	@DataContext("vrs_txn_task")
+	def taskEm;
+
+	@DataContext("vw_vrs_txn")
+	def vwTxnEm;
+
+	@DataContext("vrs_vehicletype")
+	def vehicleTypeEm;
+
+	@DataContext("vw_vrs_account_case")
+	def vwCaseEm;
+
+	@DataContext("vw_vrs_header_info")
+	def vwHeaderEm;
+
+	@DataContext("vw_vrs_detail_info")
+	def vwDetailInfoEm;
+
+	@Env
+	def env;
+
+	def createAcct(def o) {
+		//find the vehicle type
+		if(!o.acctno) {
+			def vt = vehicleTypeEm.find( [objid: o.vehicletypeid ]).first();	
+			if( !vt.acctnopattern ) throw new Exception("Please specify acctnopattern in vehicle type ");
+			o.acctno = controlNoSvc.getNextNo( [pattern: vt.acctnopattern] );
+		}
+		return acctEm.create( o );
+	}
+
+	def createHeaderInfo(def o) {
+		return headerInfoEm.create(o);
+	}
+
+	def createAcctYear(def o) {
+		o.objid = o.acctid + "_" + o.activeyear;
+		acctYearEm.create( o );
+		return o;
+	}
+
+	def saveInfos(def infos, def txnid ) {
+		infos.each {
+			if(!it.objid) {
+				def inf = [:];
+				inf.fieldid = it.fieldid;
+				if(it.datatype == "decimal" ) inf.decimalvalue = it.value;
+				else if(it.datatype == "integer" ) inf.intvalue = it.value;
+				else if(it.datatype == "date" ) inf.datevalue = it.value;
+				else if(it.datatype == "boolean" ) inf.booleanvalue = it.value;
+				else inf.stringvalue = it.value;
+				inf.supersededid = it.supersededid;
+				inf.txnid = txnid;
+				acctInfoEm.create(inf);
+			}
+		}
+	}
+
+	boolean isExpired( def dte ) {
+		def YMD = new java.text.SimpleDateFormat("yyyyMMdd");
+		def dt = new java.sql.Date( dte.getTime() );
+		def today = YMD.format( dateSvc.getBasicServerDate() ).toInteger();
+		def expiry = YMD.format( dt ).toInteger();
+		return expiry < today;
+	} 
+
+	def buildTxn(def o ) {
+		def typ = txnTypeEm.find( [objid: o.txntype?.objid ]).first();
+		if(!typ) throw new Exception("Txntype " + o.txntype?.objid + " not found" );
+		if(!typ.controlnopattern) throw new Exception("Please specify controlnopattern in type " + typ.objid );
+		if(!o.appno) o.appno = controlNoSvc.getNextNo( [pattern: typ.controlnopattern] );
+		if(!o.appdate) o.appdate = dateSvc.getServerDate();
+		o.txndate = dateSvc.getServerDate();
+		o.txntypeid = typ.objid;
+		o.txntype = typ;
+		o.state = 'OPEN';
+		return o;
+	}
+
+	void saveWfState( def txnstate, def txnid ) {
+		def mt = [:];
+		mt.refid = txnid;
+		mt.state = txnstate;
+		mt.dtcreated = dateSvc.getServerDate();
+		mt.startdate = mt.dtcreated;
+		mt.assignee = [objid:env.USERID, name:env.FULLNAME];
+		def tsk = taskEm.create( mt );
+		txnEm.find( [objid: txnid ] ).update([taskid: tsk.taskid ]);		
+	}
+
+	void startWf( def procname, def txnid ) {
+		def mt = [:];
+		mt.processname = procname;
+		mt.entityschemaname = "vrs_txn";
+		mt.refid = txnid;
+		mt.assignee = [objid:env.USERID, name:env.FULLNAME];
+		taskSvc.start( mt ); 
+	}
+
+	def createTxn( def o ) {
+		o.remove("objid"); //we will remove to use txn objid 
+		return txnEm.create( o );	
+	}
+
+	//applicable 
+	def saveCapture( def o ) {
+		o = buildTxn( o );
+		o.headerinfoid = createHeaderInfo(o)?.objid;	
+		o.acctid = createAcct( [acctno: o.acctno, vehicletypeid: o.vehicletypeid, headerinfoid: o.headerinfoid ] )?.objid;
+		o.acctyearid = createAcctYear( [acctid: o.acctid, activeyear: o.activeyear, lastyearrenewed: o.lastyearrenewed ] )?.objid;
+
+		o.remove("objid"); //we will remove to use txn objid 
+		def txn = createTxn( o );
+		
+		//update acctyearid of account
+		acctEm.find(  [objid: o.acctid ] ).update( [acctyearid: o.acctyearid ] );
+		acctYearEm.find( [objid: o.acctyearid ] ).update( [txnid: txn.objid ] );
+		headerInfoEm.find( [objid: o.headerinfoid ] ).update( [txnid: txn.objid ] ); 
+		saveInfos( o.infos, txn.objid );	
+
+		saveWfState( o.txnstate, txn.objid );
+		return txn;
+	}
+
+	//applicable 
+	def saveOnlineNew( def o ) {
+		o.activeyear = dateSvc.getServerYear();
+		o = buildTxn( o );
+		o.headerinfoid = createHeaderInfo(o)?.objid;	
+		o.acctid = createAcct( [acctno: o.acctno, vehicletypeid: o.vehicletypeid, headerinfoid: o.headerinfoid ] )?.objid;
+		o.acctyearid = createAcctYear( [acctid: o.acctid, activeyear: o.activeyear ] )?.objid; 
+		def txn = createTxn( o );
+		acctEm.find(  [objid: o.acctid ] ).update( [acctyearid: o.acctyearid ] );
+		acctYearEm.find( [objid: o.acctyearid ] ).update( [txnid: txn.objid ] );
+		headerInfoEm.find( [objid: o.headerinfoid ] ).update( [txnid: txn.objid ] );
+		saveInfos( o.infos, txn.objid );
+		startWf( o.txntype.processname, txn.objid );
+		return txn;	
+	}
+
+	def saveOnlineRenewal( def o ) {
+		//copy franchise if from previous
+		def acct = vwAcctEm.find( [objid: o.acctid ]).first();
+		def fran = acct.franchise;
+
+		o = buildTxn( o );
+		o.acctyearid = createAcctYear( [acctid: o.acctid, activeyear: o.activeyear, lastyearrenewed: o.lastyearrenewed ] )?.objid;
+		def txn = createTxn( o );
+		acctEm.find(  [objid: o.acctid ] ).update( [acctyearid: o.acctyearid ] );
+
+		def u = [txnid: txn.objid];
+		if(fran?.objid) u.franchiseid = fran.objid;
+
+		acctYearEm.find( [objid: o.acctyearid ] ).update( u );
+		startWf( o.txntype.processname, txn.objid );
+		return txn;
+	}
+
+	def saveOtherTxn(def o ) {
+		o = buildTxn( o );
+		def txn = createTxn( o );
+		
+		if(o.newheaderinfo ) {
+			o.newheaderinfo.txnid = txn.objid; 
+			createHeaderInfo( o.newheaderinfo );	
+		}
+		if(o.newinfos) {
+			saveInfos(o.newinfos, txn.objid );
+		};
+		startWf( o.txntype.processname, txn.objid );
+		return txn;
+	}
+
+	@ProxyMethod
+	public def save( def o ) {
+		def txn = null;
+		if(o.txnmode == "CAPTURE") txn = saveCapture( o );
+		else if( o.txntype.name == 'NEW' ) txn = saveOnlineNew( o );
+		else if( o.txntype.name == 'RENEWAL' ) txn = saveOnlineRenewal( o );
+		else txn = saveOtherTxn( o );
+		if(txn==null) throw new Exception("txn is null. VrsTxnService.save is not handled"); 
+		docSvc.initDocs( [txnid: txn.objid ] );
+		return txn;		
+	}
+
+	@ProxyMethod
+	public def findAndValidateAccountForTxn( def o ) {
+		//this checks if a txn can be carried out
+		def txntype = o.remove("txntype");
+
+		def str = null;
+		if( o.franchiseno ) str = "franchise.franchiseno = :franchiseno";
+		else if( o.permitno ) str = "permit.issueno = :permitno";
+		else if( o.acctno ) str = "acctno = :acctno"; 
+
+		def r = vwAcctEm.where( str, o ).first();
+        if(!r) throw new Exception("Account not found ");
+
+        def openTxnList = vwTxnEm.find( [acctid: r.objid] ).where( "NOT( task.state = 'end')" ).list();
+        if(openTxnList) {
+            def slist = openTxnList.collect{ "App no " + it.appno + "-" + it.txntype + " status:" + it.task.state };
+            throw new Exception( "There are still transactions that need to be completed. \n" + slist.join("\n")  );
+        }     
+
+        if(txntype.name == "RENEWAL") {
+        	//check existing permits if expired 
+        	def df = new java.text.SimpleDateFormat("yyyy-MM-dd");
+	        def today = df.parse( df.format( dateSvc.getServerDate() ));
+	        
+	        if( r.permit?.expirydate.after(today) ) {
+	            throw new Exception("The permit is not yet expired");
+	        }
+
+	        //check if there no open critical cases
+	        def c = vwCaseEm.find( [acctid: r.objid ] ).where(" superseded=0 AND state='CRITICAL' ").select("c:{COUNT(*)}").val();
+	        if(c) throw new Exception("There are unresolved cases for this account. Please settle this first");
+        }
+        return r;
+	}
+
+	@ProxyMethod
+	public def getChangeDiff( def o ) {
+		def txn = vwTxnEm.find( [objid: o.txnid ]).first();
+
+		def newHead = vwHeaderEm.find( [txnid: txn.objid] ).first();
+		def newitms = vwDetailInfoEm.find( [txnid: txn.objid ]).list();
+
+		def oldData = [:];
+		def newData = [:];
+		if(newHead) {
+			def oldHead = vwHeaderEm.find( [objid: txn.headerinfoid] ).first();
+			oldData.putAll( oldHead );
+			newData.putAll( newHead );
+		}
+
+		if(newitms) {
+			def olditms = txnEm.getDetailInfosBeforeEdit( [txnid: txn.objid, acctid: txn.acctid, txndate: txn.txndate ]  );
+			def diffNew = newitms - olditms;
+			diffNew.each { dd->
+				def n = dd.name.toLowerCase();
+				def od = olditms.find{ xx-> xx.name == dd.name };
+
+				def vnew = dd.stringvalue;
+				def vold = od.stringvalue;
+
+				newData.put( n, vnew );
+				oldData.put( n, vold );
+			}	
+
+		}
+		return [oldData:oldData, newData: newData ];
+	}
+
+
+	
+
+}

@@ -1,0 +1,273 @@
+import com.rameses.annotations.*;
+import java.rmi.server.*;
+import java.text.*;
+import treasury.facts.*;
+import vrs.facts.*;
+
+public class VrsBillingService  {
+
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("VrsBillingRuleService")
+	def ruleSvc;
+
+	@DataContext("vrs_bill")
+	def billEm;
+
+	@DataContext("vw_vrs_bill")
+	def vwBillEm;
+
+	@DataContext("vrs_txn")
+	def txnEm;
+
+	@DataContext("vw_vrs_billitem")
+	def vwBillItemEm;
+
+	@DataContext("vrs_billitem")
+	def billItemEm;
+
+	@DataContext("vrs_credit_paymentitem")
+	def creditPaymentItemEm;
+
+	@DataContext("vrs_abstract_billitem")
+	def abstractBillItemEm;
+
+	@DataContext("vrs_credit_billitem")
+	def creditItemEm;
+
+	@DataContext("vrs_billitem_subitem")
+	def subItemEm;
+
+	@DataContext("vw_vrs_txn")
+	def vwTxnEm;
+
+	@DataContext("vw_vrs_detail_info")
+	def vwAcctInfoEm;
+
+	@DataContext("vrs_discountitem")
+	def discountItemEm;
+
+	@ProxyMethod
+	public def create(def o ) {
+		//use the appno as the billno.
+		def txn = vwTxnEm.find( [objid: o.txnid]).select("appno").first();
+
+		def b = [:];
+		b.billno = txn.appno;
+		b.billdate = dateSvc.getServerDate();
+		b.txnid = o.txnid;
+		b.balanceforward = 0;
+		b.amount = 0;
+		b.surcharge = 0;
+		b.interest = 0;
+		b.discount = 0;
+		b.totalpayment = 0;
+		b.state = 'OPEN';
+		b.txnmode = 'ONLINE';
+		b = billEm.create( b );
+		txnEm.find([objid: b.txnid]).update( [billid: b.objid]);
+
+		//check here if there are balance unpaid from last bill. If yes, build forward balance
+		// -- place code here --
+
+		//auto assess the bill after creating
+		assess( [billid: b.objid ] );
+		return b;
+	}
+
+	@ProxyMethod
+	public def getBillItems(def o ) {
+		def list = billEm.getBillItems( [billid: o.billid ] );
+		list.each {
+			if(it.year) it.particulars += "(" + it.year + ")";
+		}
+		return list;
+	}
+
+	@ProxyMethod
+	public void rollbackBill( def o ) {
+		if(!o.billid) throw new Exception("Please specify billid in VrsBillingService.rollbackBill");
+		if(!o.txndate) throw new Exception("Please specify txndate in VrsBillingService.rollbackBill");
+		//clear all billitems, subitems and credit payment items beyond this date
+		def appliedCredits = creditPaymentItemEm.find([billid: o.billid] ).where("billdate > :tdate", [tdate:o.txndate]).list();
+		appliedCredits.each { cr->
+			abstractBillItemEm.find( [objid: cr.billitemrefid ] ).update( [amtpaid: "{amtpaid - :amt}"], [amt: cr.amount ] );
+			abstractBillItemEm.find( [objid: cr.credititemid ] ).update( [amount: "{amount - :amt}"], [amt: cr.amount ] );
+			creditPaymentItemEm.find( [objid: cr.objid ] ).delete();
+		}	
+		subItemEm.find( [billid: o.billid ] ).where("billdate >= :tdate AND forwarded <> 1", [tdate: o.txndate]).delete();
+		billItemEm.find( [billid: o.billid ] ).where("billdate > :tdate AND forwarded <> 1", [tdate: o.txndate]).delete();
+		billEm.updateBillTotals( [billid: o.billid ] );
+	}
+
+	@ProxyMethod
+	public def assess(def o ) {
+		if(!o.billid) throw new Exception("Please specify billid in VrsBilling.assess");
+
+		def bill = billEm.find( [objid: o.billid ] ).first();
+		if(!bill) throw new Exception("Bill not found");
+		if( bill.state == 'CLOSED ' ) return [status: 0];
+
+		if(!o.txndate) o.txndate = dateSvc.getServerDate();
+		if(!(o.txndate instanceof Date)) {
+			def df = new SimpleDateFormat( "yyyy-MM-dd" );
+			o.txndate = df.parse( o.txndate );	
+		}
+
+		//clear all billitems beyond this date	
+		//rollback transactions less than this date before executing
+		rollbackBill( [billid: o.billid, txndate: o.txndate ] );
+		def facts = ruleSvc.executeRules("vrsbilling", o);
+
+		facts.findAll{ (it instanceof VrsBillItem) && (it.input == false) }.each {
+			def m = it.toMap();
+			m.billid = o.billid;
+			m.auto = 1;
+			m.forwarded = 0;
+			billItemEm.create( m );	
+		}
+		facts.findAll{ (it instanceof BillSubItem) && (it.input == false)  }.each {
+			def m = it.toMap();
+			m.billid = o.billid;
+			m.auto = 1;
+			m.forwarded = 0;
+			subItemEm.create( m );	 
+		}
+		facts.findAll{ (it instanceof CreditBillItem) && (it.input == false) }.each {
+			def m = it.toMap();
+			m.billid = o.billid;
+			m.auto = 1;
+			m.forwarded = 0;
+			creditItemEm.create( m );		
+		}
+		facts.findAll{ it instanceof CreditPaymentItem }.each {
+			def m = it.toMap();
+			m.billid = o.billid;
+			creditPaymentItemEm.create( m );
+			abstractBillItemEm.find( [objid: m.billitemrefid ] ).update( [amtpaid: "{amtpaid + :amt}"], [amt: m.amount ] );
+			abstractBillItemEm.find( [objid: m.credititemid ] ).update( [amount: "{amount + :amt}"], [amt: m.amount ] );
+		}	
+		facts.findAll{ it instanceof DiscountItem }.each {
+			def mp = it.toMap();
+			def d = [:];
+			d.itemid = mp.item?.objid;
+			d.amount = mp.amount;
+			d.voidamount = 0;
+			d.billitem = [objid: it.billitemrefid];
+			discountItemEm.create( d );
+		};
+		billEm.updateBillTotals( [billid: o.billid ] );	
+		//update next bill validity
+		def bl = facts.find{ it instanceof Bill };
+		def u = [lasttxndate: o.txndate, validitydate: bl.validitydate, duedate: bl.duedate ];
+		billEm.find( [objid: o.billid ] ).update( u );
+		return [status: 1]
+	}
+
+	@ProxyMethod
+	public void addBillItem(def o ) {
+		if(!o.billdate) o.billdate = dateSvc.getServerDate();
+		billItemEm.create( o );
+		billEm.updateBillTotals( [billid: o.billid ] );	
+	}
+
+	@ProxyMethod
+	public void removeBillItem(def o ) {
+		def bi = billItemEm.find( [objid: o.objid] ).first();
+		billItemEm.find( [objid: bi.objid] ).delete();
+		billEm.updateBillTotals( [billid: bi.billid ] );	
+	}
+
+	@ProxyMethod
+	public void clearBillItems(def o ) {
+		if(!o.billid) throw new Exception("billid is required in clearAll");
+		creditPaymentItemEm.find( [billid: o.billid ]).delete();
+		creditItemEm.find( [billid: o.billid ]).delete();
+		subItemEm.find( [billid: o.billid ] ).delete();
+		billItemEm.find( [billid: o.billid ] ).delete();
+		billEm.updateBillTotals( [billid: o.billid ] );
+	}
+
+	@ProxyMethod
+	public def cancelBill( def o ) {
+		def bill = billEm.find([objid: o.billid]).first();
+		clearBillItems( o );	
+		txnEm.find( [objid: bill.txnid] ).update( [billid: "{NULL}"]);	
+		billEm.find( [objid: o.billid ] ).delete();
+	}
+
+	@ProxyMethod
+	public void post(def o ) {
+		if(!o.billid) throw new Exception("billid is required in post");
+		billEm.find( [objid: o.billid ]).update( [state: "POSTED"]);
+	}
+
+	@ProxyMethod
+	public void unpost(def o ) {
+		if(!o.billid) throw new Exception("billid is required in unpost");
+		billEm.find( [objid: o.billid ]).update( [state: "OPEN"]);
+	}
+
+	@ProxyMethod
+	public def getLatestBill( def o ) {
+		if(!o.billid) throw new Exception("billid is required in VrsBillingService.validateBill");
+		if(!o.txndate) throw new Exception("txndate is required in VrsBillingService.validateBill");
+		def bill = vwBillEm.find( [objid: o.billid ]).first();
+		if(!bill) throw new Exception("Bill not found");
+		if(bill.state == 'CLOSED') throw new Exception("Bill is already closed");
+
+		def currDate = dateSvc.getServerDate();
+		if( currDate.before(bill.billdate) ) throw new Exception("Bill date must be less than or equal to current date");
+		//if( currDate.after(bill.expirydate) ) throw new Exception("Bill is already expired. Contact market billing section to generate latest bill");
+
+		def tdate = o.txndate;
+		if(tdate instanceof String) {
+			def dt = new java.text.SimpleDateFormat("yyyy-MM-dd");
+	 		tdate = dt.parse( tdate );
+		} 
+	 	
+	 	if(tdate.after(bill.validitydate)) {
+	 		assess( [billid: o.billid, txndate: o.txndate ]);
+	 	}
+	 	return vwBillEm.find( [objid: o.billid] ).first();
+	}
+
+
+	@ProxyMethod
+	public void updateBill(def o ) {
+
+	}
+
+	@ProxyMethod
+	public def getBillingInfo(def o) {
+		def bill = billEm.find( [objid: o.billid ]).first();
+		def billInfo = vwTxnEm.find( [objid: bill.txnid ]).first();
+		def infos = vwAcctInfoEm.find( [acctid: billInfo.acctid] ).list();
+		def info = [:];
+		infos.each {
+			def val = null;
+			if(it.datatype == 'decimal' ) val = it.decimalvalue;
+			else if(it.datatype == 'integer' ) val = it.intvalue;
+			else if(it.datatype == 'boolean' ) val = it.booleanvalue;
+			else if(it.datatype == 'date' ) val = it.datevalue;
+			else val = it.stringvalue;
+			info.put(it.name.toLowerCase(), val);
+		}
+		billInfo.info = info;
+		def items = [];
+		vwBillItemEm.find( [billid: bill.objid] ).list().each {
+			def bi = [:];
+			bi.item = it.item;
+			bi.particulars = it.item.title;
+			if(it.year) bi.particulars += "("+it.year+")";
+			bi.amount = it.amount;
+			items << bi;	
+		};
+		billInfo.items = items;
+		return billInfo;
+	}
+
+
+
+}

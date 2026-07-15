@@ -1,0 +1,14 @@
+<schema>
+	<element tablename="vrs_doc_issuance">
+		<field name="objid" primary="true" prefix="VRSISS"/>
+		<field name="issueno" />
+		<field name="dtissued" />
+		<field name="issuer_objid" />
+		<field name="issuer_name" />
+		<field name="expirydate" required="true"/>
+		<field name="docid" />
+
+		<!-- Must capture the latest doctype for its parameters-->
+		<field name="doctypeid" required="true"/>
+	</element>
+</schema>

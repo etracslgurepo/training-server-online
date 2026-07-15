@@ -1,0 +1,9 @@
+<schema>
+	<element tablename="vrs_date_extension">
+		<field name="objid" primary="true" prefix="VRSDTEXT" />
+		<field name="vehicletypeid" required="true"/>
+		<field name="particulars" caption="Particulars" required="true"/>
+		<field name="year" caption="Year" required="true"/>
+		<field name="duedate" type="date" caption="Due Date" required="true"/>
+	</element>
+</schema>

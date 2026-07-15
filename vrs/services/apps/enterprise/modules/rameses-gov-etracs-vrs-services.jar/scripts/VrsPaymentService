@@ -1,0 +1,296 @@
+import com.rameses.annotations.*;
+
+import vrs.facts.*;
+import com.rameses.util.*;
+import treasury.facts.*;
+import java.text.*;
+
+
+class VrsPaymentService {
+	
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("VrsBillingRuleService")
+	def billingRuleSvc;
+
+	@Service("VrsBillingService")
+	def billSvc;
+
+	@DataContext("vw_vrs_bill")
+	def vwBillEm;
+
+	@DataContext("vrs_credit_billitem")
+	def creditBillitemEm;
+
+	@DataContext("vrs_payment")
+	def pmtEm;
+
+	@DataContext("vrs_paymentitem")
+	def pmtItemEm;
+
+	@DataContext("vrs_billitem")
+	def billItemEm;
+
+	@DataContext("vrs_abstract_billitem")
+	def abstractBillItemEm;
+
+	@DataContext("vrs_bill")
+	def billEm;
+
+	@DataContext("vrs_discountitem")
+	def discountItemEm;
+
+	@ProxyMethod
+	public def getList( def o ) {
+		return pmtEm.getList( o );
+	} 
+
+	@ProxyMethod
+	public def prePayment(def o) {
+		//do nothing...
+	}
+
+	//this will return items (cashreceipt items ) and billitems (for viewing) and postingitems (for posting)
+	@ProxyMethod
+	public def getPaymentInfo( def o ) {
+		if(!o.txndate) throw new Exception("txndate is required in VrsPaymentService.getBillItems"); 
+
+		//search accdg to following: billid, billno, acctid, acctno, unitno
+		if(!o.billid) {
+			def filter = [:];
+			if( o.billno ) filter.billno = o.billno;
+			else if( o.acctid ) filter.acctid = o.acctid;
+			else if( o.acctno ) filter.acctno = o.acctno;
+			else if( o.unitno ) filter.unitno = o.unitno;
+			def vb = vwBillEm.find(filter).select("objid").orderBy("year DESC").first();
+			if(!vb) throw new Exception("Bill not found");
+			o.billid = vb.objid;
+		} 
+
+		if(o.txndate instanceof String) {
+			def df = new SimpleDateFormat( "yyyy-MM-dd" );
+			o.txndate = df.parse( o.txndate );
+		}
+		
+		//check bill first before attempting to pay
+		def bill = vwBillEm.find( [objid: o.billid ] ).first();
+
+		if( bill.state == 'CLOSED' ) throw new Exception("Bill is already closed. Please refer to another bill");
+		if( o.txnmode == 'ONLINE' && bill.state != 'POSTED' ) 
+			throw new Exception("Bill must be in posted state for online payment");
+
+		if( bill.validitydate && o.txndate.after(bill.validitydate) ) {
+			if(!o.autopost) throw new Exception("Txn date must be before validity date. Please update the bill first. Contact the vrs billing section");
+			billSvc.assess( [billid: o.billid, txndate: o.txndate ] );
+			//we need to reload so it will 
+			bill = vwBillEm.find( [objid: o.billid ] ).first();	
+		}	
+
+		if(!o.amtpaid) o.amtpaid = bill.balance;
+
+		def facts = billingRuleSvc.executeRules("vrspayment", o);
+
+		//check first if the payment is handled properly
+		def pmt = facts.find{ it instanceof Payment };
+		if( pmt.amount > 0 ) {
+			def cramt = facts.findAll{ it instanceof CreditBillItem }.sum{ it.amtpaid };
+			if( pmt.amount != cramt ) throw new Exception("Excess payment is not handled properly. Please create a rule to credit billitem for the excess payment");
+		} 
+
+		def items = [];
+		def billitems = [];
+		def postingitems = [];
+
+		facts.findAll{ (it instanceof VrsBillItem) && it.paid == true }.each {
+			def mp = it.toMap();
+			def b = [:];
+			b.billitemrefid = it.objid; 
+			b.particulars = mp.item.title +  " (" + mp.year + ")";
+			b.amount = it.paymentItem.amount;
+			b.surcharge = it.surchargepaid;
+			b.interest = it.interestpaid;
+			b.discount = 0;
+			b.sortorder =  (mp.year*12);
+			b.total = b.amount + b.surcharge + b.interest;
+			billitems << b;	
+		};
+		facts.findAll{ it instanceof PaymentItem }.each {
+			def b = [:];
+			b.billid  = o.billid;
+			b.type = "payment";
+			b.billitemrefid = it.billitemrefid;
+			b.amount = it.amount;
+			postingitems << b; 		
+		};
+		facts.findAll{ it instanceof CreditBillItem }.each {
+			def cr = it.toMap();
+			def crb = [:];
+			crb.billid = o.billid;
+			crb.amount = cr.amtpaid;
+			crb.item = cr.item;
+			crb.type = "credit"; 
+			crb.uid = cr.uid;
+			postingitems << crb;
+
+			def bi = [:];
+			bi.particulars = cr.item?.title;
+			bi.amount = cr.amtpaid;
+			bi.total = cr.amtpaid;
+			bi.sortorder = 100000; //to ensure that it will be on the last position
+			billitems << bi;
+		}
+		facts.findAll{ it instanceof DiscountItem }.each {
+			def mp = it.toMap();
+			def b = [:];
+			b.billid  = o.billid;
+			b.type = "discount";
+			b.billitemrefid = it.billitemrefid;
+			b.amount = it.amount;
+			b.item = mp.item;
+			postingitems << b; 					
+		};
+		facts.findAll{ it instanceof CashReceiptItem }.each {
+			items << it.toMap();
+		}
+
+		def sumPosting = NumberUtil.round( postingitems.findAll{ it.type != 'discount' }.sum{it.amount} );
+		def sumItems = NumberUtil.round( items.sum{it.amount} )
+		if( sumPosting != sumItems ) {
+			def str = "postItems:"+ sumPosting + " == items:" + sumItems;
+			throw new Exception("Cash receipt item balance does not match posting total. Please ensure all items are mapped properly. "+str);
+		}
+
+		return [
+			billitems: billitems.sort{ it.sortorder },
+			postingitems: postingitems,
+			items: items.sort{ it.sortorder }
+		];
+	}
+
+	@ProxyMethod
+	public def postPayment( def o ) {
+		if(!o.postingitems) throw new Exception("Posting items required in postPayment");
+		if(!o.refdate) o.refdate = o.receiptdate;
+		if(!o.refno) o.refno = o.receiptno;
+		if(!o.refid) o.refid = o.objid;
+		if(!o.reftype) o.reftype = "cashreceipt";
+		def pmt = [:];
+		pmt.refid =  o.refid;
+		pmt.refno =  o.refno;
+		pmt.reftype =  o.reftype;
+		pmt.refdate =  o.refdate;
+		pmt.txnmode =  o.txnmode;
+		pmt.voided =  0;
+		pmt.amount =  o.amount;
+		pmt.remarks =  o.remarks;
+		pmt = pmtEm.create( pmt );
+		def bills = [];
+		o.postingitems.each { pi->
+			if( pi.type == "credit") {
+				def cr = [:];
+				cr.billid = pi.billid;	
+				cr.billdate = pmt.refdate;
+				cr.uid =  pi.uid + "_" + pmt.objid;
+				cr.item = pi.item;
+				cr.forwarded = 0;
+				cr.auto = 1;
+				cr.amount = 0;
+				cr.amtpaid = pi.amount;
+				cr.paymentid = pmt.objid;
+				creditBillitemEm.create( cr );
+				bills << pi.billid;
+			}
+			else if( pi.type == "discount") {
+				def d = [:];
+				d.itemid = pi.item?.objid;
+				d.amount = pi.amount;
+				d.voidamount = 0;
+				d.billitem = [objid: pi.billitemrefid];
+				d.payment = pmt;
+				discountItemEm.create( d );
+			}
+			else {
+				pi.parentid = pmt.objid;
+				pmtItemEm.create( pi );
+				abstractBillItemEm.find( [objid: pi.billitemrefid ] ).update( [amtpaid: "{amtpaid + :amt}"], [amt: pi.amount ] );
+				bills << pi.billid;	
+			}
+		}
+		bills.unique().each  {
+			billEm.updateBillPayment( [billid: it ] );		
+		}
+		return pmt;
+	}
+
+	@ProxyMethod
+	public def voidPayment( def o ) {
+		
+		if(!o.objid ) throw new Exception("objid is required in VrsPaymentService.voidPayment");
+
+		def pmt = pmtEm.find( [objid: o.objid ] ).first();
+		if(!pmt) pmt = pmtEm.find( [refid: o.receiptid ] ).first();	
+
+		def pmtItems = pmtItemEm.find( [parentid:pmt.objid] ).list();
+		def bills = [];
+		pmtItems.each { pi->
+			abstractBillItemEm.find( [objid: pi.billitemrefid ] ).update( [amtpaid: "{amtpaid - :amt}"], [amt: pi.amount ] );
+			if( pmt.txnmode == "ONLINE" ) {
+				def disc = discountItemEm.find( [paymentid: pmt.objid ] ).first();
+				if(disc) {
+					discountItemEm.find( [objid: disc.objid ] ).update([voidamount: disc.amount, amount: 0 ]);
+				}
+				pmtItemEm.find( [objid: pi.objid ]).update( [amount:0, voidamount: pi.amount]);
+			}
+			else {
+				discountItemEm.find( [paymentid: pmt.objid ] ).delete();
+				pmtItemEm.find([objid: pi.objid ]).delete();				
+			}	
+			bills << pi.billid;		
+		}
+		def creditItems = creditBillitemEm.find( [paymentid: pmt.objid] ).list();
+		creditItems.each { ci->
+			if(pmt.txnmode == "ONLINE" ) {
+				creditBillitemEm.find( [objid: ci.objid ]).update([ amount: "{amtpaid}" ]);
+			}
+			else {
+				creditBillitemEm.find( [objid: ci.objid ]).delete();
+			}
+			bills << ci.billid;	
+		}
+
+		//store bill ids back to parameters so it can be evaluated by interceptors
+		def voidedBills = bills.unique()
+		voidedBills.each  {
+			billEm.updateBillPayment( [billid: it ] );		
+		}
+
+		if(pmt.txnmode == "ONLINE") {
+			pmtEm.find( [objid: pmt.objid ] ).update( [voided: 1 ] );	
+		}
+		else {
+			pmtEm.find( [objid: pmt.objid ] ).delete();	
+		}
+
+		return [bills: voidedBills];
+	}
+
+	@ProxyMethod
+	public def revertVoidPayment( def o ) {
+		throw new Exception("Water revert void payment is not yet supported");
+
+		def pmt = pmtEm.find( [objid: o.objid ] ).first();
+		if(!pmt) pmt = pmtEm.find( [refid: o.receiptid ] ).first();	
+		pmtEm.find( [objid: pmt.objid ] ).update( [voided: 0 ] );
+		def pmtItems = pmtItemEm.find( [parentid:pmt.objid] ).list();
+		pmtItems.each { pi->
+			abstractBillItemEm.find( [objid: pi.billitemrefid ] ).update( [amtpaid: "{amtpaid - :amt}"], [amt: pi.voidamount ] );
+			pmtItemEm.find( [objid: pi.objid ]).update( [amount:pi.voidamount, voidamount: 0]);		
+		}
+		def creditItems = creditBillitemEm.find( [paymentid: pmt.objid] ).list();
+		creditItems.each { ci->
+			creditBillitemEm.find( [objid: ci.objid ]).update( [amount: 0 ] );
+		}	
+	}
+
+}

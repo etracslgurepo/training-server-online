@@ -1,0 +1,58 @@
+<app>
+<env>
+app.title=ETRACS 2.5 build 2.5.05.03-20 (${lgu_name}) VRS
+app.host=${app_server_ip}:18070
+app.cluster=osiris3
+app.context=etracs25
+app.help=http://${app_server_ip}:18080/help
+app.loader=com.rameses.osiris2.client.OsirisAppLoader
+readTimeout=300000
+connectionTimeout=5000
+filemgmt.enabled=false
+
+ws.host=${app_server_ip}:18060
+#res.host=${app_server_ip}
+
+socketio.host=${socketio_server_ip}:7080
+
+admin.app.host=${app_server_ip}:18070
+admin.app.context=etracs25
+</env>
+<modules>
+   <module version="1.00" file="libs/commons-net-3.5.jar"  />
+
+   <import file="custom/updates.pxml"/> 
+
+   <module version="2.04" file="core/osiris2-client-themes.jar"  />
+   <module version="2.07" file="core/osiris2-client-ui.jar"  />
+   <module version="2.02" file="core/osiris2-draw.jar"  />
+   <module version="2.05" file="core/osiris2-framework.jar"  />
+   <module version="2.21" file="core/rameses-client-ui.jar"  />
+   <module version="2.02" file="core/rameses-client-ui-bio.jar"  />
+   <module version="2.02" file="core/rameses-client-ui-jfx.jar"  />
+   <module version="2.02" file="core/rameses-client-notification-socketio.jar"  />
+   <module version="2.03" file="core/rameses-custom-impl.jar"  />
+   <module version="2.02" file="core/rameses-jdbc16.jar"  />
+   <module version="2.06" file="core/rameses-file-mgmt.jar"  />
+   <module version="2.04" file="core/ireport-designer-connector.jar"  />
+
+   <module version="2.02" file="shared/client-system.jar"  />
+   <module version="2.09" file="shared/client-ui-extended.jar"  />
+   <module version="2.03" file="shared/rameses-client-menu.jar"  />
+   <module version="2.02" file="shared/rameses-client-report.jar"  />
+   <module version="2.08" file="shared/rameses-workflow-mgmt.jar"  />
+   <module version="2.05" file="shared/rameses-enterprise-admin.jar"  />
+   <module version="2.06" file="shared/rameses-enterprise-admin-plugin.jar"  />
+   <module version="2.06" file="shared/rameses-enterprise-financial.jar"  />
+   <module version="2.02" file="shared/rameses-client-notification2.jar"  />
+   <module version="2.02" file="shared/rameses-email-client.jar"  />
+   <module version="2.13" file="shared/rameses-jasper-client.jar"  />
+
+   <module version="2.07" file="etracs/rameses-etracs-main.jar"  />
+   <module version="2.02" file="etracs/rameses-gov-etracs-tools.jar"  />
+   <module version="2.02" file="etracs/rameses-gov-etracs-signatory-template.jar"  />
+   <module version="2.04" file="etracs/rameses-gov-lgu.jar"  />
+
+   <import file="vrs/vrs-updates.pxml"/> 
+</modules>
+</app>

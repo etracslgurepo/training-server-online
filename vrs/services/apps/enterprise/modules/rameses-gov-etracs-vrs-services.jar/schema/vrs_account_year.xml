@@ -1,0 +1,14 @@
+<schema>
+	<element tablename="vrs_account_year">
+		<field name="objid" primary="true" prefix="VRSACCTYEAR"/>
+		<field name="acctid" required="true"/>
+		<field name="activeyear" required="true"/>
+
+		<field name="lastyearrenewed" />
+ 
+		<field name="permitid" />
+		<field name="franchiseid" />
+
+		<field name="txnid" />
+	</element>
+</schema>

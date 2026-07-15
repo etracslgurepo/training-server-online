@@ -1,0 +1,50 @@
+<schema>
+	<element tablename="vw_vrs_header_info">
+		<field name="objid" primary="true"/>
+		<field name="owner_objid" />
+		<field name="owner_name" />
+		<field name="owner_address_text" />
+		<field name="owner_entitytype" />
+		<field name="owner_profileid" />
+		<field name="owner_profileno" />
+		<field name="owner_firstname" />
+		<field name="owner_lastname" />
+		<field name="owner_middlename" />
+		<field name="owner_resident" />
+		<field name="owner_address_objid" />
+		<field name="owner_address_unitno" />
+		<field name="owner_address_bldgno" />
+		<field name="owner_address_bldgname" />
+		<field name="owner_address_street" />
+		<field name="owner_address_subdivision" />
+		<field name="owner_address_barangay_objid" />
+		<field name="owner_address_barangay_name" />
+		<field name="owner_address_citymunicipality" />
+		<field name="owner_address_province" />
+		<field name="owner_tin" />
+		<field name="owner_email" />
+		<field name="owner_mobileno" />
+		<field name="owner_phoneno" />
+		<field name="owner_id_type_name" />
+		<field name="owner_id_idno" />
+		<field name="owner_id_placeissued" />
+		<field name="owner_id_dtissued" />
+		<field name="address_text" />
+		<field name="address_unitno" />
+		<field name="address_bldgno" />
+		<field name="address_bldgname" />
+		<field name="address_street" />
+		<field name="address_subdivision" />
+		<field name="address_barangay_objid" />
+		<field name="address_barangay_name" />
+		<field name="acctgroupid" />
+		<field name="contact_phoneno" />
+		<field name="contact_mobileno" />
+		<field name="contact_email" />
+		<field name="acctgroup_name" />
+		<field name="acctgroup_fullpath" />
+		<field name="acctgroup_description" />
+		<field name="txnid" />
+	</element>
+</schema>		
+

@@ -1,0 +1,173 @@
+import com.rameses.annotations.*;
+
+import vrs.facts.*;
+
+public class VrsDocService  {
+
+	@Service("VrsControlnoService")
+	def controlNoSvc;
+
+	@Service("DateService")
+	def dateSvc;
+
+	@Service("RuleExecutorService")
+	def ruleSvc;
+
+	@DataContext("vrs_doc")
+	def docEm;
+
+	@DataContext("vw_vrs_txn")
+	def vwTxnEm;
+
+	@DataContext("vw_vrs_doc")
+	def vwDocEm;
+
+	@DataContext("vw_vrs_detail_info")
+	def vwAcctInfoEm;
+
+	@DataContext("sys_signature")
+	def sigEm;
+
+	@DataContext("vrs_doctype")
+	def docTypeEm;
+
+	@DataContext("vw_vrs_doctype")
+	def vwDocTypeEm;
+
+	@DataContext("vrs_vehicletype")
+	def vehicleTypeEm;
+
+	@DataContext("vrs_doc_issuance")
+	def issueEm;
+
+	@DataContext("vrs_account_year")
+	def acctYearEm;
+
+	@DataContext("vw_vrs_account")
+	def vwAcctEm;
+
+	
+
+	@ProxyMethod
+	public void initDocs(def o) {
+		if( !o.txnid ) throw new Exception("txnid is required in VrsDocService.initDocs");
+		def txn = vwTxnEm.find( [objid: o.txnid ] ).first();
+		if(!txn) throw new Exception("VrsDocService.initDocs. txn is null");
+		def facts = [];
+		facts << new VrsTxn( txn );
+		ruleSvc.execute( "vrsdoc", facts, null, null );
+		def docs = facts.findAll{ it instanceof VrsDoc };
+		docs.each {
+			//find last doctype version
+			def oldDocType = docTypeEm.find( [objid: it.doctypeid ] ).first();
+			def lastDocType = vwDocTypeEm.find( [name: oldDocType.name ] ).where("superseded = 0").first();
+			
+			def doctypeid = lastDocType.objid;
+
+			def d = [txnid: o.txnid, doctypeid:doctypeid ];
+			if(!docEm.find( d ).exists()) {
+				d.doctype = [objid: doctypeid];
+				docEm.create( d );	
+			}
+		}
+	}
+
+
+	@ProxyMethod
+	public void addDoc( def o ) {
+		docEm.create( o );
+	}
+
+	@ProxyMethod
+	public void removeDoc( def o ) {
+		docEm.find([objid: o.objid]).delete();
+	}
+
+	@ProxyMethod
+	public def getTxnDocList( def o ) {
+		return vwDocEm.find( [txnid: o.txnid ]).list();	
+	}
+
+	@ProxyMethod
+	public def getDocInfo( def o ) {
+
+		def d = vwDocEm.find( o ).first();
+		def txn = vwTxnEm.find( [objid: d.txnid ] ).first();
+		def infos = vwAcctInfoEm.find( [acctid: txn.acctid] ).list();
+
+		def dtype = d.doctype;
+
+		def doc = [:];
+
+		doc.putAll( txn );
+		doc.issueno = d.issueno;
+		doc.dtissued = d.dtissued;
+		doc.issuer =  d.issuer;
+		doc.expirydate = d.expirydate;
+
+		def info = [:]
+		infos.each {
+			def val = null;
+			if(it.datatype == 'decimal' ) val = it.decimalvalue;
+			else if(it.datatype == 'integer' ) val = it.intvalue;
+			else if(it.datatype == 'boolean' ) val = it.booleanvalue;
+			else if(it.datatype == 'date' ) val = it.datevalue;
+			else val = it.stringvalue;
+			info.put(it.name.toLowerCase(), val);
+		}
+		doc.info = info;
+
+		if( dtype.endorser ) {
+			doc.endorser = sigEm.find( [objid: dtype.endorserid ]).first();
+		}
+		if( dtype.approverid ) {
+			doc.approver = sigEm.find( [objid: dtype.approverid ]).first();
+		}
+		return doc;
+
+	}
+
+	@ProxyMethod
+	public def issue( def o ) {
+		if(!o.docid) throw new Exception("docid is required in issue");
+		if(!o.txnid) throw new Exception("txnid is required in issue");
+		if(!o.doctypeid) throw new Exception("doctypeid is required in issue")	
+		
+		def txn = vwTxnEm.find( [objid: o.txnid ] ).first();
+		if(!txn) throw new Exception("VrsDocService.issue error. txn is null");
+
+		if(!o.dtissued ) {
+			o.dtissued = dateSvc.getServerDate();
+		}
+
+		def doctype = docTypeEm.find( [objid: o.doctypeid ] ).first();
+		//fire rules first to determine if there are infos
+
+		def facts = [];
+		facts << new VrsTxn( txn );
+		facts << new VrsDoc( [doctypeid: doctype.name, dtissued: o.dtissued ] );
+		ruleSvc.execute( "vrsdoc", facts, null, null );
+		def doc = facts.find{ it instanceof VrsDoc };
+
+		if( !o.issueno ) {
+			def pattern = doctype.controlnopattern;
+			if( doc.controlnopattern ) pattern = doc.controlnopattern;
+			o.issueno = controlNoSvc.getNextNo( [pattern: pattern ] );
+		};
+
+		if(!o.expirydate) {
+			o.expirydate = doc.expirydate;
+		}
+
+		o = issueEm.create( o );
+
+		//update the doc key
+		docEm.find( [objid: o.docid] ).update([issuanceid: o.objid]);
+		return o;
+	}
+
+	
+
+
+}
+

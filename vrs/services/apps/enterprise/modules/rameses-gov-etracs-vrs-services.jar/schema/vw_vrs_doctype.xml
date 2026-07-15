@@ -1,0 +1,37 @@
+<schema>
+	<element tablename="vw_vrs_doctype">
+		
+		<field name="objid" primary="true" visible="true" searchable="true"/>
+		<field name="name" required="true"/>
+		<field name="state" required="true"/>
+		<field name="title" searchable="true"/>
+		
+		<field name="templateid" />
+		<field name="reportid" />
+
+		<field name="controlnopattern"/>
+
+		<field name="role"/>
+		<field name="vehicletypeid"/>
+		
+		<complex name="endorser" ref="sys_signature" jointype="many-to-one" required="false" includefields="userid,displayname,position">
+			<key field="endorserid" target="objid"/>
+		</complex>
+		<complex name="approver" ref="sys_signature" jointype="many-to-one" required="false" includefields="userid,displayname,position">
+			<key field="approverid" target="objid"/>
+		</complex>
+		
+		<field name="supersededid"/>
+		<field name="version" required="true"/>
+			
+        <!-- o=not issued 1=auto issued 2=manual issued -->
+		<field name="issuetype"/>	
+		<field name="docclass" required="true"/>
+		<field name="sortorder" />
+
+		<!-- superseded -->
+		<field name="superseded" />
+
+		<field name="autoemail" type="boolean" />
+	</element>
+</schema>

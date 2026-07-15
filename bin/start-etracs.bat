@@ -22,9 +22,9 @@ set START_RUN_DIR=%START_BASE_DIR%\bin
 
 rem This will be the base directory
 set REPO_DIR=%START_BASE_DIR%
-set ETRACS_DIR=%START_BASE_DIR%\etracs
-set BASE_DIR=%ETRACS_DIR%
-set RUN_DIR=%ETRACS_DIR%\bin
+set APP_DIR=%START_BASE_DIR%\etracs
+set BASE_DIR=%APP_DIR%
+set RUN_DIR=%APP_DIR%\bin
 
 
 set JAVA_OPT_XMX=1500
@@ -44,5 +44,5 @@ echo .=================================================================
 echo .
 
 
-"%JAVA%" "%JAVA_OPT%" -cp etracs/lib/*;etracs/lib/ext/s3/*;. com.rameses.main.bootloader.MainBootLoader
+"%JAVA%" "%JAVA_OPT%" -cp "%APP_DIR%/lib/*;%APP_DIR%/lib/ext/s3/*;." com.rameses.main.bootloader.MainBootLoader
 pause

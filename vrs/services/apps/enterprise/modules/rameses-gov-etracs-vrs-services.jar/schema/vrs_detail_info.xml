@@ -1,0 +1,23 @@
+<schema>
+	<element tablename="vrs_detail_info">
+		<field name="objid" primary="true" prefix="VRSDETINFO"/>
+		<field name="fieldid" required="true"/>
+
+		<field name="stringvalue" />
+		<field name="decimalvalue" type="decimal"/>
+		<field name="intvalue" type="integer"/>
+		<field name="datevalue"  type="date"/>
+		<field name="booleanvalue"  type="integer"/>
+
+		<field name="lov_objid" />
+		<field name="lookup_objid" />
+		<field name="lookup_title" />
+		<field name="objvalue" />
+
+		<field name="supersededid" />
+		<field name="txnid"  required="true"/>
+	</element>
+</schema>
+
+
+

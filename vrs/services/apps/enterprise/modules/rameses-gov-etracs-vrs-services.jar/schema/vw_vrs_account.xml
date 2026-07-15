@@ -1,0 +1,51 @@
+<schema>
+	<element tablename="vw_vrs_account">
+		<field name="objid" primary="true" />
+		<field name="vehicletypeid" />
+		<field name="headerinfoid" />
+
+		<field name="acctno" searchable="true" indexed="true"  caption="Acct No"/>
+		
+		<field name="acctyearid" />
+		<field name="activeyear" caption="Active Year"/>
+
+		<field name="vehicletype_objid"/>
+		<field name="vehicletype_title"/>
+		<field name="vehicletype_permitdoctypeid"/>
+		<field name="vehicletype_franchisedoctypeid"/>
+		<field name="vehicletype_maxallowedunits"/>
+
+		<field name="lastyearrenewed"/>
+		<field name="apptype"/>
+		<field name="task_state"/>
+		<field name="txnid"/>	
+		<field name="acctgroup_fullpath"/>
+		<field name="acctgroup_name"/>
+
+		<field name="contact_phoneno"/>
+		<field name="contact_mobileno"/>
+		<field name="contact_email"/>
+
+		<field name="owner_objid"/>		
+		<field name="owner_name"  caption="Owner Name" searchable="true" indexed="true"/>
+		<field name="owner_address_text"/>
+		
+		<field name="permit_objid" />
+		<field name="permit_doctypeid" />
+		<field name="permit_issueno"  caption="Permit No" searchable="true" indexed="true"/>
+		<field name="permit_dtissued" caption="Date Issued" type="date"/>
+		<field name="permit_expirydate"  caption="Expiry Date" type="date"/>
+		<field name="permit_expired"  caption="Permit Expired"/>
+
+		<field name="franchise_objid" />
+		<field name="franchise_doctypeid" />
+		<field name="franchise_state" />
+		<field name="franchise_franchiseno" caption="Franchise No" searchable="true" indexed="true"/>
+		<field name="franchise_dtissued"  caption="Date Issued" type="date"/>
+		<field name="franchise_expirydate"  caption="Expiry Date" type="date"/>
+		<field name="franchise_expired"  caption="Franchise Expired"/>
+	</element>
+</schema>
+
+
+	

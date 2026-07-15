@@ -1,0 +1,7 @@
+<schema>
+	<element tablename="vrs_billitem" extends="vrs_abstract_billitem">
+		<field name="objid" primary="true" prefix="VRSBILLITM"/>
+		<field name="year" />
+		<field name="duedate" type="date"/>
+	</element>
+</schema>

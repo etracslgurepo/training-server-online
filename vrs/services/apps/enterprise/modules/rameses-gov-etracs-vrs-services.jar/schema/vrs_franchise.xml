@@ -1,0 +1,14 @@
+<schema>
+	<element tablename="vrs_franchise">
+		<field name="objid" primary="true" />
+		<field name="vehicletypeid" required="true" />
+		<field name="doctypeid" required="true" />
+		<field name="state" />
+		<field name="franchiseno" searchable="true" indexed="true" required="true"/>
+		<field name="expirydate" type="date" required="true"/>
+		<field name="dtissued" type="date"/>
+		<field name="supersededid" />
+		<field name="particulars" />
+		<field name="expirydate" type="date" required="true"/>
+	</element>
+</schema>

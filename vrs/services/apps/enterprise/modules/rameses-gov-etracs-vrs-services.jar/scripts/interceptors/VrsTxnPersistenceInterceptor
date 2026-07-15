@@ -1,0 +1,79 @@
+import com.rameses.annotations.*;
+
+public class VrsTxnPersistenceInterceptor  {
+
+	@DataContext("vw_vrs_header_info")
+	def vwHeaderEm;
+
+	@DataContext("vrs_header_info")
+	def headerEm;
+
+	@DataContext("vrs_detail_info")
+	def infoEm;
+
+	@DataContext("vrs_txn_task")
+	def taskEm;
+
+	@DataContext("vw_vrs_txn")
+	def vwTxnEm;
+
+	@DataContext("vrs_txn")
+	def txnEm;
+
+	@DataContext("vrs_account")
+	def acctEm;
+
+	@DataContext("vrs_account_year")
+	def acctYearEm;
+
+	@DataContext("vrs_doc")
+	def docEm;
+
+	@After(pattern="PersistenceService.read", eval="#{args[0]._schemaname == 'vw_vrs_txn' }")
+	public void afterRead(def evt) {
+		def result = evt.result;
+		def extHead = vwHeaderEm.find( [txnid: result.objid ] ).first();
+		if( extHead ) {
+			extHead.remove("objid");
+			extHead.remove("txnid");
+			result.putAll( extHead );
+ 		}
+
+ 		//load the txninfos
+ 		result.infos = txnEm.getDetailInfos( [acctid: result.acctid, txndate: result.txndate, txnid: result.objid ] );
+	}
+
+	@Before(pattern="PersistenceService.removeEntity", eval="#{args[0]._schemaname == 'vrs_txn' }")
+	public void  beforeRemove(def evt) {
+		def o = evt.args[0];
+		def txnid = o.objid;
+
+		def txn = vwTxnEm.find( [objid: txnid] ).first();
+		if(txn.task.state == 'end' ) throw new Exception("Cannot remove transaction. Task is already ended.")
+
+		
+		txnEm.find( [objid: txnid ] ).update( [taskid: "{NULL}", acctyearid: "{NULL}", headerinfoid: "{NULL}"] );
+
+		if( txn.txntype.name == 'RENEWAL' && txn.txnmode != 'CAPTURE' ) {
+			//update account's acctyearid
+			acctEm.find( [objid: txn.acctid] ).update( [acctyearid: "{NULL}"] );
+			acctYearEm.find( [objid: txn.acctyearid ] ).delete();
+			//find previous acct year and replace account's last account year
+			def lastYr = acctYearEm.find( [acctid: txn.acctid ] ).orderBy("activeyear DESC ").first();
+			if(!lastYr) throw new Exception("There is no previous year found");
+			acctEm.find( [objid: txn.acctid ] ).update( [acctyearid: lastYr.objid] );			
+		}
+		else if( txn.txntype.name == 'NEW' || txn.txnmode == 'CAPTURE' ) {
+			acctEm.find( [objid: txn.acctid] ).update( [acctyearid: "{NULL}"] );
+			acctYearEm.find( [objid: txn.acctyearid ] ).delete();
+			acctEm.find( [objid: txn.acctid] ).delete();
+		}
+
+		taskEm.find( [refid: txnid]  ).delete();
+		headerEm.find( [txnid: txnid ] ).delete();
+		infoEm.find( [txnid: txnid ] ).delete();
+		docEm.find( [txnid: txnid ] ).delete();
+	}
+
+
+}	

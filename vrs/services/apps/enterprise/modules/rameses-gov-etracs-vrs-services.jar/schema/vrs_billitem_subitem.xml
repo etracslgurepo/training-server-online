@@ -1,0 +1,8 @@
+<schema>
+	<element tablename="vrs_billitem_subitem" extends="vrs_abstract_billitem">
+		<field name="objid" primary="true" prefix="VRSSUBBILLITM"/>
+		<field name="billitemrefid" required="true"/>
+		<field name="type" required="true"/>
+
+	</element>
+</schema>

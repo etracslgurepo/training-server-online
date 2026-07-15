@@ -61,3 +61,37 @@ select
 from business_payment bp 
 	inner join business_payment_item bpi on bpi.parentid = bp.objid 
 ;
+
+
+-- 
+-- supporting patches for VRS
+-- 
+
+insert into sys_domain (
+	`name`, `connection` 
+) 
+select t0.* 
+from ( select 'VRS' as `name`, 'vrs' as `connection` )t0 
+	left join sys_domain d on d.name = t0.name 
+where d.name is null 
+;
+
+insert into collectiontype (
+	objid, state, `name`, title, formno, `handler`, 
+	allowbatch, allowonline, allowoffline, sortorder, 
+	fund_objid, fund_title, allowpaymentorder, allowkiosk, 
+	allowcreditmemo, info, `connection`, servicename 
+) 
+select t0.* 
+from ( 
+	select 
+		'VRS' as objid, 'ACTIVE' as state, 'VRS' as `name`, 
+		'VRS' as title, '51' as formno, 'vrs' as `handler`, 
+		0 as allowbatch, 1 as allowonline, 1 as allowoffline, 0 as sortorder, 
+		'GENERAL' as fund_objid, 'GENERAL PROPER' as fund_title, 
+		0 as allowpaymentorder, 0 as allowkiosk, 0 as allowcreditmemo, 
+		'[:]' as info, 'vrs' as `connection`, 'VrsPaymentService' as servicename 
+)t0 
+	left join collectiontype ct on ct.objid = t0.objid 
+where ct.objid is null 
+;

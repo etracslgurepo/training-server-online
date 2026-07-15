@@ -1,0 +1,19 @@
+import com.rameses.annotations.*;
+
+public class VrsAccountCasePersistenceInterceptor  {
+
+	@Service("DateService")
+	def dateSvc;
+
+	@Env
+	def env;
+
+	@Before(pattern="PersistenceService.create", eval="#{args[0]._schemaname == 'vrs_account_case' }")
+	public void beforeCreate(def evt) {
+		def o = evt.args[0];
+		o.dtcreated = dateSvc.getServerDate();
+		o.createdby = [objid: env.USERID, name: env.FULLNAME];
+	}
+
+
+}	

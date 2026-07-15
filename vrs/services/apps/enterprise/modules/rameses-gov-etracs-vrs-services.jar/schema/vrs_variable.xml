@@ -1,0 +1,16 @@
+<schema>
+	<element tablename="vrs_variable">
+	    <field name="objid" primary="true" style="code" visible="true" searchable="true"/>
+		<field name="state" required="true" defaultValue="DRAFT"/>
+		<field name="datatype" required="true" editable="false"/>
+		<field name="caption" required="true"/>
+		<field name="description"/>
+		<field name="system" required="true"/>
+		<complex name="arrayvalues" serializer="default"/>
+		<field name="sortorder" required="true"/>
+		<field name="category" />
+		<field name="unit" />
+		<field name="lookuplistname" />
+		<field name="multiselect" />
+	</element>
+</schema>

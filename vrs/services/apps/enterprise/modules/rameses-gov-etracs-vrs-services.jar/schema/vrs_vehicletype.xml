@@ -1,0 +1,16 @@
+<schema>
+	<element tablename="vrs_vehicletype">
+		<field name="objid" primary="true" visible="true" editable="false" caption="Name" searchable="true"/>
+		<field name="title" required="true" caption="Title"  searchable="true"/>
+		
+		<field name="controlpattern" />
+		<field name="acctnopattern" required="true" />
+		<field name="drivernopattern"  />
+
+		<field name="iconid" /> 
+		<field name="maxallowedunits" type="integer"/> 
+
+		<field name="permitdoctypeid"/> 
+		<field name="franchisedoctypeid"/> 
+	</element>
+</schema>

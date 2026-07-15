@@ -1,0 +1,19 @@
+<schema>
+	<element tablename="vrs_abstract_billitem">
+		<field name="objid" primary="true" prefix="VRSBILLITM"/>
+		<field name="billid" />
+		<complex name="item" ref="vrs_itemaccount" jointype="many-to-one" required="true">
+			<key field="itemid" target="objid" />
+		</complex> 
+		<field name="amount" type="decimal" required="true"/>
+		<field name="amtpaid" type="decimal" required="true"/>
+		<field name="remarks" />	
+		<field name="uid" required="true"/>
+		<field name="auto" required="true"/>
+		<field name="forwarded" required="true"/>
+
+		<!-- used for removing entries during unpost -->
+		<field name="billdate" type="date"/>
+		<field name="supersededid" />
+	</element>
+</schema>

@@ -1,0 +1,6 @@
+<schema>
+	<element tablename="vrs_credit_billitem" extends="vrs_abstract_billitem">
+		<field name="objid" primary="true" prefix="VRSCRDTBILLITM"/>
+		<field name="paymentid" />
+	</element>
+</schema>

@@ -1,0 +1,16 @@
+<schema>
+	<element tablename="vw_vrs_franchise">
+		<field name="objid" primary="true" />
+		<field name="vehicletypeid" />
+		<field name="doctypeid" />
+		<field name="state" />
+		<field name="franchiseno" searchable="true" indexed="true" />
+		<field name="expirydate" type="date" />
+		<field name="dtissued" type="date"/>
+		<field name="supersededid" />
+		<field name="particulars" />
+		<field name="expirydate" type="date" />
+		<field name="expired"  caption="Expired" type="checkbox" checkValue="1" uncheckValue="0"/>
+		<field name="superseded" />
+	</element>
+</schema>

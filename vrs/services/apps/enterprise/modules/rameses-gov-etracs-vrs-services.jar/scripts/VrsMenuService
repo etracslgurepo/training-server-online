@@ -1,0 +1,20 @@
+import com.rameses.annotations.*;
+
+public class VrsMenuService  {
+
+	@DataContext("vrs_txntype")
+	def txnTypeEm;
+
+	@ProxyMethod
+	public def getTxnItems( def o ) {
+		if(!o.vehicletypeid ) throw new Exception("Vehicletypeid is required");
+
+		def list = txnTypeEm.where("vehicletypeid = :vt", [vt: o.vehicletypeid]).list().collect{ 
+			[objid:it.objid, name:it.name, title:it.title, handler:'vrs_txn', processname: it.processname, sortorder: it.sortorder  ] 
+		};	
+
+		return list.sort{ it.sortorder };
+	}
+
+
+}

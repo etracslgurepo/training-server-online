@@ -1,0 +1,10 @@
+<schema>
+	<element tablename="vrs_paymentitem">
+		<field name="objid" primary="true" prefix="VRSPMTITM"/>
+		<field name="parentid" required="true"/>
+		<field name="billid" />
+		<field name="billitemrefid" required="true"/>
+		<field name="amount" type="decimal" required="true"/>
+		<field name="voidamount" type="decimal" />
+	</element>
+</schema>

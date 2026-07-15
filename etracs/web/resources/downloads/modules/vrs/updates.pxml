@@ -1,0 +1,10 @@
+<app>
+<env>
+vrs.buildver=255.05.001
+vrs.app.host=${app_server_ip}:18077
+vrs.app.context=enterprise
+</env>
+<modules>
+   <module version="2.69" file="vrs/rameses-gov-etracs-vrs-common.jar"  />
+</modules>
+</app>

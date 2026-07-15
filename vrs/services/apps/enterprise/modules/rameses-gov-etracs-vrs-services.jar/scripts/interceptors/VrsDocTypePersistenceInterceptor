@@ -1,0 +1,36 @@
+import com.rameses.annotations.*;
+
+public class VrsDocTypePersistenceInterceptor  {
+
+	@DataContext("vrs_doctype")
+	def docTypeEm;
+
+	@Before(pattern="PersistenceService.create", eval="#{args[0]._schemaname == 'vrs_doctype' }")
+	public void loadList(def evt) {
+		def o = evt.args[0];
+		if(o.version==null) o.version = 0;
+		o.objid = (!o.version) ? o.name : o.name + ":" + o.version;
+		o.state = 'DRAFT';		
+	}
+
+	@Before(pattern="PersistenceService.removeEntity", eval="#{args[0]._schemaname == 'vrs_doctype' }")
+	public void beforeRemove(def evt) {
+		def o = evt.args[0];
+		def dt = docTypeEm.find( [objid: o.objid]).select("state").first();
+		if(dt.state!='DRAFT') throw new Exception("Only doctypes in DRAFT state can be removed");		
+	}
+	
+	@Before(pattern="PersistenceService.doAction", eval="#{args[0]._schemaname == 'vrs_doctype' && args[0]._action == 'approve' }")
+	public void beforeApprove(def evt) {
+		def o = evt.args[0];
+		docTypeEm.find( [objid: o.objid] ).update( [state: "POSTED"] );	
+	}
+
+	@Before(pattern="PersistenceService.update", eval="#{args[0]._schemaname == 'vrs_doctype' }")
+	public void beforeUpdate(def evt) {
+		def o = evt.args[0];
+		if( o.endorser == null ) o.endorser = [objid:"{NULL}"];
+		if( o.approver == null ) o.approver = [objid:"{NULL}"];
+	}
+
+}	

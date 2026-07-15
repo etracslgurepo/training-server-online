@@ -1,0 +1,24 @@
+<schema>
+	<element tablename="vw_vrs_doc">
+		<field name="objid" primary="true" />
+
+		<field name="issuanceid" />
+		<field name="issueno" />
+		<field name="dtissued" />
+		<field name="issuer_objid" />
+		<field name="issuer_name" />
+		<field name="expirydate" />
+
+		<complex name="doctype" ref="vrs_doctype" jointype="many-to-one" required="true">
+			<key field="doctypeid" target="objid" />
+		</complex>	
+
+		<complex name="txn" ref="vw_vrs_txn" jointype="many-to-one" required="true">
+			<key field="txnid" target="objid" />
+		</complex>	
+
+	</element>
+</schema>
+
+
+		

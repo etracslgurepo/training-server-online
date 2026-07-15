@@ -22,9 +22,9 @@ set START_RUN_DIR=%START_BASE_DIR%\bin
 
 rem This will be the base directory
 set REPO_DIR=%START_BASE_DIR%
-set GDX_DIR=%START_BASE_DIR%\gdx
-set BASE_DIR=%GDX_DIR%
-set RUN_DIR=%GDX_DIR%\bin
+set APP_DIR=%START_BASE_DIR%\gdx
+set BASE_DIR=%APP_DIR%
+set RUN_DIR=%APP_DIR%\bin
 
 
 set JAVA_OPT_XMX=1024
@@ -44,5 +44,5 @@ echo .=================================================================
 echo .
 
 
-"%JAVA%" "%JAVA_OPT%" -cp gdx/lib/*;. com.rameses.main.bootloader.MainBootLoader
+"%JAVA%" "%JAVA_OPT%" -cp "%APP_DIR%/lib/*;." com.rameses.main.bootloader.MainBootLoader
 pause

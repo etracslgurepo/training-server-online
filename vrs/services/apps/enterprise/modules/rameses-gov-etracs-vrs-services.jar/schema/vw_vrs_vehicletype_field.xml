@@ -1,0 +1,13 @@
+<schema>
+	<element tablename="vw_vrs_vehicletype_field">
+	    <field name="objid" primary="true" style="code"/>
+		<field name="vehicletypeid" />	    
+		<field name="name" searchable="true" editable="false"/>
+		<field name="caption" />
+		<field name="sortorder" />
+		<field name="category" />
+		<field name="required" />
+		<field name="textwidth" type="integer" />
+		<field name="datatype" />
+	</element>
+</schema>

@@ -1,0 +1,34 @@
+<schema>
+	<element tablename="vrs_bill">
+		<field name="objid" primary="true" prefix="VRSBILL"/>
+		<field name="txnid" />
+		<field name="billno" required="true"/>	
+
+		<!-- bill date may change -->
+		<field name="billdate" type="date" required="true"/>
+		<field name="duedate" type="date"/>
+		<field name="validitydate" type="date"/>
+		
+		<!-- states: OPEN, POSTED, CLOSED -->
+		<field name="state" required="true"/>
+
+		<field name="remarks" />						
+
+		<!-- this should match the balance of the previous bill -->
+		<field name="balanceforward" required="true" type="decimal"/>
+		
+		<!-- computed sucharge and interest for this bill -->
+		<field name="surcharge" required="true" type="decimal"/>
+		<field name="interest" required="true" type="decimal"/>
+		<field name="amount" required="true" type="decimal" />
+		<field name="discount" required="true" type="decimal" />
+		<field name="totalpayment" required="true" type="decimal"/>
+
+		<field name="balance" type="decimal" expr="(balanceforward + interest + surcharge + amount) - totalpayment - discount"/>
+
+		<field name="txnmode" />
+
+	</element>
+</schema>
+
+

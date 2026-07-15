@@ -1,0 +1,36 @@
+<schema>
+	<element tablename="vw_vrs_billitem">
+		<field name="objid" primary="true"/>
+		<field name="billid" />	
+		<field name="amount" type="decimal"/>
+		<field name="amtpaid" type="decimal"/>
+		<field name="discount" type="decimal"/>
+
+		<field name="year" />
+		
+		<field name="remarks" />
+		<field name="uid" />
+
+		<field name="particulars" />
+		<field name="billdate" />
+		<field name="auto" />
+		<field name="forwarded" />
+		<field name="billdate" />
+		<field name="duedate" />
+		<field name="superseded" />
+		<field name="supersederid" />
+
+
+		<field name="surcharge" type="decimal"/>
+		<field name="interest" type="decimal"/>
+		<field name="surchargepaid" type="decimal"/>
+		<field name="interestpaid" type="decimal"/>
+		<field name="balance" type="decimal" expr="amount - amtpaid - discount"/>
+
+		<complex name="item" ref="vrs_itemaccount" jointype="many-to-one" required="true">
+			<key field="itemid" target="objid" />		
+		</complex>	
+
+		<field name="sortorder" />
+	</element>
+</schema>

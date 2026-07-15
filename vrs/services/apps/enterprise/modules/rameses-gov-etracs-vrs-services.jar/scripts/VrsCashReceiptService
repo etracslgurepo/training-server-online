@@ -1,0 +1,29 @@
+import com.rameses.annotations.*;
+
+class VrsCashReceiptService {
+	
+	@Service("VrsPaymentService")
+	def pmtSvc;
+
+	@ProxyMethod
+	public def getPaymentInfo( def o ) {
+		if(!o.bills) throw new Exception("parameter bills is required in VrsCashReceiptService.getPaymentInfo")
+		if(!o.txndate) throw new Exception("parameter txndate is required in VrsCashReceiptService.getPaymentInfo")
+        
+		def items = [];
+        def postingitems = [];
+        def billitems = [];
+        
+      	o.bills.each { b->
+        	def r = pmtSvc.getPaymentInfo( [billid: b.billid, amtpaid: b.amount, txndate: o.txndate, autopost: true ] );
+            items.addAll( r.items );
+            postingitems.addAll( r.postingitems );
+            billitems.addAll( r.billitems );
+        }
+
+        return [items: items, postingitems: postingitems, billitems: billitems];
+
+	}
+
+	
+}

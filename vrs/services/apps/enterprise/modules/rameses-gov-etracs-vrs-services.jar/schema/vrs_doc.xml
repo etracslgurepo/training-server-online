@@ -1,0 +1,12 @@
+<schema>
+	<element tablename="vrs_doc">
+		<field name="objid" primary="true" prefix="VRSDOC"/>
+		<field name="txnid" required="true"/>
+
+		<complex name="doctype" ref="vrs_doctype" jointype="many-to-one" required="true">
+			<key field="doctypeid" target="objid" />
+		</complex>	
+
+		<field name="issuanceid" />
+	</element>
+</schema>

@@ -1,0 +1,86 @@
+import com.rameses.annotations.*;
+import vrs.facts.*;
+
+public class VrsFranchisePersistenceInterceptor  {
+
+	@Service("RuleExecutorService")
+	def ruleSvc;
+
+	@Service("ControlnoGeneratorService")
+	def controlNoGenerator;
+
+	@DataContext("vrs_vehicletype")
+	def vtEm;
+
+	@DataContext("vrs_franchise")
+	def franchiseEm;
+
+	@DataContext("vrs_doctype")
+	def docTypeEm;
+
+	@DataContext("vrs_account_year")
+	def acctYearEm;
+
+	@DataContext("vw_vrs_account")
+	def acctEm;
+
+	@After(pattern="PersistenceService.doAction", eval="#{args[0]._schemaname == 'vrs_franchise' && args[0]._action == 'create' }")
+	public void beforeCreateFranchise(def evt) {
+		def o = evt.args[0];
+		def result = evt.result;
+		if(!o.dtissued) throw new Exception("dtisued is required in saving franchise");
+		if(!o.vehicletypeid) throw new Exception("Please indicate vehicletype in VrsFranchisePersistenceInterceptor.beforeSave");
+		def g = vtEm.find( [objid: o.vehicletypeid] ).first();
+		if(!g) throw new Exception("vehicletype " + o.vehicletypeid + " not found");
+		if(!g.franchisedoctypeid ) throw new Exception("franchisedoctypeid not set in Vehicle Type");
+
+		def doctype = docTypeEm.find( [objid: g.franchisedoctypeid ] ).first();
+		
+		def prevexpirydate = o.dtissued;
+		if( o.supersededid ) {
+			def fran = franchiseEm.find( [objid: o.supersededid ] ).first();
+			if(fran) prevexpirydate = fran.expirydate;
+		}
+
+		def facts = [];
+		facts << new VrsDoc( [doctypeid: doctype.name, dtissued: o.dtissued, prevexpirydate: prevexpirydate ] );
+		ruleSvc.execute( "vrsdoc", facts, null, null );
+		def doc = facts.find{ it instanceof VrsDoc };
+
+		o.doctypeid = doctype.objid;
+		o.state = 'ACTIVE';
+
+		def pattern = doctype.controlnopattern;
+		if( doc.controlnopattern ) pattern = doc.controlnopattern;
+		if( pattern) o.objid = controlNoGenerator.getNextNo( pattern );
+		if(!o.expirydate) o.expirydate = doc.expirydate;
+
+		def v = franchiseEm.create( o );
+
+		if(o.supersededid ) {
+			//if there is superseded we need to update the existing link
+			acctYearEm.find( [objid: o.acctyearid ]).update([franchiseid: v.objid ]);		
+		}
+
+		result.putAll( v );
+	}
+
+	@Before(pattern="PersistenceService.doAction", eval="#{args[0]._schemaname == 'vrs_franchise' && args[0]._action == 'assign-franchise' }")
+	public void assignFranchise(def evt) {
+		def o = evt.args[0];
+		if(!o.acctyearid) throw new Exception("acctyearid is required");
+		if(!o.franchiseid) throw new Exception("franchiseid is required");
+		
+		def acct = acctEm.find( [acctyearid: o.acctyearid ] ).first();
+		
+		def allowedUnits = acct.vehicletype.maxallowedunits;
+		if(!allowedUnits) allowedUnits = 1;
+
+		def cnt = acctYearEm.find( [activeyear: acct.activeyear, franchiseid: o.franchiseid ] ).select("c:{COUNT(*)}").val();
+		if( cnt >= allowedUnits )
+			throw new Exception("Cannot assign franchise. Maximum allowed units for this franchise has been reached");
+
+		acctYearEm.find( [objid: o.acctyearid ]).update([franchiseid: o.franchiseid ]);
+	}
+
+}	

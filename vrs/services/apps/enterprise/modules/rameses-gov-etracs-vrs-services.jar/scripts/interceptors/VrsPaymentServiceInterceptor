@@ -1,0 +1,49 @@
+import com.rameses.annotations.*;
+
+public class VrsPaymentServiceInterceptor  {
+
+	@DataContext("vw_vrs_bill")
+	def vwBillEm;
+
+	@DataContext("vrs_billitem")
+	def billItemEm;
+
+	@Service("WorkflowTaskService")
+	def wfSvc;
+
+	@After(pattern="VrsPaymentService.postPayment")
+	public void afterPostPayment(def evt) {
+		def o = evt.args[0];
+		def res = evt.result;
+		
+		o.postingitems*.billid.unique().each {
+			def bill = vwBillEm.find( [objid: it] ).first();
+			//move only if the task state is for payment.
+			if( bill.task.state == 'payment' ) {
+				def m = [processname: bill.txntype.processname ];
+				m.entityschemaname = "vrs_txn";
+				m.refid = bill.txnid;
+				wfSvc.signal( m );
+			}
+		}
+	}
+
+	@After(pattern="VrsPaymentService.voidPayment")
+	public void afterVoidPayment(def evt) {
+		def o = evt.args[0];
+		def res = evt.result;
+
+		res.bills.each {
+			def bill = vwBillEm.find( [objid: it] ).first();
+			if( bill.task.state == 'releasing' ) {
+				def m = [processname: bill.txntype.processname ];
+				m.entityschemaname = "vrs_txn";
+				m.refid = bill.txnid;
+				m.action = "void-payment";
+				wfSvc.signal( m );	
+			}
+		}
+	}
+
+
+}

@@ -1,0 +1,21 @@
+<app>
+<env>
+vrs.buildver=255.05.001
+vrs.app.host=${app_server_ip}:18077
+vrs.app.context=enterprise
+</env>
+<modules>
+   <module version="2.22" file="vrs/v1/osiris2-report.jar"  />
+   <module version="2.12" file="vrs/v1/rameses-common2.jar"  />
+   <module version="2.22" file="vrs/v1/rameses-seti.jar"  />
+
+   <module version="1.04" file="vrs/v1/rameses-rules-mgmt-2.09.jar"  />
+   <module version="1.04" file="vrs/v1/rameses-app-common-2.09.jar"  />
+   <module version="1.04" file="vrs/v1/rameses-enterprise-2.09.jar"  />
+
+   <module version="1.02" file="vrs/v1/rameses-treasury-common-2.11.jar"  />
+
+   <module version="2.69" file="vrs/rameses-gov-etracs-vrs-common.jar"  />
+   <module version="2.01" file="vrs/rameses-gov-etracs-vrs.jar"  />
+</modules>
+</app>

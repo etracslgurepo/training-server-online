@@ -1,0 +1,40 @@
+import com.rameses.annotations.*;
+
+public class VrsAccountListInterceptor  {
+
+	@Before(pattern="QueryService.getList", eval="#{args[0]._schemaname == 'vw_vrs_account' }")
+	public void loadList(def evt) {
+		def o = evt.args[0];
+
+		def str = "";
+		def m = [:];
+
+		if( o._tag == 'permit_for_release' ) {
+			str = " permit.objid IS NULL AND task.state = 'releasing' "
+		}
+		else if( o._tag == "permit_renewal") {
+			str = " permit.expirydate < NOW() "
+		}
+		else if( o._tag == "franchise_renewal") {
+			str = " franchise.expirydate < NOW() "
+		}  
+		else if( o._tag == "permit_active") {
+			str = " NOT(permit.expirydate IS NULL) AND permit.expirydate >= NOW() "
+		} 
+		else {
+			str = "1=1";
+		}
+
+		//add to first position of where
+		if( o.where ) {
+			o.where[0] = str + " AND " + o.where[0];	
+			o.where[1].putAll( m );
+		}
+		else {
+			o.where = [str, m];
+		}
+	}
+
+
+	
+}

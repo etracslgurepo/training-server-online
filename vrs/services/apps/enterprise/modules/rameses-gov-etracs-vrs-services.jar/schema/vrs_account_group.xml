@@ -1,0 +1,14 @@
+<schema>
+	<element tablename="vrs_account_group">
+		<field name="objid" primary="true" prefix="VRSACCTGRP"/>
+		<field name="vehicletypeid" />
+		<field name="parentid" />
+		<field name="name"  required="true"/>
+		<field name="description" />
+		<field name="leftindex" />
+		<field name="rightindex" />
+		<field name="fullpath" />
+		<field name="uid" />
+		<field name="sortorder"  required="true"/>
+	</element>
+</schema>
