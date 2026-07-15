@@ -205,7 +205,10 @@ class BusinessPermitService  {
  
 		def addr = em.findBusinessAddress([ objid: perm.address?.objid ]);
 		if ( addr ) { 
-	 		resolveAddress( addr );  
+	 		resolveAddress( addr ); 
+
+	 		perm.address.barangay = addr.barangay;
+	 		perm.businessshortaddress = formatShortAddress( addr ); 
 
 			addr.showextended = false; 
 			perm.businessaddress = formatAddress( addr ); 
@@ -230,7 +233,7 @@ class BusinessPermitService  {
 		} 
 
 		perm.apptype = (perm.parentapptype? perm.parentapptype: perm.apptype); 
-		perm.lobnames = perm.lobs*.name.join(","); 
+		perm.lobnames = perm.lobs*.name.join(", "); 
 
 		perm.payments = []; 
 		em.getPayments( o ).each{ pmt-> 
@@ -250,6 +253,8 @@ class BusinessPermitService  {
 				perm.payments << pmt; 
 			}
 		}
+
+		perm.receipts = perm.payments.findAll{( it.refdate <= perm.dtissued )}
 
 		if ( splitPrinting ) { 
 			perm.payments = perm.payments.findAll{ it.applicationid==o.applicationid } 
@@ -283,15 +288,24 @@ class BusinessPermitService  {
 			}
 		}
 
+		// added to identify if paid in FULL or QUARTERLY 
+		def payOptionInfo = permit_db.findPayOption([ permitid: perm.objid ]);
+		perm.payoption = payOptionInfo?.payoption; 
+
 		return perm;
 	}
 
-	private String formatAddress( addr ) {
+	private String formatShortAddress( addr ) {
+		def bldgaddr = [addr.unitno, addr.bldgno, addr.bldgname].findAll{ it }.join(' ');
+		def list = [ bldgaddr, addr.street, addr.subdivision ]; 
+		return list.findAll{ it }.join(', ').trim(); 
+	} 
+
+	private String formatAddress( addr ) { 
 		def list = []; 
-		def bldgaddr = (addr.unitno? addr.unitno+' ':'') + (addr.bldgno? addr.bldgno+' ':'') + (addr.bldgname? addr.bldgname+' ':''); 
-		if (bldgaddr.trim()) list << bldgaddr.trim(); 
-		if ( addr.street ) list << addr.street; 
-		if ( addr.subdivision ) list << addr.subdivision;
+		def shortAddr = formatShortAddress( addr ); 
+		if ( shortAddr ) list << shortAddr; 
+
 		if ( addr.barangay?.name ) list << addr.barangay.name;
 
 		boolean show_extended = false; 
