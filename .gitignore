@@ -18,3 +18,4 @@ _tmp
 /custom-template
 **/resources/platform/etracs255-platform/**
 zzz-custom
+*.lnk
