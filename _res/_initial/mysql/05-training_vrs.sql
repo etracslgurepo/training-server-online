@@ -2846,3 +2846,13 @@ SET character_set_client = @saved_cs_client;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
 -- Dump completed on 2026-07-14 15:07:58
+
+
+-- 
+-- Additional Patches
+-- 
+INSERT INTO `sys_rule_actiondef_param` (`objid`, `parentid`, `name`, `sortorder`, `title`, `datatype`, `handler`, `lookuphandler`, `lookupkey`, `lookupvalue`, `vardatatype`, `lovname`) 
+VALUES ('treasury.actions.AddCashReceiptItem.billitem', 'treasury.actions.AddCashReceiptItem', 'billitem', 0, 'Bill Item', NULL, 'var', NULL, NULL, NULL, 'treasury.facts.AbstractBillItem', NULL);
+
+INSERT INTO `sys_rule_actiondef_param` (`objid`, `parentid`, `name`, `sortorder`, `title`, `datatype`, `handler`, `lookuphandler`, `lookupkey`, `lookupvalue`, `vardatatype`, `lovname`) 
+VALUES ('treasury.actions.AddCashReceiptItem.billcode', 'treasury.actions.AddCashReceiptItem', 'billcode', 8, 'Bill Code', NULL, 'lookup', 'itemaccount:lookup', 'objid', 'title', 'string', NULL);
