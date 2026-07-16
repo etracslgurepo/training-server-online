@@ -109,6 +109,7 @@ class VrsBillingRuleService {
 			def mb = new VrsBillItem(it);
 			mb.input = true;
 			facts << mb;
+
 			def pItems = subItemList.findAll{ r-> r.billitemrefid == mb.objid };
 			if(pItems) {
 				pItems.each { sb->
@@ -124,7 +125,7 @@ class VrsBillingRuleService {
 					facts << rb;
 				}	
 			} 
-		};
+		}
 
 		creditItemList.each {
 			def cb = new CreditBillItem(it);

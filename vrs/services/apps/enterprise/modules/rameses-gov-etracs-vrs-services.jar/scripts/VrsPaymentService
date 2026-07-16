@@ -41,6 +41,9 @@ class VrsPaymentService {
 	@DataContext("vrs_discountitem")
 	def discountItemEm;
 
+	@DataContext("vrs_itemaccount")
+	def itemAcctEm;
+
 	@ProxyMethod
 	public def getList( def o ) {
 		return pmtEm.getList( o );
@@ -151,7 +154,18 @@ class VrsPaymentService {
 			postingitems << b; 					
 		};
 		facts.findAll{ it instanceof CashReceiptItem }.each {
-			items << it.toMap();
+			def cri = it.toMap(); 
+			if( !cri.item ) {
+				if( !cri.billcode ) throw new Exception("billcode not specified ");
+
+				def ia = itemAcctEm.find([ objid: cri.billcode ]).first();
+				if ( !ia ) throw new Exception("VRS Item Account not found: " + cri.billcode ); 
+
+				cri.item = ia.item; 
+				if ( !cri.item?.objid ) 
+					throw new Exception("VRS Item Account: " + cri.billcode +" has no mapping to treasury account" ); 
+			} 
+			items << cri; 
 		}
 
 		def sumPosting = NumberUtil.round( postingitems.findAll{ it.type != 'discount' }.sum{it.amount} );

@@ -10,27 +10,50 @@ import com.rameses.osiris3.common.*;
 public class AddCashReceiptItem implements RuleActionHandler {
 	
 	public void execute(def params, def drools) {
-		if( !params.groupid ) throw new Exception("param groupid is required in AddCashReceiptItem");
-		if( !params.account ) throw new Exception("param account is required in AddCashReceiptItem");
+		if( !params.account && !params.billitem ) 
+			throw new Exception("param account or billitem is required in AddCashReceiptItem");
+		if( !params.amount ) 
+			throw new Exception("param amount is required in AddCashReceiptItem");
 
-		def billitem = params.billitem;
 		def ct = RuleExecutionContext.getCurrentContext();
 		def facts = ct.facts;
 
-		def grpid = params.groupid.stringValue;
+		def groupid = null;
+		if ( params.groupid ) {
+			groupid = params.groupid.stringValue;
+		}
+		else if ( params.account ) {
+			groupid = params.account.key;
+		}	
+		else {
+			groupid = params.billitem.acctid;
+		} 
+
 		def amt = params.amount.decimalValue;
 
 		def cashrctitm = null;
 		def rItems = facts.findAll{ it instanceof CashReceiptItem };
 		if( rItems ) {
-			cashrctitm = rItems.find{ it.groupid == grpid };
+			cashrctitm = rItems.find{ it.groupid == groupid };
 		}
 
-		if(cashrctitm ==null ) {
+		if( cashrctitm == null ) {
 			cashrctitm = new CashReceiptItem();
-			cashrctitm.item = new ItemAccount( params.account.key, params.account.value );
-			cashrctitm.groupid = grpid;
+			if( params.account ) {
+				cashrctitm.item = new ItemAccount( params.account.key, params.account.value );	
+			}
+
+			cashrctitm.billitem = params.billitem;
+			if( cashrctitm.billitem ) {
+				cashrctitm.billcode = cashrctitm.billitem.billcode;	
+			}
+
+			cashrctitm.groupid = groupid;
 			cashrctitm.amount = NumberUtil.round( amt );
+
+			if( params.billcode ) {
+				cashrctitm.billcode = params.billcode.key;
+			}
 
 			if( params.remarks ) {
 				cashrctitm.remarks = params.remarks.stringValue;

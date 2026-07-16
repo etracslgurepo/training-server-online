@@ -10,17 +10,21 @@ public class CashReceiptItem {
     String remarks;
     String groupid;
     int sortorder;
+    
+    def billitem; 
+    String billcode;
 
     public CashReceiptItem() {}
 
     def toMap() {
         def m = [:];
         m.amount = amount;
-        m.item = item.toMap();
         m.remarks = remarks;
         m.sortorder = sortorder;
+        if( item ) m.item = item.toMap();
+        if( billitem ) m.billitem = billitem.toMap();
+        m.billcode = billcode;
         return m;
     }
-
 
 }
