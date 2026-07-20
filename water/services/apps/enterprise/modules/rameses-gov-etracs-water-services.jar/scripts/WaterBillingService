@@ -16,19 +16,22 @@ class WaterBillingService {
 	def controlNoSvc;
 
 	@Service("WaterBillScheduleService")
-    def billScheduleSvc;
+  def billScheduleSvc;
 
-    @Service("WaterBillingUtilService")
-    def utilSvc;
+  @Service("WaterBillingUtilService")
+  def utilSvc;
 
-    @Service("WaterRecurringBillService")
-    def recurringBillSvc;
+  @Service("WaterRecurringBillService")
+  def recurringBillSvc;
 
-    @Service("WaterInstallmentService")
-    def installmentSvc;
+  @Service("WaterInstallmentService")
+  def installmentSvc;
 
-    @Service
-    def self;
+  @Service
+  def self;
+
+  @DataContext( dynamic=true )
+  def dynaEm;
 
 	@DataContext("water_bill")
 	def billEm;
@@ -620,4 +623,36 @@ class WaterBillingService {
 		if(!o.acctid) throw new Exception("acctid is required in WaterBillingService.getLatestBill");
 		return vwBillEm.find( [acctid: o.acctid ] ).orderBy("year DESC, month DESC").first();
 	}	
+
+	@ProxyMethod
+	public def detachFromBatch( def o ) {
+		if( !o.billid ) throw new Exception("billid is required");
+
+		def bill = billEm.find([ objid: o.billid ]).select('objid').first(); 
+		if ( bill == null ) throw new Exception('bill record not found'); 
+
+		billEm.find([ objid: o.billid ]).update([ batchid: "{NULL}"]); 
+		return billEm.find([ objid: o.billid ]).select('objid,batchid').first(); 
+	}
+
+	@ProxyMethod
+	public def attachToBatch( def o ) {
+		if( !o.billid ) throw new Exception("billid is required");
+
+		def em = billEm.find([ objid: o.billid ]); 
+		def bill = em.select('objid,batchid,billgroupid,scheduleid').first(); 		
+		if ( bill == null ) throw new Exception('bill record not found'); 
+
+		if ( bill.batchid != null ) return bill; 
+
+		def batchBillEm = dynaEm.lookup('water_batch_bill'); 
+		def batchBill = batchBillEm.find([ billgroupid: bill.billgroupid, scheduleid: bill.scheduleid ]).first(); 
+		if ( batchBill == null ) throw new Exception('No batch bill record for this group'); 
+
+		billEm.find([ objid: o.billid ]);
+		billEm.update([ batchid: batchBill.objid, reader: batchBill.reader ]); 
+
+		billEm.find([ objid: o.billid ]);
+		return billEm.select('objid,batchid,billgroupid,scheduleid').first(); 
+	}
 }

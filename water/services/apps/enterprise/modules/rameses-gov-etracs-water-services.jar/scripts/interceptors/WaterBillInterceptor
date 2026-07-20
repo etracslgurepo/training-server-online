@@ -1,0 +1,22 @@
+import com.rameses.annotations.*;
+
+class WaterBillInterceptor {
+
+	@DataContext( dynamic=true )
+	def dynaEm;
+
+	@After(pattern="PersistenceService.read", eval="#{args[0]._schemaname == 'vw_water_bill'}")
+	public void afterReadVW( def evt ) {
+		def bill = evt.result;
+
+		if ( bill.prevbill == null ) {
+			bill.prevbill = [:]; 
+		}
+
+		if ( bill.prevbillid != null ) {
+			def em = dynaEm.lookup('water_bill'); 
+			def prevbill = em.find([ objid: bill.prevbillid ]).select('objid,reading').first(); 
+			if ( prevbill ) bill.prevbill.putAll( prevbill ); 
+		}
+	}	
+}
