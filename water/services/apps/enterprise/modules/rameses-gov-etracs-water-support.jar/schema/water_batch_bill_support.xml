@@ -1,0 +1,5 @@
+<schema readonly="true">
+	<element tablename="water_batch_bill">
+		<field name="objid" primary="true" />
+	</element>
+</schema>

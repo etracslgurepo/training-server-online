@@ -1,0 +1,103 @@
+import com.rameses.annotations.*;
+
+class WaterBatchBillSupport {
+
+	@DataContext('water_batch_bill_support')
+	def supportEm;
+
+	@Service( dynamic=true )
+	def dynaSvc; 
+
+	@Service 
+	def self; 
+
+	@ProxyMethod 
+	public def recompute( params ) {
+
+		def batchid = params?.batchid; 
+		if ( !batchid ) throw new Exception('param batchid is required');
+
+		def batch = supportEm.findBatch([ batchid: batchid ]); 
+		if ( batch == null ) throw new Exception("batch bill not found: "+ batchid);
+
+		def batchstate = batch.state.toString().toLowerCase(); 
+		if ( !batchstate.matches('pending|for-reading')) 
+			throw new Exception("batch bill: "+ batchid +" must be in for-reading state");
+
+		def whereFilters = []; 
+		def whereParams = [ batchid: batchid ];
+
+		if ( params.billno ) {
+			whereFilters << "wb.billno = :billno";
+			whereParams.billno = params.billno; 
+		}
+		else if ( params.billid ) {
+			whereFilters << "wb.objid = :billid";
+			whereParams.billid = params.billid; 
+		}
+
+		if ( params.acctno ) {
+			whereFilters << "wa.acctno = :acctno";
+			whereParams.acctno = params.acctno; 
+		}
+		else if ( params.acctid ) {
+			whereFilters << "wb.acctid = :acctid";
+			whereParams.acctid = params.acctid; 
+		}
+
+		whereParams.filters = ""; 
+		if ( !whereFilters.isEmpty()) {
+			whereParams.filters = (" AND " + whereFilters.join(' AND ')); 
+			whereFilters.clear(); 
+		}
+
+		def chunkSize = 50;
+		def items = supportEm.getBatchItems( whereParams ); 
+		def itemsLen = items.size(); 
+		for (int i = 0; i < itemsLen; i += chunkSize) {
+			int end = Math.min(i + chunkSize, itemsLen); 
+
+			def bills = []; 
+			bills.addAll( items.subList(i, end)); 
+			self.recomputeBills([ groupid: batchid +' _GRP'+ end, bills: bills ]); 
+		}
+
+		items.clear(); 
+		return [status: "processing"]; 
+	}
+
+	@Async 
+	@ProxyMethod 
+	public void recomputeBills( params ) { 
+		def bills = params.bills; 
+		for (int i = 0; i < bills.size(); i++) {
+			def item = bills[i]; 
+			item.groupid = params.groupid; 
+			self.recomputeBill( item ); 
+		} 
+	}
+
+	@Async 
+	@ProxyMethod 
+	public void recomputeBill( params )	{
+		println '['+ params.groupid +'] '+ params.billno +'...'; 
+
+		// recalc volume 
+		def capacity = params.capacity; 
+		def prevReading = params.prevreading; 
+		def currReading = params.reading;
+		if ( currReading >= prevReading ) {
+			params.volume = currReading - prevReading; 
+		} else {
+			params.volume = (capacity - prevReading) + currReading;
+		}
+
+		def consumptionSvc = dynaSvc.lookup('WaterConsumptionService'); 
+		consumptionSvc.compute([ 
+			billid: params.billid, 
+			prevreading: params.prevreading, 
+			reading: params.reading, 
+			volume: params.volume 
+		]); 
+	} 
+} 
