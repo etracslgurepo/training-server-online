@@ -53,6 +53,10 @@ class WaterBillingRuleService {
 		def acct = o.acct;
 		
 		def facts = [];
+		if ( o.collectiontype?.objid ) {
+			facts << new CashReceipt(); 
+		}
+
 		facts << new TransactionDate( o.txndate );
 		facts << new WaterBill( bill );
 		facts << new WaterAccount( acct );

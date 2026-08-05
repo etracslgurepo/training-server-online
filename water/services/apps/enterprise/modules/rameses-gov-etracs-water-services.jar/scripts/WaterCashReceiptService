@@ -39,7 +39,7 @@ class WaterCashReceiptService {
 	}
 
 	@ProxyMethod
-	public def getPaymentInfo( def o ) {
+	public def getPaymentInfo( def o ) { 
 		def svc = dynaSvc.lookup('WaterBillPaymentService'); 
 		return svc.getPaymentInfo( o ); 
     } 

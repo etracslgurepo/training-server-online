@@ -99,7 +99,14 @@ class WaterBillPaymentService {
 			o.amount = new BigDecimal( o.amount.toString());
 		}
 
-        def r = pmtSvc.getPaymentInfo( [billid: o.billid, amtpaid: o.amount, txndate: o.txndate, autopost: true ] );
+        def r = pmtSvc.getPaymentInfo([ 
+        	billid: o.billid, amtpaid: o.amount, 
+        	txndate: o.txndate, autopost: true, 
+
+        	// collectiontype is set during issuance of cash receipt 
+        	// otherwise it is null only on regular billing request 
+        	collectiontype: o.collectiontype 
+        ]);
 
         //check and correct item mapping and if it exists in financial module
         def itmAcctUtil = new ItemAccountUtil();
@@ -111,13 +118,14 @@ class WaterBillPaymentService {
 					it.item = itmAcctUtil.lookup( itm.objid, it.orgid );						
 				}
 				catch(e) {
-					it.item = itmAcctUtil.lookup( itm.objid );	
+					it.item = itmAcctUtil.lookup( itm );	
 				}
 			}
-			else {
-				it.item = itmAcctUtil.lookup( itm.objid );
+			else { 
+				it.item = itmAcctUtil.lookup( itm ); 
 			}
-			if(!it.item) throw new Exception("Item account not found in financial module for water item mapping for " + it.billcode );
+
+			if ( !it.item ) throw new Exception("Item account not found in financial module for water item mapping " + it.billcode );
         }
 
         def result = [:];

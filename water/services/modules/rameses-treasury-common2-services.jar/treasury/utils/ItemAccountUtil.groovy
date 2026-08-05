@@ -11,16 +11,31 @@ public class ItemAccountUtil {
 	private def svc;
 
 	public def lookup( def acctid ) {
-		if(svc==null) {
+		if ( svc == null ) {
 			svc = ServiceLookup.create( "ItemAccountLookupService", "financial");
 		}
-		if( ! map.containsKey(acctid)) {
-			def m = svc.lookup( [objid: acctid] );	
-			if( !m ) throw new Exception("Account not found in item account.  " );
-			map.put(acctid, m );
+
+		def itemAcctId = acctid; 
+
+		if ( acctid instanceof Map ) { 
+			def acct = (Map) acctid;
+			itemAcctId = acct.objid; 
+
+			if ( !map.containsKey( itemAcctId )) {
+				def res = svc.lookup([ objid: itemAcctId ]);	
+				map.put( itemAcctId, res ); 
+			}
+		} 
+		else if ( !map.containsKey( itemAcctId )) {
+			def res = svc.lookup([ objid: itemAcctId ]); 
+			if ( res == null ) 
+				throw new Exception("Account not found in item account.");
+
+			map.put( itemAcctId, res ); 
 		}
-		return map.get(acctid);		
-	}
+
+		return map.get( itemAcctId ); 
+	} 
  
 	public def lookup( def acctid, def orgid ) {
 		if(svc==null) {

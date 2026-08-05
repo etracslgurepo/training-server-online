@@ -48,13 +48,13 @@ class WaterAccountService {
 		def bill = vwBillEm.find( [objid: acct.lastbillid ] ).first();
 		if ( !bill.batchid ) return null;
 
-		def billgroup = billgrpEm.find( [objid: bill.billgroupid ] ).first();
-		if(billgroup?.currentbatchid) {
-			def batch = vwBatchBillEm.find( [objid: billgroup.currentbatchid] ).first();	
-			if( batch.scheduleid != bill.scheduleid ) 
-				throw new Exception("Current batch for the billgroup does not match the bill. Please check bill must be for " + batch.year + " " + batch.monthname );
-			billEm.find( [objid: bill.objid] ).update( [batchid: batch.objid ] );	
-		}
+		def billgroup = billgrpEm.find([ objid: bill.billgroupid ]).first();
+		if( billgroup?.currentbatchid ) {
+			def batch = vwBatchBillEm.find([ objid: billgroup.currentbatchid ]).first(); 
+			if( batch.scheduleid == bill.scheduleid ) {
+				billEm.find([ objid: bill.objid ]).update([ batchid: batch.objid ]); 
+			} 
+		} 
 	}
 
 	@ProxyMethod
