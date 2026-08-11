@@ -3235,3 +3235,6 @@ INSERT INTO `sys_rule_actiondef_param` (
   'treasury.facts.Payment'
 )
 ;
+INSERT INTO `sys_ruleset_actiondef` (`ruleset`, `actiondef`) 
+VALUES ('waterpayment', 'treasury.actions.UpdatePaymentBalance')
+;
