@@ -3210,3 +3210,28 @@ UNLOCK TABLES;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
 -- Dump completed on 2025-07-30 21:22:31
+
+
+-- 
+-- 2026-08-11: Additional Patches
+-- 
+
+INSERT INTO `sys_rule_actiondef` (
+  `objid`, `name`, `title`, `sortorder`, 
+  `actionname`, `domain`, `actionclass`
+) VALUES (
+  'treasury.actions.UpdatePaymentBalance', 'update-payment-balance', 
+  'Update Payment Balance', 1, 'update-payment-balance', 'TREASURY', 
+  'treasury.actions.UpdatePaymentBalance'
+)
+;
+INSERT INTO `sys_rule_actiondef_param` (
+  `objid`, `parentid`, `name`, `sortorder`, 
+  `title`, `handler`, `vardatatype` 
+) VALUES (
+  'treasury.actions.UpdatePaymentBalance.payment', 
+  'treasury.actions.UpdatePaymentBalance', 
+  'payment', 1, 'Payment', 'var', 
+  'treasury.facts.Payment'
+)
+;
