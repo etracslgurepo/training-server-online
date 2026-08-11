@@ -44,5 +44,5 @@ echo .=================================================================
 echo .
 
 
-"%JAVA%" "%JAVA_OPT%" -cp etracs/lib/*;etracs/lib/ext/s3/*;. com.rameses.main.bootloader.MainBootLoader
+"%JAVA%" "%JAVA_OPT%" -cp water/lib/*;water/lib/ext/s3/*;. com.rameses.main.bootloader.MainBootLoader
 pause
