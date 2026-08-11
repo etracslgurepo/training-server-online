@@ -257,12 +257,12 @@ class WaterBillingUtilService {
 			b.billitemrefid = it.objid; 
 			b.remarks = mp.remarks;
 			b.particulars = mp.item.title + " " + months[ mp.month - 1] + " " + mp.year;
-			b.amount = it.paymentItem.amount + it.discount;
+			b.amount = it.paymentItem.amount + mp.discount;
 			b.surcharge = it.surchargepaid;
 			b.interest = it.interestpaid;
 			b.discount = it.discount;
 			b.sortorder =  (mp.year*12)+mp.month;
-			b.total = NumberUtil.round( b.amount - b.discount + b.surcharge + b.interest );
+			b.total = mp.total;
 			billitems << b;	
 		}
 
@@ -271,7 +271,7 @@ class WaterBillingUtilService {
 			b.type = "payment";
 			b.billitemrefid = it.billitemrefid;
 			b.amount = it.amount;
-			postingitems << b; 		
+			postingitems << b; 
 		}
 
 		facts.findAll{ it instanceof DiscountItem }.each {
@@ -301,6 +301,16 @@ class WaterBillingUtilService {
 			billitems << bi;
 		}
 
+		def recalcBillItemTotal = { bi-> 
+			if ( bi == null ) return; 
+
+			def amount = bi.amount ?: 0.0;
+			def discount = bi.discount ?: 0.0;
+			def surcharge = bi.surcharge ?: 0.0;
+			def interest = bi.interest ?: 0.0; 
+			bi.total = (amount + surcharge + interest) - discount; 
+		}
+
 		facts.findAll{ (it instanceof CashReceiptItem) && (it.amount != 0) }.each {
 
 			def itm = it.toMap();
@@ -316,6 +326,9 @@ class WaterBillingUtilService {
 			//we need to insert org id for treaury item account lookup to process
 			itm.item.orgid = it.orgid;
 			items << itm;
+
+			// adjust billitem for discount 
+			recalcBillItemTotal( itm.billitem ); 
 		}
 
 		//we will not include discount in balancing the amount

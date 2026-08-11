@@ -9,4 +9,15 @@ public class Payment {
 	String reftype = "cashreceipt";
 	boolean initial = false;
 
+    boolean amountSpecified;
+
+    def toMap() {
+        def m = [:]; 
+        m.amount = amount;
+        m.amtpaid = amtpaid;
+        m.initial = initial;
+        m.amountSpecified = amountSpecified; 
+        m.reftype = reftype; 
+        return m;
+    }
 }

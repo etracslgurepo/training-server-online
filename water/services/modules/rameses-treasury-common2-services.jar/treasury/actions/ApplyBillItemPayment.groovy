@@ -28,7 +28,7 @@ class ApplyBillItemPayment implements RuleActionHandler {
 		//do not proceed if total is zero. This is to ensure that it will not paid if there is no balance
 		if( billitem.total == 0 ) return;
 
-		double amt = (payment.amount > billitem.total) ? billitem.total : payment.amount ;
+		double amt = ( payment.amount > billitem.total ? billitem.total : payment.amount );
 		
 		billitem.addPayment( amt, null );
 
@@ -39,11 +39,9 @@ class ApplyBillItemPayment implements RuleActionHandler {
 		billitem.paymentItems.each {
 			facts << it;
 		}
-
+		
 		drools.update( payment );
 		drools.update( billitem );
-
-		
 	}
 
 }

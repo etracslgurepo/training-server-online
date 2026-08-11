@@ -54,7 +54,7 @@ public class BillItem extends AbstractBillItem {
     }
 
     public double getBalance() {
-        return NumberUtil.round( super.getBalance() - getDiscount() );
+        return NumberUtil.round( super.getBalance() );
     }
 
     public double getSurcharge() {
@@ -74,7 +74,7 @@ public class BillItem extends AbstractBillItem {
     }
 
     public double getTotal() {
-        return NumberUtil.round( this.getBalance() + getSurcharge() + getInterest() );
+        return NumberUtil.round( this.getBalance() - getDiscount() + getSurcharge() + getInterest());
     }
 
     public void addDiscount( DiscountItem disc ) {
@@ -99,14 +99,14 @@ public class BillItem extends AbstractBillItem {
         }
 
         if(payamt > total) throw new Exception("BillItem.addPayment error. amtpaid must be less than or equal to the total");
-        boolean partial = false;
-        if(payamt < total) partial = true;
+
+        boolean partial = ( payamt < total );
 
         if(!partial) {
             items.findAll{ it.amount > 0 }.each { bi->
                 paymentItems << addPmt(bi, NumberUtil.round(bi.amount - bi.amtpaid ));    
             }
-            paymentItem = addPmt(this, NumberUtil.round( this.getBalance() ) );
+            paymentItem = addPmt(this, NumberUtil.round( this.getBalance() - getDiscount()));
         }
         else {
             double _amt = payamt;
@@ -118,7 +118,6 @@ public class BillItem extends AbstractBillItem {
             //store remainder amount
             paymentItem = addPmt( this, _amt ); 
         }
-
     }
 
    

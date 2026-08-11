@@ -48,15 +48,11 @@ class WaterBillingRuleService {
 		if(!o.bill) throw new Exception("bill is required in WaterBillingRuleService.executeRules");
 		if(!o.acct) throw new Exception("acct is required in WaterBillingRuleService.executeRules");
 		if(!o.txndate) throw new Exception("txndate is required in WaterBillingRuleService.executeRules");
-		
+
 		def bill = o.bill;
 		def acct = o.acct;
 		
 		def facts = [];
-		if ( o.collectiontype?.objid ) {
-			facts << new CashReceipt(); 
-		}
-
 		facts << new TransactionDate( o.txndate );
 		facts << new WaterBill( bill );
 		facts << new WaterAccount( acct );
@@ -84,8 +80,11 @@ class WaterBillingRuleService {
 		if( ruleName == "waterpayment" ) {
 			if(!o.amtpaid ) o.amtpaid = 0;
 			def pmt = new Payment( amount: o.amtpaid );
+			pmt.amountSpecified = o.amountSpecified.toString().matches('true|1'); 
+
 			if(o.reftype) pmt.reftype = o.reftype;
 			if(o.initial) pmt.initial = o.initial;
+
 			facts << pmt;
 
 			filter_str = "amount > amtpaid AND "+ filter_str;
@@ -133,9 +132,4 @@ class WaterBillingRuleService {
 		ruleSvc.execute( ruleName, facts, null, null );
 		return facts;
 	}
-
-	
-	
-
-
 }

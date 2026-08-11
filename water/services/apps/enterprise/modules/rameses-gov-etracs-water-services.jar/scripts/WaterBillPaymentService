@@ -101,11 +101,7 @@ class WaterBillPaymentService {
 
         def r = pmtSvc.getPaymentInfo([ 
         	billid: o.billid, amtpaid: o.amount, 
-        	txndate: o.txndate, autopost: true, 
-
-        	// collectiontype is set during issuance of cash receipt 
-        	// otherwise it is null only on regular billing request 
-        	collectiontype: o.collectiontype 
+        	txndate: o.txndate, autopost: true 
         ]);
 
         //check and correct item mapping and if it exists in financial module

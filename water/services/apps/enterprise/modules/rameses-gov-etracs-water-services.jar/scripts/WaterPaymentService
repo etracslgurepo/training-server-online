@@ -125,11 +125,7 @@ class WaterPaymentService {
 		def retval = [:];
 		def b = utilSvc.buildPaymentItems([ 
 			billid: o.billid, refdate: txndate, 
-			amtpaid: o.amtpaid, amountSpecified: amountSpecified, 
-
-        	// collectiontype is set during issuance of cash receipt 
-        	// otherwise it is null only on regular billing request 
-        	collectiontype: o.collectiontype 			
+			amtpaid: o.amtpaid, amountSpecified: amountSpecified 
 		]);
 
 		return [
