@@ -26,13 +26,19 @@ class ApplyBillItemPayment implements RuleActionHandler {
 		def facts = ct.facts;
 
 		//do not proceed if total is zero. This is to ensure that it will not paid if there is no balance
-		if( billitem.total == 0 ) return;
+		def itemTotal = billitem.total;
+		if( itemTotal == 0 ) return;
 
-		double amt = ( payment.amount > billitem.total ? billitem.total : payment.amount );
+		def discount = billitem.discount;
+		def particulars = billitem.particulars; 
+
+		def paymentBalance = payment.amount; 
+		double amtToPay = ( paymentBalance > itemTotal ? itemTotal : paymentBalance );
 		
-		billitem.addPayment( amt, null );
+		billitem.addPayment( amtToPay, null );
 
-		payment.amount = NumberUtil.round( payment.amount - amt ); 
+		payment.amount = NumberUtil.round( paymentBalance - amtToPay ); 
+		// println 'apply billitem payment: particulars='+ particulars +', prevPayBal='+ paymentBalance +', itemTotal='+ itemTotal +', discount='+ discount +', amtToPay='+ amtToPay +', currentPayBal='+ payment.amount; 
 		billitem.paid = true;
 
 		facts << billitem.paymentItem;

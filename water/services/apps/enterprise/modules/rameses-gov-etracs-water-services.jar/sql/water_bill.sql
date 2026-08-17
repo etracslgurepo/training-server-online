@@ -81,7 +81,7 @@ mb.surcharge = IFNULL((
 	SELECT SUM(
 		CASE
 			WHEN superseded=1 AND forwarded = 1 THEN (amtpaid - amount)
-			WHEN superseded=0 AND forwarded = 0 THEN amount
+			WHEN superseded=0 THEN amount
 			ELSE 0
 		END
 	) 
@@ -93,7 +93,7 @@ mb.interest = IFNULL((
 	SELECT SUM(
 		CASE
 			WHEN superseded=1 AND forwarded = 1 THEN (amtpaid - amount )
-			WHEN superseded=0 AND forwarded = 0 THEN amount
+			WHEN superseded=0 THEN amount
 			ELSE 0
 		END
 	) 

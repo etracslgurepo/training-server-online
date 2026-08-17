@@ -252,7 +252,7 @@ class WaterPaymentService {
 	public void reapplyPayment( def o ) {
 		if(!o.billid) throw new Exception("Please specify billid");		
 		def bill = billEm.findBill( [billid: o.billid ] );
-		def duedate  = bill.duedate;
+		def duedate = bill.duedate;
 
 		//unpost first all payments and remove all payment items
 		pmtEm.find( [billid: o.billid ] ).update( [posted: 0 ] );
@@ -276,7 +276,7 @@ class WaterPaymentService {
 		abstractBillItemEm.find( [billid: o.billid ] ).update( [amtpaid: 0 ] );
 
 		def _postPayment = { pmt->
-			def res = utilSvc.buildPaymentItems( [billid: o.billid, amtpaid: pmt.amount, refdate: pmt.refdate ] );
+			def res = utilSvc.buildPaymentItems( [billid: o.billid, amtpaid: pmt.amount, refdate: pmt.refdate, amountSpecified: true ] );
 			utilSvc.postPaymentItems( [paymentid: pmt.objid, refdate: pmt.refdate, billid: o.billid, postingitems: res.postingitems ] );
 			pmtEm.find( [objid: pmt.objid ] ).update( [posted: 1 ] );
 		}
@@ -298,7 +298,7 @@ class WaterPaymentService {
 		}
 		else {
 			def pmtList = pmtEm.find( [billid: o.billid ] ).orderBy("refdate ASC").list();
-			pmtList.each {
+			pmtList.each { pmt->
 				_postPayment( pmt );	
 			}
 		}

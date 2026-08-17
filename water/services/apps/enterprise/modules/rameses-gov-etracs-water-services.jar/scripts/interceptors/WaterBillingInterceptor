@@ -63,7 +63,9 @@ class WaterBillingInterceptor {
 	@After(pattern="WaterBillingService.beforePost")
 	public void beforePost ( def evt ) {
 		def bill = evt.args[1];
-		if ( bill.volume == null) throw new Exception("Volume must be provided");
+		if ( bill.volume == null) { 
+			throw new Exception("Volume must be provided in bill "+ bill.billno);
+		}
 	}
 
 }	

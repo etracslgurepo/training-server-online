@@ -17,13 +17,11 @@ public class AddDiscountItem implements RuleActionHandler {
 		if(!(params.billitem instanceof BillItem ))
 			 throw new Exception("BillItem must be an instanceof BillItem. ");
 
-		def parentBillitem = params.billitem;
-
 		def amt = params.amount.decimalValue;
-		def mergetype = params.mergetype;
-
-		//if zero amount do not add discount
-		if( amt == 0 ) return;
+		if( amt == 0 ) {
+			// if zero amount do not add discount
+			return;
+		}
 
 		def acct = [:];
 		if(params.account) {
@@ -41,11 +39,14 @@ public class AddDiscountItem implements RuleActionHandler {
 			}
 		}
 
+		def parentBillitem = params.billitem;
 		def discitem = new DiscountItem( parentBillitem );
 		discitem.item.objid = acct.key;
 		discitem.item.title = acct.value;
 		discitem.amount = NumberUtil.round( amt );
 		
+		def mergetype = params.mergetype;
+
 		def ct = RuleExecutionContext.getCurrentContext();
 		def facts = ct.facts;
 		def d = facts.find{ it.hashCode() == discitem.hashCode() };
@@ -62,7 +63,4 @@ public class AddDiscountItem implements RuleActionHandler {
 			}
 		}
 	}
-
-
-
 }

@@ -18,6 +18,7 @@ class UpdatePaymentBalance implements RuleActionHandler {
 		def newAmount = 0.0; 
 		facts.findAll{( it instanceof BillItem )}.each{ bi-> 
 			newAmount += bi.total;
+			// bi.printInfo();
 		}
 
 		if ( amount != newAmount && payment.amountSpecified == false ) { 

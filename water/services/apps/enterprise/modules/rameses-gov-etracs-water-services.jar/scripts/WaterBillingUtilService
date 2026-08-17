@@ -110,7 +110,6 @@ class WaterBillingUtilService {
 
 	@ProxyMethod
 	public def updateBill( def o ) {
-		
 		def ruleData = loadRuleData( o );
 		def facts = ruleSvc.executeRules("waterbilling", ruleData );
 
@@ -125,7 +124,7 @@ class WaterBillingUtilService {
 			def m = it.toMap();
 			m.billid = o.billid;
 			m.auto = 1;
-			subItemEm.create( m );	 
+			subItemEm.create( m ); 
 		}
 
 		facts.findAll{ (it instanceof CreditPaymentItem ) }.each {
@@ -219,7 +218,9 @@ class WaterBillingUtilService {
 			pmtList.each { pmt->
 				//update the bill first up to the payment date to correct for daily billing
 				updateBill( [billid: billid, refdate: pmt.refdate ] );
-				postPayment( [ payment: pmt ] );
+
+				pmt.amountSpecified = true; 
+				postPayment([ payment: pmt ]);
 			}
 			billEm.updateBillPayment( [billid: billid ] );
 		}
@@ -239,7 +240,7 @@ class WaterBillingUtilService {
 			//check if there is a discount having same amount
 			def discounts = facts.findAll{ it instanceof DiscountItem };
 			if( discounts && discounts.sum{ it.amount } == pmt.amount ) {
-				//do nothing
+				// do nothing, payment is consumed by discount 
 			}
 			else {
 				def cramt = facts.findAll{ it instanceof CreditBillItem }.sum{ it.amtpaid };
@@ -353,7 +354,9 @@ class WaterBillingUtilService {
 		if(!o.billid) throw new Exception("billid is required in postPaymentItems");
 		if(!o.postingitems) throw new Exception("items is required in postPaymentItems");
 
+		println '\n** postPaymentItems ==> ' + o.paymentid +', '+ o.billid;
 		o.postingitems.each { pi->
+			println '>> ' + pi;
 			if( pi.type == "credit") {
 				def cr = [:];
 				cr.billid = o.billid;
@@ -374,6 +377,8 @@ class WaterBillingUtilService {
 				d.voidamount = 0;
 				d.billitem = [objid: pi.billitemrefid];
 				d.payment = [objid: o.paymentid];
+				println 'Creating discount item: ' + d; 
+				discountItemEm.debug = true;
 				discountItemEm.create( d );
 			}
 			else {
@@ -439,7 +444,10 @@ class WaterBillingUtilService {
 				};
 			}
 			else {	
-				def res = buildPaymentItems( [billid: pmt.billid, amtpaid: pmt.amount, refdate: pmt.refdate ] );
+				def res = buildPaymentItems([ 
+					billid: pmt.billid, amtpaid: pmt.amount, refdate: pmt.refdate, 
+					amountSpecified: pmt.amountSpecified.toString().matches('true|1') 
+				]); 
 				postPaymentItems( [paymentid: pmt.objid, refdate: pmt.refdate, billid: pmt.billid, postingitems: res.postingitems ] );
 			}
 		}

@@ -94,17 +94,17 @@ class WaterBatchBillingService {
 
  	@ProxyMethod
 	public def getOpenBillsInBatch( def o ) {
-		return billEm.find( [batchid: o.batchid, state: 'OPEN' ] ).select("objid").list();			
+		return billEm.find( [batchid: o.batchid, state: 'OPEN' ] ).select("objid,acctid").list();			
 	}
 
 	@ProxyMethod
 	public def getAllBillsInBatch( def o ) {
-		return billEm.find( [batchid: o.batchid ] ).select("objid").list();		
+		return billEm.find( [batchid: o.batchid ] ).select("objid,acctid").list();		
 	}
 
 	@ProxyMethod
 	public def getPostedBillsInBatch( def o ) {
-		return billEm.find( [batchid: o.batchid, state: 'POSTED' ] ).select("objid").list();	
+		return billEm.find( [batchid: o.batchid, state: 'POSTED' ] ).select("objid,acctid").list();	
 	}
 
 	//These methods are called by the worflow process
@@ -184,8 +184,11 @@ class WaterBatchBillingService {
 				err.message =  cause?.message;
 				batchErrEm.create( err );
 			}
-			else {
+			else if ( ex instanceof RuntimeException ) {
 				throw ex;
+			}
+			else {
+				throw new RuntimeException(ex);
 			} 
 		}
 	}
@@ -194,7 +197,7 @@ class WaterBatchBillingService {
 	public void postBill( def param ) {
 		try {
 			billingSvc.post( param ); 	
-		}
+		} 
 		catch(Throwable ex) {
 			if( param.batchid ) {
 				def cause = ExceptionManager.getOriginal(ex); 
@@ -204,8 +207,11 @@ class WaterBatchBillingService {
 				err.message =  cause?.message;
 				batchErrEm.create( err );
 			}
-			else {
+			else if ( ex instanceof RuntimeException ) {
 				throw ex;
+			}
+			else {
+				throw new RuntimeException(ex);
 			} 
 		}
 	}
@@ -213,7 +219,7 @@ class WaterBatchBillingService {
 	@ProxyMethod
 	public void unpostBill( def param ) {
 		try {
-			billingSvc.unpost( param ); 	
+			billingSvc.unpost( param ); 
 		}
 		catch(Throwable ex) {
 			if( param.batchid ) {
@@ -224,8 +230,11 @@ class WaterBatchBillingService {
 				err.message =  cause?.message;
 				batchErrEm.create( err );
 			}
-			else {
+			else if ( ex instanceof RuntimeException ) {
 				throw ex;
+			}
+			else {
+				throw new RuntimeException(ex);
 			} 
 		}
 	}

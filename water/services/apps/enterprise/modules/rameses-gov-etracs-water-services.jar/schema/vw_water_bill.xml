@@ -10,7 +10,7 @@
 		<field name="lasttxndate" />
 		<field name="validitydate" />
 		<field name="acctid" />
-		<field name="state" />
+		<field name="state" caption="Status"/>
 		<field name="remarks" />
 		<field name="balanceforward" type="decimal" caption="Bal.Forward"/>
 		<field name="totalpayment" type="decimal" caption="Total Paid"/>

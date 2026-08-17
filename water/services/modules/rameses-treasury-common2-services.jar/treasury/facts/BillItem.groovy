@@ -129,6 +129,13 @@ public class BillItem extends AbstractBillItem {
         return NumberUtil.round(paymentItems.findAll{ it.billitem instanceof InterestItem }.sum{it.amount});
     }
 
- 
-
+    
+    public void printInfo() {
+        def info = toMap(); 
+        println ''
+        println 'BillItem: '+ info; 
+        println 'BillItem.items: '+ items;
+        println 'BillItem.discountItems: '+ discountItems.collect{it.toMap()};
+        println 'BillItem.paymentItems: '+ paymentItems.collect{it.toMap()};
+    }
 }
