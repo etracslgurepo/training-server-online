@@ -3238,3 +3238,15 @@ INSERT INTO `sys_rule_actiondef_param` (
 INSERT INTO `sys_ruleset_actiondef` (`ruleset`, `actiondef`) 
 VALUES ('waterpayment', 'treasury.actions.UpdatePaymentBalance')
 ;
+
+INSERT INTO `sys_rule` (`objid`, `state`, `name`, `ruleset`, `rulegroup`, `title`, `description`, `salience`, `effectivefrom`, `effectiveto`, `dtfiled`, `user_objid`, `user_name`, `noloop`) VALUES ('RUL5ea41cdc:19fd9dd64d5:-2efe', 'DRAFT', 'UPDATE_PAYMENT_BALANCE_FROM_DISCOUNT', 'waterpayment', 'post-apply-discount', 'UPDATE PAYMENT BALANCE FROM DISCOUNT', NULL, 50000, NULL, NULL, '2026-08-07 16:17:37', 'USR-ADMIN', 'ADMIN', 1);
+
+INSERT INTO `sys_rule_condition` (`objid`, `parentid`, `fact_name`, `fact_objid`, `varname`, `pos`, `ruletext`, `displaytext`, `dynamic_datatype`, `dynamic_key`, `dynamic_value`, `notexist`) VALUES ('RCOND5ea41cdc:19fd9dd64d5:-2e5a', 'RUL5ea41cdc:19fd9dd64d5:-2efe', 'treasury.facts.Payment', 'treasury.facts.Payment', 'PMT', 0, NULL, NULL, NULL, NULL, NULL, 0);
+
+INSERT INTO `sys_rule_condition_var` (`objid`, `parentid`, `ruleid`, `varname`, `datatype`, `pos`) VALUES ('RCOND5ea41cdc:19fd9dd64d5:-2e5a', 'RCOND5ea41cdc:19fd9dd64d5:-2e5a', 'RUL5ea41cdc:19fd9dd64d5:-2efe', 'PMT', 'treasury.facts.Payment', 0);
+
+INSERT INTO `sys_rule_condition_constraint` (`objid`, `parentid`, `field_objid`, `fieldname`, `varname`, `operator_caption`, `operator_symbol`, `usevar`, `var_objid`, `var_name`, `decimalvalue`, `intvalue`, `stringvalue`, `listvalue`, `datevalue`, `pos`) VALUES ('RCONST5ea41cdc:19fd9dd64d5:-2e33', 'RCOND5ea41cdc:19fd9dd64d5:-2e5a', 'treasury.facts.Payment.amount', 'amount', NULL, 'greater than', '>', NULL, NULL, NULL, 0.00, NULL, NULL, NULL, NULL, 0);
+
+INSERT INTO `sys_rule_action` (`objid`, `parentid`, `actiondef_objid`, `actiondef_name`, `pos`) VALUES ('RACT5ea41cdc:19fd9dd64d5:-2d92', 'RUL5ea41cdc:19fd9dd64d5:-2efe', 'treasury.actions.UpdatePaymentBalance', 'update-payment-balance', 0);
+
+INSERT INTO `sys_rule_action_param` (`objid`, `parentid`, `actiondefparam_objid`, `stringvalue`, `booleanvalue`, `var_objid`, `var_name`, `expr`, `exprtype`, `pos`, `obj_key`, `obj_value`, `listvalue`, `lov`, `rangeoption`) VALUES ('RULACT5ea41cdc:19fd9dd64d5:-2d86', 'RACT5ea41cdc:19fd9dd64d5:-2d92', 'treasury.actions.UpdatePaymentBalance.payment', NULL, NULL, 'RCOND5ea41cdc:19fd9dd64d5:-2e5a', 'PMT', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
