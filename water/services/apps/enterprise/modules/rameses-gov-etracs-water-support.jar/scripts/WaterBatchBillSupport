@@ -5,6 +5,9 @@ class WaterBatchBillSupport {
 	@DataContext('water_batch_bill_support')
 	def supportEm;
 
+	@DataContext( dynamic=true )
+	def dynaEm;
+
 	@Service( dynamic=true )
 	def dynaSvc; 
 
@@ -100,4 +103,57 @@ class WaterBatchBillSupport {
 			volume: params.volume 
 		]); 
 	} 
+
+
+	@ProxyMethod
+	public def revertTask( params ) { 
+		def batchid = params?.batchid; 
+		if ( !batchid ) throw new Exception('param batchid is required');
+
+		def batch = supportEm.findBatch([ batchid: batchid ]); 
+		if ( batch == null ) throw new Exception("batch bill not found: "+ batchid);
+
+		def tasks = supportEm.getTasks([ batchid: batchid ]); 
+		if ( !tasks ) return [:]; 
+
+		def currTask = tasks[0]; 
+		def prevTask = (tasks.size() >= 2 ? tasks[1] : null); 
+		if ( prevTask == null ) {
+			// there is nothing to revert 
+			return currTask;
+		}
+
+		def runDate = dynaSvc.lookup('DateService').getServerDate(); 
+
+		def batchEm = dynaEm.lookup('water_batch_bill'); 
+		def batchTaskEm = dynaEm.lookup('water_batch_bill_task'); 
+
+		def selectedTaskId = currTask.taskid;
+
+		if ( currTask.state.toString().equalsIgnoreCase("end")) {
+			def rec = [ 
+				parentprocessid: prevTask.parentprocessid, 
+				state: prevTask.state, 
+				dtcreated: runDate, 
+				refid: batchid 
+			]; 
+			rec = batchTaskEm.create( rec ); 
+			selectedTaskId = rec.taskid; 
+
+			batchEm.find([ objid: batchid ]).update([ taskid: rec.taskid ]);
+			batchTaskEm.find([ taskid: currTask.taskid ]).delete(); 
+		}
+		else if ( currTask.enddate != null ) {
+			def upd = [ enddate: '{NULL}' ]; 
+			batchTaskEm.find([ taskid: currTask.taskid ]).update( upd ); 
+		}
+		else {
+			batchEm.find([ objid: batchid ]).update([ taskid: prevTask.taskid ]);
+			batchTaskEm.find([ taskid: currTask.taskid ]).delete(); 
+			batchTaskEm.find([ taskid: prevTask.taskid ]).update([ enddate: '{NULL}']); 
+			selectedTaskId = prevTask.taskid; 
+		} 
+
+		return batchTaskEm.find([ taskid: selectedTaskId ]).first(); 
+	}
 } 

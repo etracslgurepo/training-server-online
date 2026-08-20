@@ -20,3 +20,10 @@ where wbb.objid = $P{batchid}
 	and wb.prevreading is not null 
 	and wb.reading is not null 
 	${filters} 
+
+
+[getTasks]
+select * from water_batch_bill_task 
+where refid = $P{batchid}
+order by dtcreated desc, 
+	(case when state = 'end' then 0 else 1 end) 
