@@ -125,49 +125,57 @@ limit ${topsize}
 
 [getQtrlyPaidBusinessList]
 select 
-  t2.businessid, b.bin, b.tradename, b.businessname, b.address_text as businessaddress, 
-  sum(t2.amtdue) as amtdue, sum(t2.amtpaid) as amtpaid, sum(t2.balance) as balance, 
-  sum(t2.q1) as q1, sum(t2.q2) as q2, sum(t2.q3) as q3, sum(t2.q4) as q4, 
-  sum(t2.q1+t2.q2+t2.q3+t2.q4) as totalpaidqtr 
+	b.bin, b.tradename, b.businessname, b.address_text as businessaddress, 
+	t2.*, (t2.q1 + t2.q2 + t2.q3 + t2.q4) as totalpaidqtr 
 from ( 
-  select 
-    b.objid as businessid, sum(br.amount) as amtdue, sum(br.amtpaid) as amtpaid, 
-    sum(br.amount-br.amtpaid) as balance, 0.0 as q1, 0.0 as q2, 0.0 as q3, 0.0 as q4 
-  from business_payment p 
-    inner join business_application ba on ba.objid = p.applicationid 
-    inner join business b on (b.objid = ba.business_objid and b.permittype = $P{permittypeid}) 
-    inner join business_receivable br on br.applicationid = ba.objid 
-  where p.refdate >= $P{startdate}  
-    and p.refdate <  $P{enddate} 
-    and p.voided = 0 ${filter} ${taxfeetypefilter} 
-  group by b.objid 
 
-  union all 
+	select 
+		t1.businessid, sum(t1.amtdue) as amtdue, sum(t1.amtpaid) as amtpaid, 
+		sum(t1.surchargepaid) as surchargepaid, sum(t1.interestpaid) as interestpaid, 
+		(sum(t1.amtdue) - sum(t1.amtpaid)) as balance, 
+		sum(t1.q1) as q1, sum(t1.q2) as q2, sum(t1.q3) as q3, sum(t1.q4) as q4 
+	from ( 
 
-  select 
-    t0.businessid, 0.0 as amtdue, 0.0 as amtpaid, 0.0 as balance,  
-    sum(t0.q1) as q1, sum(t0.q2) as q2, sum(t0.q3) as q3, sum(t0.q4) as q4  
-  from ( 
-    select 
-      b.objid as businessid, month(p.refdate) as imonth, 
-      sum(case when month(p.refdate) between 1 and 3 then (pp.amount + pp.surcharge + pp.interest) end) as q1, 
-      sum(case when month(p.refdate) between 4 and 6 then (pp.amount + pp.surcharge + pp.interest) end) as q2, 
-      sum(case when month(p.refdate) between 7 and 9 then (pp.amount + pp.surcharge + pp.interest) end) as q3, 
-      sum(case when month(p.refdate) between 10 and 12 then (pp.amount + pp.surcharge + pp.interest) end) as q4 
-    from business_payment p 
-      inner join business_application ba on ba.objid = p.applicationid 
-      inner join business b on (b.objid = ba.business_objid and b.permittype = $P{permittypeid}) 
-      inner join business_payment_item pp on pp.parentid = p.objid  
-    where p.refdate >= $P{startdate}  
-      and p.refdate <  $P{enddate} 
-      and p.voided = 0 ${filter} ${taxfeetypefilter} 
-    group by b.objid, month(p.refdate) 
-  )t0  
-  group by t0.businessid 
+		select 
+			b.objid as businessid, sum(r.amount) as amtdue, sum(r.amtpaid) as amtpaid, 
+			0.0 as surchargepaid, 0.0 as interestpaid, 0.0 as balance, 
+			0.0 as q1, 0.0 as q2, 0.0 as q3, 0.0 as q4 
+		from ( 
+			select distinct p.applicationid 
+			from business_payment p 
+			where p.refdate >= $P{startdate} 
+				and p.refdate <  $P{enddate} 
+				and p.voided = 0 
+		)t0 
+			inner join business_application a on a.objid = t0.applicationid 
+			inner join business b on (b.objid = a.business_objid and b.permittype = $P{permittypeid})
+			inner join business_receivable r on r.applicationid = a.objid 
+		where 1=1 ${filter} 
+		group by b.objid 
+
+		union all 
+
+		select 
+			b.objid as businessid, 0.0 as amtdue, 0.0 as amtpaid, 
+			0.0 as surchargepaid, 0.0 as interestpaid, 0.0 as balance, 	
+			sum(case when month(p.refdate) between 1 and 3 then p.amount end) as q1, 
+			sum(case when month(p.refdate) between 4 and 6 then p.amount end) as q2, 
+			sum(case when month(p.refdate) between 7 and 9 then p.amount end) as q3, 
+			sum(case when month(p.refdate) between 10 and 12 then p.amount end) as q4 
+		from business_payment p 
+			inner join business_application a on a.objid = p.applicationid 
+			inner join business b on (b.objid = a.business_objid and b.permittype = $P{permittypeid})
+		where p.refdate >= $P{startdate} 
+			and p.refdate <  $P{enddate} 
+			and p.voided = 0 
+			${filter} 
+		group by b.objid 
+		
+	)t1  
+	group by t1.businessid 
 
 )t2, business b 
 where b.objid = t2.businessid 
-group by t2.businessid, b.bin, b.tradename, b.businessname, b.address_text 
 order by b.businessname 
 
 

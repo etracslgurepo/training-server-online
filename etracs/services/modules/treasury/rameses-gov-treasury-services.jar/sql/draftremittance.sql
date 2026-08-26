@@ -122,3 +122,47 @@ from (
 		and nc.reftype = 'EFT' 
 )t0 
 order by refdate, refno 
+
+
+[getAFSummaryConflicts]
+select t1.* 
+from ( 
+	select 
+		t0.controlid, t0.afid, t0.formtype, 
+		t0.assigneelevel, t0.assigneeid, t0.assigneename, 
+		count(*) as txncount, min(t0.series) as minseries, max(t0.series) as maxseries 
+	from ( 
+		select 
+			dri.controlid, dri.objid as receiptid, 
+			afc.afid, af.formtype, c.state, c.series, 
+			(case when c.state = 'DELEGATED' then c.subcollector_objid else c.collector_objid end) as assigneeid, 
+			(case when c.state = 'DELEGATED' then c.subcollector_name else c.collector_name end) as assigneename, 
+			(case when c.state = 'DELEGATED' then 1 else 0 end) as assigneelevel  
+		from 
+			(
+				select distinct 
+					dri.remittanceid, dri.controlid 
+				from draftremittanceitem dri 
+					inner join cashreceipt c on (c.objid = dri.objid and c.state = 'DELEGATED') 
+				where dri.remittanceid = $P{remittanceid} 
+			)aa  
+			inner join draftremittanceitem dri on (
+				dri.remittanceid = aa.remittanceid and dri.controlid = aa.controlid
+			)
+			inner join cashreceipt c on c.objid = dri.objid 
+			inner join af_control afc on afc.objid = c.controlid 
+			inner join af on af.objid = afc.afid 	
+	)t0 
+	group by 
+		t0.controlid, t0.afid, t0.formtype, 
+		t0.assigneelevel, t0.assigneeid, t0.assigneename 
+)t1  
+order by controlid, minseries 
+
+
+[removeDelegatedItems]
+delete dri 
+from draftremittance dr 
+	inner join draftremittanceitem dri on dri.remittanceid = dr.objid 
+	inner join cashreceipt c on (c.objid = dri.objid and c.state = 'DELEGATED') 
+where dr.objid = $P{remittanceid} 

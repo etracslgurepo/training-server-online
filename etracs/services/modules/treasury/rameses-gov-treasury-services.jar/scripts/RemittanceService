@@ -137,8 +137,33 @@ class RemittanceService  {
 	private void insertDraftRemittanceItems( param ) {
 		draftRem_db.insertItems( param ); 
 
+		// revalidate for conflict AF Summary  
+		draftRem_db.getAFSummaryConflicts([ remittanceid: param.remittanceid ])
+					.groupBy{ it.controlid }
+					.each{ k,v-> 
+						if ( v.size() == 1) { 
+							// no conflicts...
+							return; 
+						}
+
+						def o = v.find{ it.assigneelevel != 0 }
+						if ( o == null ) {
+							// no delagate record...
+							return; 
+						}
+
+						if ( o.formtype == 'serial' ) {
+							throw new Exception("Series "+ o.minseries +" - "+ o.maxseries +" should be remitted first by "+ o.assigneename); 
+						} else {
+							throw new Exception(o.formtype +" transactions should be remitted by "+ o.assigneename +" prior to any further processing.");
+						}
+					}
+
+		// remove the delegated items, since conflicts are already resolved above...
+		draftRem_db.removeDelegatedItems([ remittanceid: param.remittanceid ]); 
+
 		def adb = draftRemItem_db.find([ remittanceid: param.remittanceid ]);
-		adb.where(' (voided + cancelled) > 0 ').update([amount: 0.0, totalcash: 0.0, totalnoncash: 0.0]); 
+		adb.where(' (voided + cancelled) > 0 ').update([amount: 0.0, totalcash: 0.0, totalnoncash: 0.0]); 		
 	}
 
 	@ProxyMethod

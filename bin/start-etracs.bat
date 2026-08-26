@@ -45,4 +45,6 @@ echo .
 
 
 "%JAVA%" "%JAVA_OPT%" -cp etracs/lib/*;etracs/lib/ext/s3/*;. com.rameses.main.bootloader.MainBootLoader
+
+cd %START_RUN_DIR%
 pause

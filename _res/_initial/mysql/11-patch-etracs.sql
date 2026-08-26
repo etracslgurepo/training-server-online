@@ -46,3 +46,18 @@ INSERT INTO `sys_wf_transition` (`parentid`, `processname`, `action`, `to`, `idx
 -- 
 -- DONE 
 -- 
+
+
+-- ## Build 2.5.05.03-23
+-- ## 2026-06-23
+
+drop view if exists vw_business_payment_item
+;
+create view vw_business_payment_item as 
+select 
+	bpi.*, 
+	bp.businessid, bp.applicationid, bp.appyear, 
+	bp.reftype, bp.refid, bp.refno, bp.refdate, bp.voided  
+from business_payment bp 
+	inner join business_payment_item bpi on bpi.parentid = bp.objid 
+;

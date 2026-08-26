@@ -271,3 +271,34 @@ from (
 	inner join business_requirement breq on breq.applicationid = tmp1.appid 
 where (breq.completed is null or breq.completed <> 1) 
 order by breq.title 
+
+
+[findPayOption]
+select t1.*, 
+	(case 
+		when t1.amtdue = t1.amtpaidon then 'FULL YEAR' 
+		else 'QUARTERLY' 
+	end) as payoption 
+from ( 
+	select t0.*, 
+		(
+			select sum(amount) from vw_business_payment_item 
+			where applicationid = t0.applicationid 
+				and refdate <= t0.dtissued and voided = 0 
+		) as amtpaidon 
+	from ( 
+		select 
+			p.objid, p.activeyear, p.state, p.dtissued, p.permitno, 
+			p.businessid, p.applicationid, a.appno, a.apptype, 
+			sum(r.amount) as amtdue 
+		from business_permit p 
+			inner join business_application a on ( 
+				a.objid = p.applicationid and a.apptype in ('NEW','RENEW') 
+			) 
+			inner join business_receivable r on r.applicationid = a.objid 
+		where p.objid = $P{permitid} 
+		group by 
+			p.objid, p.activeyear, p.state, p.dtissued, p.permitno, 
+			p.businessid, p.applicationid, a.appno, a.apptype 
+	)t0 
+)t1

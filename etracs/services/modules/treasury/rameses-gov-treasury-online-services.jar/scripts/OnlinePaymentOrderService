@@ -42,19 +42,9 @@ class OnlinePaymentOrderService {
 		if (!o?.refno) throw new Exception("refno is required in getBilling method");
 		if (!(o.refno instanceof String)) throw new Exception("refno must be an instance of String in getBilling method");
 
-		def arr = o.refno.split( ":" );
-		if ( arr.length != 2 ) 
-			throw new Exception("Invalid refno format. It should follow the following format <KEY:REFNO>");
-
-		def barcodekey = arr[0];
-		def refno = arr[1];
-
-		def em = dynaEm.lookup('barcode_launcher')
-		def bc = em.find([ objid: barcodekey ]).first();
-		if ( !bc ) throw new Exception("'" + barcodekey + "' barcode launcher not found");
-
-		if ( bc.paymentorder.toString() != '1' )
-			throw new Exception("'" + barcodekey + "' barcode launcher must be configured as paymentorder=1");
+		def parsed = parseRefNo( o.refno ); 
+		def refno = parsed.refno;
+		def bc = parsed.barcode;
 
 		def svc = getPaymentOrderService( bc.connection );
 		if ( o.checksum ) { 
@@ -72,8 +62,14 @@ class OnlinePaymentOrderService {
 		bill._connection = ( bc.connection ? bc.connection : 'default' );
 		bill.objid = bill._paymentorderid;
 
-		em = dynaEm.lookup('collectiontype');
+		def em = dynaEm.lookup('collectiontype');
 		bill.collectiontype = em.find([ objid: bill.type.collectiontype.objid ]).first();
+
+		if ( hasExpired( bill.expirydate )) {
+			bill.state = 'EXPIRED'; 
+		} else {
+			bill.state = 'OPEN'; 
+		} 
 		return bill; 
 	}
 
@@ -116,18 +112,13 @@ class OnlinePaymentOrderService {
 		if ( !param.objid ) throw new Exception('objid parameter is required in sendMail'); 
 		if ( !param.email ) throw new Exception('email parameter is required in sendMail'); 
 
-		def fgroup = System.getenv("filipizen_group"); 
-		if ( !fgroup ) throw new Exception("filipizen_group ENV variable is not set");
-
-		def urlHost = new StringBuilder();
-		urlHost.append( ctx.conf.get('filipizen_server_scheme')).append('://'); 
-		urlHost.append( ctx.conf.get('filipizen_server_host')); 
-
 		def svc = dynaSvc.lookup('PersistenceService');
 		def po = svc.read([ _schemaname: 'paymentorder', objid: param.objid ]);
 		if ( !po ) throw new Exception("'"+ param.objid +"' payment order not found"); 
 		if ( !po.txncode ) throw new Exception("payment order txncode must be set"); 
 		if ( !po.checksum ) throw new Exception("payment order checksum must be set"); 
+
+		def payment_url = buildPaymentUrl( po ); 
 
 		po.formatted_amount = new java.text.DecimalFormat('#,##0.00').format( po.amount );
 		po.formatted_expirydate = new java.text.SimpleDateFormat('MM/dd/yyyy').format( po.expirydate );
@@ -147,7 +138,7 @@ class OnlinePaymentOrderService {
 
 	<br><br><br>
 	To pay, please visit or click &nbsp;&nbsp;
-	<a href="${urlHost}/partners/${fgroup}/po/${po.txncode}?c=${po.checksum}" style="font-size:1.3em;">
+	<a href="${payment_url}" style="font-size:1.3em;">
 		filipizen.com
 	</a>
 
@@ -172,5 +163,104 @@ class OnlinePaymentOrderService {
 
 		def xconn = dynaConn.lookup( connection ); 
 		xconn.send( req ); 
+	} 
+
+	@ProxyMethod
+	public def read( params ) { 
+		if ( !params.refno ) return [:]; 
+
+		def parsed = parseRefNo( params.refno ); 
+		def bc = parsed.barcode;
+		def poid = parsed.refno;
+
+		def poSvc = null; 
+		def persistenceSvc = null; 
+		if ( bc.connection.toString().matches('null|default')) { 
+			poSvc = dynaSvc.lookup("PaymentOrderService");
+			persistenceSvc = dynaSvc.lookup("PersistenceService");
+		} 
+		else { 
+			poSvc = dynaSvc.lookup("PaymentOrderService", bc.connection); 
+			persistenceSvc = dynaSvc.lookup("PersistenceService", bc.connection);
+		} 
+
+		def stat = poSvc.findStatus([ refno: poid ]); 
+		if ( stat?.error ) return stat; 
+
+		def po = persistenceSvc.read([ _schemaname: stat._schemaname, objid: poid ]); 
+		if ( !po ) return [ error: 'not_found']; 
+
+		po.payment_url = null; 
+
+		if ( !po.state.toString().matches('PAID|CANCELLED')) {
+			if ( stat.expired == 1 ) {
+				po.state = 'EXPIRED'; 
+			} 
+
+			if ( po.state.toString() == 'OPEN') {
+				po.payment_url = buildPaymentUrl( po ); 
+			} 
+		}
+		return po; 
+	} 
+
+	def buildPaymentUrl( po ) {
+		def txncode = po.txncode; 
+		if ( !txncode ) throw new Exception("PaymentOrder.txncode is required in buildPaymentUrl");
+
+		def checksum = po.checksum; 
+		if ( !checksum ) throw new Exception("PaymentOrder.checksum is required in buildPaymentUrl");
+
+		def fgroup = System.getenv("filipizen_group"); 
+		if ( !fgroup ) throw new Exception("filipizen_group ENV variable is not set");
+
+		def urlHost = new StringBuilder();
+		urlHost.append( ctx.conf.get('filipizen_server_scheme')).append('://'); 
+		urlHost.append( ctx.conf.get('filipizen_server_host')); 
+
+		def url = """${urlHost}/partners/${fgroup}/po/${txncode}?c=${checksum}"""; 
+		return url.toString(); 
+	} 
+
+	def parseRefNo( value ) {
+		if ( value.toString().indexOf(':') < 0 ) {
+			value = """PMO:${value}""".toString(); 
+		}
+
+		def arr = value.toString().split(":");
+		if ( arr.length != 2 ) 
+			throw new Exception("Invalid refno format. It should follow the following format <KEY:REFNO>");
+
+		def barcodekey = arr[0]; 
+		def refno = arr[1]; 
+
+		def em = dynaEm.lookup('barcode_launcher')
+		def bc = em.find([ objid: barcodekey ]).first();
+		if ( !bc ) throw new Exception("'" + barcodekey + "' barcode launcher not found");
+
+		if ( bc.paymentorder.toString() != '1' )
+			throw new Exception("'" + barcodekey + "' barcode launcher must be configured as paymentorder=1");
+
+		return [ refno: refno, barcode: bc ];
+	}
+
+	boolean hasExpired( value ) {
+		if ( !value ) return false; 
+
+		def numVal = null; 
+		if ( value instanceof java.util.Date) {
+			numVal = new java.text.SimpleDateFormat('yyyyMMdd').format( value ).toInteger(); 
+		}
+		else if ( value instanceof String ) {
+			def date = new java.text.SimpleDateFormat('yyyy-MM-dd').parse( value.toString().split(" ")[0] );
+			numVal = new java.text.SimpleDateFormat('yyyyMMdd').format( date ).toInteger(); 
+		}
+
+		if ( !numVal ) return true; 
+
+		def dateSvc = dynaSvc.lookup('DateService'); 
+		def runDate = dateSvc.getBasicServerDate(); 
+		def runDateNum = new java.text.SimpleDateFormat('yyyyMMdd').format( runDate ).toInteger(); 
+		return (runDateNum > numVal); 
 	} 
 }
