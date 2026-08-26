@@ -12,7 +12,13 @@ class BPQuarterlypPaidReportService {
 	@ProxyMethod
 	public def getReport( params ) { 
 		if ( !params.permittype?.objid ) 
-			throw new Exception('permit type parameter is required'); 		
+			throw new Exception('permit type parameter is required'); 
+
+		def periodType = params.period?.type; 
+		if ( periodType != null ) {
+			if ( !periodType.matches('yearly|quarterly')) 
+				throw new Exception( periodType +' option not allowed. Please choose YEARLY or QUARTERLY'); 
+		}
 
 		params.startdate = params.year.toString() +'-01-01'; 
 
@@ -22,10 +28,24 @@ class BPQuarterlypPaidReportService {
 		def enddate = resolveDate( params.enddate );  
 		if ( !enddate ) throw new Exception('enddate parameter is required'); 
 
+		def origEndDate = enddate; 
+
 		params.startdate = startdate; 
 		params.enddate = resolveDate( dateSvc.add( enddate, '1d' )); 
 		params.permittypeid = params.permittype.objid; 
 		params.filter = params.taxfeetypefilter = ''; 
+
+		def filterList = []; 
+		if ( params.appstates ) {
+			def states = params.appstates.findAll{( it.objid )}.collect{ it.objid }
+			if ( states ) {
+				filterList << "a.state IN ('"+ states.join("','") +"')"; 
+			}
+		}
+
+		if ( filterList ) {
+			params.filter = ' AND '+ filterList.join(' AND '); 	
+		}
 
 		if ( params.showtaxonly.toString().matches('true|1')) {
 			params.taxfeetypefilter = " AND br.taxfeetype = 'TAX' "; 
@@ -36,7 +56,16 @@ class BPQuarterlypPaidReportService {
 		def list = em.getQtrlyPaidBusinessList( params );
 		if ( !list ) throw new Exception('No record(s) found that matches your criteria.');
 
-		return list;
+		def formatter = new java.text.SimpleDateFormat('MMMMM'); 
+		def periodBuff = new StringBuilder(); 
+		periodBuff.append( formatter.format( startdate )).append(" - "); 
+		periodBuff.append( formatter.format( origEndDate )).append(" "); 
+		periodBuff.append( params.year.toString()); 
+
+		return [
+			reportdata: list, 
+			header: [PERIOD: periodBuff.toString() ]
+		]; 
 	} 
 
 	private def resolveDate( value ) { 
