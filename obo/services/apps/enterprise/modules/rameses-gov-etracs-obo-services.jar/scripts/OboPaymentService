@@ -66,24 +66,21 @@ class OboPaymentService {
 			throw new Exception("receipt.objid parameter is required"); 
 		}
 
-		def receiptAmt = o.receipt.amount; 
-		if ( receiptAmt == null ) { 
-			throw new Exception("receipt.amount parameter is required"); 
-		}
-		if ( !(receiptAmt instanceof Number )) {
-			throw new Exception("receipt.amount must be a number"); 
+		def pmt = pmtEm.find([ refid: receiptId ]).first(); 
+		if ( !pmt ) {
+			println "${receiptId} payment reference not found";
+			return; 
 		}
 
-		def pmt = pmtEm.find([ refid: receiptId ]).first(); 
-		if ( !pmt ) return; 
+		if ( pmt.voided == 1 ) {
+			println "${receiptId} payment has already been voided";
+			return; 
+		}
 
 		pmtEm.find([ objid: pmt.objid ]).update([ voided: 0 ]); 
 		appFeeEm.find([ appid: pmt.appid ]).update([ amtpaid: 0 ]); 
 
-		def app = vwAppEm
-								.find([ objid: pmt.appid ])
-								.select('objid,processname')
-								.first();
+		def app = vwAppEm.find([ objid: pmt.appid ]).select('objid,processname').first();
 
 		// transition workflow 
 		def m = [:];
