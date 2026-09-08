@@ -25,7 +25,6 @@ class OboPaymentService {
 
 	@ProxyMethod
 	public void postPayment( o ) { 
-
 		if(!o.appid) throw new Exception("OboPaymentService.postPayment error. appid is required")
 		if(!o.txndate) o.txndate = dateSvc.getServerDate();
 		if(!o.txnmode) o.txnmode = "CAPTURE";
@@ -60,5 +59,38 @@ class OboPaymentService {
 		wfSvc.signal( m ); 
 	} 
 
+	@ProxyMethod
+	public void voidPayment( o ) { 
+		def receiptId = o?.receipt?.objid;
+		if ( receiptId == null || receiptId.toString().trim() == '' ) {
+			throw new Exception("receipt.objid parameter is required"); 
+		}
 
+		def receiptAmt = o.receipt.amount; 
+		if ( receiptAmt == null ) { 
+			throw new Exception("receipt.amount parameter is required"); 
+		}
+		if ( !(receiptAmt instanceof Number )) {
+			throw new Exception("receipt.amount must be a number"); 
+		}
+
+		def pmt = pmtEm.find([ refid: receiptId ]).first(); 
+		if ( !pmt ) return; 
+
+		pmtEm.find([ objid: pmt.objid ]).update([ voided: 0 ]); 
+		appFeeEm.find([ appid: pmt.appid ]).update([ amtpaid: 0 ]); 
+
+		def app = vwAppEm
+								.find([ objid: pmt.appid ])
+								.select('objid,processname')
+								.first();
+
+		// transition workflow 
+		def m = [:];
+		m.processname = app.processname;
+		m.entityschemaname = "obo_app";
+		m.action = "return-payment";
+		m.refid = app.objid;
+		wfSvc.signal( m ); 
+	} 
 } 
