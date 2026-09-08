@@ -207,6 +207,8 @@ class OboAppTaskitemService {
 	//activate all taskitems that match the current state
 	@ProxyMethod
 	public void activateTaskitems( def o ) {
+		if (o.state == null ) o.state = "evaluation";
+
 		if(!o.appid && !o.taskitemid) 
 			throw new Exception("appid or taskitemid is required in OboAppTaskitemService.activateTaskItems");
 		
@@ -229,7 +231,7 @@ class OboAppTaskitemService {
 		def notificationList = [];
 
 		//insert task items taskitem.activateTasks( [appid: appid, parentprocessname: parentProcname] );
-		taskitemEm.createNewTasks( [appid: appid, parentprocessname: parentProcname ] );
+		taskitemEm.createNewTasks( [appid: appid, parentprocessname: parentProcname , state:o.state] );
 		taskitemEm.find( [appid: appid ] ).where( " taskid IS NULL ").list().each { t->
 			startTask( t );
 			notificationList << "obo_app_taskitem:" + t.typeid.toLowerCase();
