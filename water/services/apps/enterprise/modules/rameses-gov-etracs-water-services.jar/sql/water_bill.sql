@@ -269,3 +269,95 @@ FROM water_credit_billitem cri
 	INNER JOIN water_abstract_billitem abi ON cri.objid = abi.objid 
 WHERE abi.billid =  $P{billid}
 	AND ( abi.amtpaid - abi.amount ) > 0
+
+
+[findBillSummary]
+select billid, 
+	sum(current_amount) as current_amount, sum(current_discount) as current_discount, 
+	sum(current_surcharge) as current_surcharge, sum(current_interest) as current_interest, 
+	sum(current_totalamtdue) as current_totalamtdue, sum(current_totalamtpaid) as current_totalamtpaid, 
+	sum(current_totalamtdue - current_totalamtpaid) as current_totalbalance, 
+
+	sum(arrears_amount) as arrears_amount, 0.0 as arrears_discount, 
+	sum(arrears_surcharge) as arrears_surcharge, sum(arrears_interest) as arrears_interest, 
+	sum(arrears_totalamtdue) as arrears_totalamtdue, sum(arrears_totalamtpaid) as arrears_totalamtpaid, 
+	sum(arrears_totalamtdue - arrears_totalamtpaid) as arrears_totalbalance, 
+
+	sum(current_totalamtdue + arrears_totalamtdue) as totalamtdue, 
+	sum(current_totalamtpaid + arrears_totalamtpaid) as totalamtpaid, 
+	(sum(current_totalamtdue + arrears_totalamtdue) - sum(current_totalamtpaid + arrears_totalamtpaid)) as totalbalance 
+from ( 
+	select 
+		t0.billid, t0.forwarded, 
+		(case when t0.forwarded = 0 then sum(t0.amount) else 0.0 end) as current_amount, 
+		(case when t0.forwarded = 0 then sum(t0.discount) else 0.0 end) as current_discount, 
+		(case when t0.forwarded = 0 then sum(t0.surcharge) else 0.0 end) as current_surcharge, 
+		(case when t0.forwarded = 0 then sum(t0.interest) else 0.0 end) as current_interest, 
+		(case 
+			when t0.forwarded = 0 then sum((t0.amount + t0.surcharge + t0.interest) - t0.discount) 
+			else 0.0 
+		end) as current_totalamtdue, 
+		(case 
+			when t0.forwarded = 0 then sum(t0.amtpaid + t0.surchargepaid + t0.interestpaid) 
+			else 0.0 
+		end) as current_totalamtpaid, 
+
+		(case when t0.forwarded = 1 then sum(t0.amount) else 0.0 end) as arrears_amount, 
+		(case when t0.forwarded = 1 then sum(t0.surcharge) else 0.0 end) as arrears_surcharge, 
+		(case when t0.forwarded = 1 then sum(t0.interest) else 0.0 end) as arrears_interest, 
+		(case 
+			when t0.forwarded = 1 then sum(t0.amount + t0.surcharge + t0.interest)
+			else 0.0 
+		end) as arrears_totalamtdue, 
+		(case 
+			when t0.forwarded = 1 then sum(t0.amtpaid + t0.surchargepaid + t0.interestpaid) 
+			else 0.0 
+		end) as arrears_totalamtpaid 
+	from ( 
+		select 
+			abi.billid, bi.`year`, bi.`month`, 
+			((bi.`year` * 12) + bi.`month`) as yearmonth, 
+			abi.forwarded, abi.amount, abi.amtpaid, (abi.amount - abi.amtpaid) as currentbalance, 
+			0.0 as surcharge, 0.0 as surchargepaid, 0.0 as interest, 0.0 as interestpaid, 0.0 as discount 
+		from water_bill wb 
+			inner join water_abstract_billitem abi on abi.billid = wb.objid 
+			inner join water_billitem bi on bi.objid = abi.objid 
+		where wb.objid = $P{billid} 
+
+		union all 
+
+		select 
+			abi.billid, bi.`year`, bi.`month`, 
+			((bi.`year` * 12) + bi.`month`) as yearmonth, 
+			abi.forwarded, 0.0 as amount, 0.0 as amtpaid, 0.0 as currentbalance, 
+			(case when bis.type = 'SURCHARGE' then abi.amount else 0.0 end) as surcharge, 
+			(case when bis.type = 'SURCHARGE' then abi.amtpaid else 0.0 end) as surchargepaid, 
+			(case when bis.type = 'INTEREST' then abi.amount else 0.0 end) as interest, 
+			(case when bis.type = 'INTEREST' then abi.amtpaid else 0.0 end) as interestpaid, 
+			0.0 as discount 
+		from water_abstract_billitem abi 
+			inner join water_billitem_subitem bis on bis.objid = abi.objid 
+			inner join water_abstract_billitem rabi on rabi.objid = bis.billitemrefid 
+			inner join water_billitem bi on bi.objid = rabi.objid 
+			inner join water_bill wb on wb.objid = abi.billid 
+			inner join water_billschedule wbs on wbs.objid = wb.scheduleid 
+		where abi.billid = $P{billid} 
+		
+		union all 
+		
+		select 
+			abi.billid, bi.`year`, bi.`month`, 
+			((bi.`year` * 12) + bi.`month`) as yearmonth, 0 as forwarded, 
+			0.0 as amount, 0.0 as amtpaid, 0.0 as currentbalance, 
+			0.0 as surcharge, 0.0 as surchargepaid, 
+			0.0 as interest, 0.0 as interestpaid, 
+			di.amount as discount  
+		from water_abstract_billitem abi 
+			inner join water_discountitem di on di.billitemrefid = abi.objid 
+			inner join water_billitem bi on bi.objid = abi.objid 
+		where abi.billid = $P{billid} 
+		
+	)t0 
+	group by t0.billid, t0.forwarded 
+)t1 
+group by billid 

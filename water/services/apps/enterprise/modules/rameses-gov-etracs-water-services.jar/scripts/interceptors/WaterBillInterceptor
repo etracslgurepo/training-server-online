@@ -13,10 +13,30 @@ class WaterBillInterceptor {
 			bill.prevbill = [:]; 
 		}
 
+		def em = dynaEm.lookup('water_bill'); 
+		
 		if ( bill.prevbillid != null ) {
-			def em = dynaEm.lookup('water_bill'); 
 			def prevbill = em.find([ objid: bill.prevbillid ]).select('objid,reading').first(); 
 			if ( prevbill ) bill.prevbill.putAll( prevbill ); 
 		}
-	}	
+
+		def currentTotalAmtDue = 0.0; 
+		def summary = em.findBillSummary([ billid: bill.objid ]);
+		def current = summary?.current;
+		if ( current instanceof Map ) {
+			bill.amount = current.amount;
+			bill.discount = current.discount;
+			bill.surcharge = current.surcharge;
+			bill.interest = current.interest;
+			currentTotalAmtDue = current.totalamtdue ?: 0.0;
+		}
+		
+		def arrears = summary?.arrears;
+		if ( arrears instanceof Map ) { 
+			bill.balanceforward = arrears.totalamtdue ?: bill.balanceforward; 
+		} 
+
+		def totalBalance = (( bill.balanceforward ?: 0.0 ) + currentTotalAmtDue - ( bill.totalpayment ?: 0.0 )); 
+		bill.balance = totalBalance; 
+	} 
 }
