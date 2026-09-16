@@ -159,3 +159,10 @@ from batchcapture_collection bcc
 	inner join batchcapture_collection_entry bcce on bcc.objid=bcce.parentid 
 where bcc.controlid=$P{controlid} 
 group by bcc.controlid 
+
+
+[findAFControl]
+select afc.objid, afc.afid, af.formtype 
+from af_control afc 
+	inner join af on af.objid = afc.afid 
+where afc.objid = $P{controlid} 

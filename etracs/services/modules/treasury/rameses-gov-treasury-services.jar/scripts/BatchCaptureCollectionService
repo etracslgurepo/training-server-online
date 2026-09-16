@@ -76,6 +76,8 @@ public class BatchCaptureCollectionService  {
 		if( bc_db.findBatchControlByState(entity) ) 	
 			throw new Exception("There are still unposted collection for this series. ");
 
+		validateAFControl( entity.controlid ); 
+
 		def receiptdate = entity.defaultreceiptdate;
 		if ( receiptdate instanceof String ) {
 			receiptdate = java.sql.Date.valueOf( receiptdate );  
@@ -211,6 +213,8 @@ public class BatchCaptureCollectionService  {
 		def header = bc_db.find([ objid: params.objid]).first();
 		if ( !header ) throw new Exception('Could not open batchcapture collection');  
 
+		validateAFControl( header.controlid ); 
+
 		def entries = bce_db.find([ parentid: header.objid ]).orderBy('series').list(); 
 		if ( !entries ) throw new Exception('Process failed. There must be at least 1 item for this transaction');
 
@@ -262,6 +266,8 @@ public class BatchCaptureCollectionService  {
 
 		def entity = bc_db.find([ objid: params.objid ]).first(); 
 		if ( !entity ) throw new Exception('Could not open batchcapture collection');  
+
+		validateAFControl( entity.controlid ); 
 
 		params.batchid = params.objid; 
 		def forpostings = bc_db.getForPostingSummary( params ); 
@@ -389,5 +395,15 @@ public class BatchCaptureCollectionService  {
 		if (item && item.amount <= 0.0 && item.voided == 0){
 			throw new Exception('Amount for Receipt No. ' + item.receiptno + ' must be greater than zero.')
 		}
+	}
+
+	void validateAFControl( def controlid ) {
+		def afControl = bc_db.findAFControl([ controlid: controlid.toString() ]); 
+		if ( !afControl )
+			throw new Exception('Could not open af_control record: '+ controlid); 
+
+		def formtype = afControl.formtype.toString().toLowerCase(); 
+		if ( formtype != 'serial' )  
+			throw new Exception('Only serial forms are allowed. Please check your accountable form'); 
 	}
 }
