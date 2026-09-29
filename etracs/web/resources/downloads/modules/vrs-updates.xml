@@ -46,7 +46,7 @@ admin.app.context=etracs25
    <module version="2.06" file="shared/rameses-enterprise-financial.jar"  />
    <module version="2.02" file="shared/rameses-client-notification2.jar"  />
    <module version="2.02" file="shared/rameses-email-client.jar"  />
-   <module version="2.13" file="shared/rameses-jasper-client.jar"  />
+   <module version="2.14" file="shared/rameses-jasper-client.jar"  />
 
    <module version="2.07" file="etracs/rameses-etracs-main.jar"  />
    <module version="2.02" file="etracs/rameses-gov-etracs-tools.jar"  />

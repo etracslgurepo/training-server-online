@@ -5,6 +5,8 @@ import com.rameses.osiris2.reports.*;
 import com.rameses.io.*;
 import jasper.*;
 
+import com.rameses.server.BootLoader;
+
 class SysReportTemplateService {
 	
 	@DataContext("sys_report_template")
@@ -13,8 +15,13 @@ class SysReportTemplateService {
 	@DataContext("sys_report_header")
 	def headerEm;
 
-	def rootPath = "/report-files";
-
+	final String getRootPath() {
+		return BootLoader.getReportFilesDirPath(); 
+	}
+	final String getReportTemplatesDirPath() {
+		def dir = BootLoader.getReportFilesDir().getParentFile(); 
+		return new java.io.File( dir, "report-templates").toPath().toString(); 
+	} 
 
 	@ProxyMethod
 	public def getMasterTemplateList() {
@@ -110,17 +117,39 @@ class SysReportTemplateService {
 	@ProxyMethod
 	public def getResources( def o ) {
 		def list = [];
-		def st = new SysReportTemplate( rootPath, o.name );
-		st.getResources().each {
-			list << it;
-		}
+		def rootDirs = [ rootPath, reportTemplatesDirPath ]; 
+		rootDirs.each{ path-> 
+			if ( list ) {
+				return; 
+			}
+
+			def st = new SysReportTemplate( path, o.name );
+			st.getResources().each {
+				list << it;
+			} 
+		} 
 		return list;
 	}
 
 	@ProxyMethod
 	public def getContent( def o ) { 
-		def st = new SysReportTemplate( rootPath );
-		return st.getContent( o.name );
+		def result = null; 
+		def resPath = o.name; 
+		def errorOnVerify = false; 
+
+		def rootDirs = [ rootPath, reportTemplatesDirPath ]; 
+		rootDirs.each{ path-> 
+			if ( result != null ) {
+				return; 
+			}
+
+			def st = new SysReportTemplate( path );	
+			result = st.getContent( resPath, errorOnVerify ); 
+		} 
+		if ( result == null ) { 
+			throw new Exception("'${resPath}' resource not found");  
+		} 
+		return result; 
 	}
 
 	@ProxyMethod
@@ -208,7 +237,6 @@ class SysReportTemplateService {
 
 	@ProxyMethod
 	public def getResource( def filename ) {
-		println "filename is " + filename;
 		def tmp = new SysReportTemplate( rootPath );
 		File f = new File( rootPath , filename );
 		if( f.exists() ) {

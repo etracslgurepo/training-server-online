@@ -8,6 +8,8 @@ import java.rmi.server.*;
 import java.net.*;
 import net.sf.jasperreports.engine.util.*;
 
+import com.rameses.server.BootLoader;
+
 class SysReportGeneratorService  {
 
 	@Service("SysReportService")
@@ -22,8 +24,13 @@ class SysReportGeneratorService  {
 	@DataContext("sys_report_template")
 	def reportTemplateEm;
 
-	String outputReportPath = "/apps/server/output/";
 
+	final String getOutputReportPath() {
+		return BootLoader.getOutputDirPath() +"/"; 
+	}
+	final String getReportFilesDirPath() {
+		return BootLoader.getReportFilesDirPath(); 
+	}
 
 	@ProxyMethod
 	public def buildFileId( def o ) {
@@ -106,7 +113,7 @@ class SysReportGeneratorService  {
 
 		def tmp = reportTemplateEm.find([name: reportDef.template]).first();
 		
-		def tp = new SysReportTemplate( "/report-files", tmp.filepath );
+		def tp = new SysReportTemplate( reportFilesDirPath, tmp.filepath );
 		def jReport = tp.getReport(tmpSrc);
 
 		def classLoader = new CustomClassLoader( tp ); 
