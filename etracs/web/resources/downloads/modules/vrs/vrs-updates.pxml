@@ -10,7 +10,7 @@ vrs.app.context=enterprise
    <module version="2.22" file="vrs/v1/rameses-seti.jar"  />
 
    <module version="1.04" file="vrs/v1/rameses-rules-mgmt-2.09.jar"  />
-   <module version="1.04" file="vrs/v1/rameses-app-common-2.09.jar"  />
+   <module version="1.01" file="vrs/v1/rameses-app-common-2.10.jar"  />
    <module version="1.04" file="vrs/v1/rameses-enterprise-2.09.jar"  />
 
    <module version="1.02" file="vrs/v1/rameses-treasury-common-2.11.jar"  />
