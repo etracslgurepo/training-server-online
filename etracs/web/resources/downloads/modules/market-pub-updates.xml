@@ -37,14 +37,14 @@ entity.app.context=etracs25
    <module version="2.07" file="market/core/v2/osiris2-client-ui.jar"  />
    <module version="2.05" file="market/core/v2/osiris2-framework.jar"  />
    <module version="2.23" file="market/core/v3/osiris2-report.jar"  />
-   <module version="2.21" file="market/core/v3/rameses-client-ui.jar"  />
+   <module version="2.22" file="market/core/v3/rameses-client-ui.jar"  />
    <module version="2.02" file="market/core/v2/rameses-client-ui-jfx.jar"  />
    <module version="2.14" file="market/core/v3/rameses-common2.jar"  />
    <module version="2.19" file="market/core/v3/rameses-seti.jar"  />
 
    <module version="2.02" file="market/shared/v2/client-system.jar"  />
    <module version="2.09" file="market/shared/v2/client-ui-extended.jar"  />
-   <module version="2.03" file="market/shared/v2/rameses-client-menu.jar"  />
+   <module version="2.04" file="market/shared/v2/rameses-client-menu.jar"  />
    <module version="2.02" file="market/shared/v2/rameses-client-report.jar"  />
    <module version="2.05" file="market/shared/v2/rameses-enterprise-admin.jar"  />
    <module version="2.06" file="market/shared/v2/rameses-enterprise-admin-plugin.jar"  />
@@ -52,9 +52,9 @@ entity.app.context=etracs25
    <module version="2.02" file="market/shared/v2/rameses-client-notification2.jar"  />
    <module version="2.02" file="market/shared/v2/rameses-email-client.jar"  />
 
-   <module version="2.02" file="market/shared/v2/rameses-app-common.jar"  />
+   <module version="2.04" file="market/shared/v2/rameses-app-common.jar"  />
    <module version="2.08" file="market/shared/v2/rameses-enterprise.jar"  />
-   <module version="1.01" file="market/shared/v2/rameses-rules-mgmt-2.09.jar"  />
+   <module version="1.01" file="market/shared/v2/rameses-rules-mgmt.jar"  />
    <module version="2.08" file="market/shared/v2/rameses-workflow-mgmt.jar"  />
    <module version="2.13" file="market/shared/v3/rameses-jasper-client.jar"  />
    <module version="2.04" file="market/shared/v2/ireport-designer-connector.jar"  />
