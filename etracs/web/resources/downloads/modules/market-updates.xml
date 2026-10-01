@@ -54,7 +54,7 @@ entity.app.context=etracs25
 
    <module version="2.02" file="market/shared/v2/rameses-app-common.jar"  />
    <module version="2.08" file="market/shared/v2/rameses-enterprise.jar"  />
-   <module version="1.01" file="market/shared/v2/rameses-rules-mgmt-2.09.jar"  />
+   <module version="1.01" file="market/shared/v2/rameses-rules-mgmt.jar"  />
    <module version="2.08" file="market/shared/v2/rameses-workflow-mgmt.jar"  />
    <module version="2.13" file="market/shared/v3/rameses-jasper-client.jar"  />
    <module version="2.04" file="market/shared/v2/ireport-designer-connector.jar"  />
