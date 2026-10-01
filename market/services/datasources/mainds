@@ -1,12 +1,5 @@
-dialect=mssql
-driverClass=com.microsoft.sqlserver.jdbc.SQLServerDriver
-url=jdbc:sqlserver://${marketdb_host};DatabaseName=${db_market}
-user=${marketdb_user}
-pwd=${marketdb_pass}
-
-
-dialect=mssql
-driverClass=com.microsoft.sqlserver.jdbc.SQLServerDriver
-url=jdbc:sqlserver://${marketdb_host};DatabaseName=${db_market}
+dialect=mysql
+driverClass=com.mysql.jdbc.Driver
+url=jdbc:mysql://${marketdb_host}/${db_market}?useSSL=false
 user=${marketdb_user}
 pwd=${marketdb_pass}
