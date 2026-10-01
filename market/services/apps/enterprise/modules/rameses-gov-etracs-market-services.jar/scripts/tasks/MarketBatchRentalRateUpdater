@@ -1,0 +1,42 @@
+import com.rameses.annotations.*;
+import market.util.*;
+
+class MarketBatchRentalRateProcessor {
+
+	@XConnection("market")
+	def conn;
+
+	@Service("Var")
+	def sysvar;
+
+	boolean processing = false;
+
+    @Schedule( interval=60, timeUnit="SECONDS")
+	public void processBatch( def tsk ) {
+		def activateTask = sysvar.activate_task;
+		if( activateTask!=null ) {
+			if(activateTask == "false") return;
+		}
+
+		if( processing == true ) return;
+
+		processing = true;
+
+		//println "run batch rental rate task now ... ";
+		def batch = new MarketBatchRateServiceDelegate( conn.conf )
+
+		while( true ) {
+			def result = batch.processBatch();
+			if(result.status == 0) {
+				break;
+			} 
+			else {
+				println "batch rate processed " + result.count; 
+				Thread.sleep(100);			
+			}
+		} 
+		processing = false;
+		
+    }
+
+}

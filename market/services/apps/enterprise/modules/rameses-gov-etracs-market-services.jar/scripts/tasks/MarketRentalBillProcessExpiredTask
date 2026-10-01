@@ -1,0 +1,45 @@
+import com.rameses.annotations.*;
+import java.rmi.server.*;
+import java.util.concurrent.*;
+import market.util.*;
+
+//This scheduler looks batches in processing mode and create bills per each 
+class MarketRentalBillProcessExpiredTask {
+
+    @XConnection("market")
+	def conn;
+
+	@Service("Var")
+	def sysvar;
+
+	boolean processing = false;
+
+	@Schedule( interval=30, timeUnit="SECONDS")
+	public void processExpired( def tsk ) {
+		def activateTask = sysvar.activate_task;
+		if( activateTask!=null ) {
+			if(activateTask == "false") return;
+		}
+
+		if( processing == true ) return;
+
+		processing = true;
+		def procSvc = new MarketRentalBillProcessorServiceDelegate( conn.conf );
+
+		while( true ) {
+			def result = procSvc.processExpiredBills();
+			if(result.status == 0) {
+				break;
+			} 
+			else {
+				println "expired bills processed " + result.count; 
+				Thread.sleep(100);			
+			}
+		} 
+		processing = false;
+
+	}
+
+
+
+}

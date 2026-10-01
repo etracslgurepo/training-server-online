@@ -1,0 +1,11 @@
+<app>
+<env>
+market.buildver=255.05.001
+market.app.host=${pub_app_server_ip}:18074
+market.app.context=enterprise
+</env>
+<modules>
+   <module version="1.19" file="market/rameses-gov-etracs-market.jar" />
+   <module version="1.05" file="market/rameses-gov-etracs-market-common.jar" />
+</modules>
+</app>

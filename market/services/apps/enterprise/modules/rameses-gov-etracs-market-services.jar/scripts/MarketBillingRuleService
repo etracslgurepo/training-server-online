@@ -1,0 +1,136 @@
+import com.rameses.annotations.*;
+import com.rameses.functions.*;
+import com.rameses.functions.*;
+import market.facts.*;
+import com.rameses.util.*;
+import treasury.utils.*;
+import treasury.facts.*;
+import java.rmi.server.*;
+
+class MarketBillingRuleService {
+	
+	@Service("RuleExecutorService")
+	def ruleSvc;
+
+	@DataContext("market_payment")
+	def pmtEm;
+
+
+	@DataContext("market_paymentitem")
+	def pmtItem;
+
+	@DataContext(dynamic=true)
+	def dbEm;
+
+	@DataContext("vw_market_billitem")
+	def vwBillItemEm;
+
+	@DataContext("vw_market_billitem_subitem")
+	def subItemEm;
+
+
+	@DataContext("market_credit_billitem")
+	def creditItemEm;
+
+	@DataContext("market_credit_paymentitem")
+	def paymentItemEm;
+
+	@DataContext("vw_market_bill")
+	def vwBillEm;
+
+	@DataContext("market_bill")
+	def billEm;
+
+	@DataContext("vw_market_account")
+	def vwAcctEm;
+
+	@DataContext(dynamic=true)
+	def dynEm;
+
+	@Service("DateService")
+	def dateSvc;
+
+	@ProxyMethod
+	public def executeRules( def ruleName, def o ) {
+		if(!o.txndate) throw new Exception("txndate is required in MarketBillingRuleService.executeRules")
+
+		def bill = o.bill;
+		def acct = o.acct;
+		def txndate = o.txndate;
+		
+		//find billtype first
+		def billtype = billEm.find([objid: o.billid]).select("billtype").val();
+		if(!billtype) throw new Exception("billtype is not found");
+		def billEm = dynEm.lookup( "vw_market_" + billtype.toLowerCase() + "_bill");
+		if(!bill) bill = billEm.find( [objid: o.billid ] ).first();
+		bill.billtype = billtype.toUpperCase();
+
+		if(!acct) acct = vwAcctEm.find( [objid: bill.acctid ]).first();
+		if(!txndate) txndate = dateSvc.getServerDate();
+
+		def facts = [];
+		facts << new MarketBill( bill );
+		facts << new MarketAccount( acct );
+		facts << new MarketCenter( name: acct.centerid, orgunit: acct.orgunit?.fullpath );
+		facts << new MarketBillSchedule( bill );
+		facts << new TransactionDate( txndate );
+
+		//check if billtype is utility 
+		if( !bill.billtype.matches('RENTAL') ) {
+			def uBillEm = dynEm.lookup( "market_" + bill.billtype.toLowerCase() + "_bill" );
+			def ubill = uBillEm.find( [objid: o.billid ]).first();
+			if(!ubill) throw new Exception("Utility bill " + bill.billtype + " " + o.billid + " not found");
+			if(ubill.volume) {
+				facts << new MarketUtilityConsumption([volume: ubill.volume, billtype: bill.billtype.toUpperCase() ]);
+			}
+		}
+
+		if( o.amtpaid ) {
+			def pmt = new Payment( amount: o.amtpaid );
+			if(o.reftype) pmt.reftype = o.reftype;
+			facts << pmt;
+		};
+
+		//load billitems
+		def pp = [billid: bill.objid, txndate: o.txndate ];
+		def billitemList = vwBillItemEm.find( [billid: o.billid ] ).where( " superseded = 0 ").list();
+		def subItemList = subItemEm.find( [billid: o.billid ] ).where( " superseded = 0 ").list();		
+		def creditItemList = creditItemEm.find( [billid: o.billid ]).where( "(amount - amtpaid) <> 0 ").list();
+		
+		billitemList.each {
+			//we need to correct the mapping
+			def mb = new MarketBillItem(it);
+			mb.input = true;
+			facts << mb;
+			def pItems = subItemList.findAll{ r-> r.billitemrefid == mb.objid };
+			if(pItems) {
+				pItems.each { sb->
+					def rb = null;
+					if(sb.type?.equalsIgnoreCase("SURCHARGE")) {
+						rb = new SurchargeItem(sb);
+					} 
+					else {
+						rb = new InterestItem(sb);
+					}	
+					rb.input = true;
+					mb.addSubItem( rb );
+					facts << rb;
+				}	
+			} 
+		};
+
+		creditItemList.each {
+			def cb = new CreditBillItem(it);
+			cb.input = true;
+			facts << cb;	
+		}
+
+		ruleSvc.execute( ruleName, facts, null, null );
+		return facts;
+	}
+
+	
+	
+
+
+}

@@ -1,0 +1,19 @@
+<schema>
+	<element tablename="market_billschedule">
+		<field name="objid" primary="true" prefix="MKTBILLSKED"/>
+		<field name="year" caption="Year" required="true"/>
+		<field name="month" caption="Month" required="true"/>
+		<field name="fromdate" caption="FromDate" required="true"/>
+		<field name="todate" caption="ToDate" required="true"/>
+		<field name="billdate" caption="BillDate" />
+		<field name="discdate" caption="DiscDate" />
+		<field name="readingdate" caption="ReadingDate" />
+		<field name="duedate" caption="DueDate" />
+		<field name="expirydate" caption="ExpiryDate" required="true"/>		
+		<field name="monthname" expr="MONTH_ARRAY(month)" caption="From Month Name"/>
+		<complex name="billgroup" ref="market_billgroup" jointype="many-to-one" 
+				required="true" includefields="paymentmode">
+			<key field="billgroupid" target="objid" /> 	
+		</complex>		
+	</element>
+</schema>

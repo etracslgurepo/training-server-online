@@ -1,0 +1,10 @@
+<schema>
+	<element tablename="market_credit_paymentitem">
+		<field name="objid" primary="true" prefix="MKTCRDTPMTITM"/>
+		<field name="credititemid"  required="true"/>
+		<field name="billitemrefid" required="true"/>
+		<field name="billid" required="true" />
+		<field name="amount" required="true" />
+		<field name="billdate" type="timestamp"/>
+	</element>
+</schema>

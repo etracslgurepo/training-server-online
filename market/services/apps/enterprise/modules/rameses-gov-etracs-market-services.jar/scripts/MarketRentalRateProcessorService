@@ -1,0 +1,40 @@
+import com.rameses.annotations.*;
+import com.rameses.functions.*;
+import com.rameses.functions.*;
+import market.facts.*;
+import com.rameses.util.*;
+import treasury.utils.*;
+import treasury.facts.*;
+import java.rmi.server.*;
+
+class MarketRentalRateProcessorService {
+	
+	@Service("PersistenceService")
+	def persistenceSvc;
+
+	@Service("QueryService")
+	def querySvc;
+
+	@DataContext("market_batch_rental_rate")
+	def batchEm;
+
+	@ProxyMethod
+	public def processBatch() {
+		def list = batchEm.where( "nextdate <= NOW() AND state = 'IDLE' " ).list();
+		if( list ) {
+			//we must use persistence service because there are interceptors for this
+			list.each { batch ->
+				def z = [_schemaname: "market_batch_rental_rate"];
+				z.objid = batch.objid;
+        		z._action = "deploy";
+        		persistenceSvc.doAction( z );
+			}
+			return [status: 1, count: list.size() ];
+		}
+		else {
+			return [status: 0];
+		}
+	}
+
+
+}

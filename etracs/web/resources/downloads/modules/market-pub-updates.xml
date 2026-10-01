@@ -1,0 +1,73 @@
+<app>
+<env>
+app.title=ETRACS 2.5 build 255.05.001 (${lgu_name}) MARKET
+app.host=${pub_app_server_ip}:18070
+app.cluster=osiris3
+app.context=etracs25
+app.help=http://${pub_app_server_ip}:18080/help
+app.loader=com.rameses.osiris2.client.OsirisAppLoader
+readTimeout=300000
+connectionTimeout=5000
+filemgmt.enabled=false
+
+ws.host=${pub_app_server_ip}:18060
+#res.host=${pub_app_server_ip}
+
+socketio.host=${socketio_server_ip}:7080
+
+admin.app.host=${pub_app_server_ip}:18070
+admin.app.context=etracs25
+
+entity.app.host=${pub_app_server_ip}:18070
+entity.app.context=etracs25
+</env>
+<modules>
+   <module version="1.00" file="libs/commons-net-3.5.jar"  />
+
+   <import file="custom/updates.pxml"/> 
+
+   <module version="2.04" file="market/core/v2/osiris2-client-themes.jar"  />
+   <module version="2.02" file="market/core/v2/osiris2-draw.jar"  />
+   <module version="2.02" file="market/core/v2/rameses-client-ui-bio.jar"  />
+   <module version="2.02" file="market/core/v2/rameses-client-notification-socketio.jar"  />
+   <module version="2.03" file="market/core/v2/rameses-custom-impl.jar"  />
+   <module version="2.02" file="market/core/v2/rameses-jdbc16.jar"  />
+   <module version="2.06" file="market/core/v2/rameses-file-mgmt.jar"  />
+
+   <module version="2.07" file="market/core/v2/osiris2-client-ui.jar"  />
+   <module version="2.05" file="market/core/v2/osiris2-framework.jar"  />
+   <module version="2.23" file="market/core/v3/osiris2-report.jar"  />
+   <module version="2.21" file="market/core/v3/rameses-client-ui.jar"  />
+   <module version="2.02" file="market/core/v2/rameses-client-ui-jfx.jar"  />
+   <module version="2.14" file="market/core/v3/rameses-common2.jar"  />
+   <module version="2.19" file="market/core/v3/rameses-seti.jar"  />
+
+   <module version="2.02" file="market/shared/v2/client-system.jar"  />
+   <module version="2.09" file="market/shared/v2/client-ui-extended.jar"  />
+   <module version="2.03" file="market/shared/v2/rameses-client-menu.jar"  />
+   <module version="2.02" file="market/shared/v2/rameses-client-report.jar"  />
+   <module version="2.05" file="market/shared/v2/rameses-enterprise-admin.jar"  />
+   <module version="2.06" file="market/shared/v2/rameses-enterprise-admin-plugin.jar"  />
+   <module version="2.06" file="market/shared/v2/rameses-enterprise-financial.jar"  />
+   <module version="2.02" file="market/shared/v2/rameses-client-notification2.jar"  />
+   <module version="2.02" file="market/shared/v2/rameses-email-client.jar"  />
+
+   <module version="2.02" file="market/shared/v2/rameses-app-common.jar"  />
+   <module version="2.08" file="market/shared/v2/rameses-enterprise.jar"  />
+   <module version="1.01" file="market/shared/v2/rameses-rules-mgmt-2.09.jar"  />
+   <module version="2.08" file="market/shared/v2/rameses-workflow-mgmt.jar"  />
+   <module version="2.13" file="market/shared/v3/rameses-jasper-client.jar"  />
+   <module version="2.04" file="market/shared/v2/ireport-designer-connector.jar"  />
+
+   <module version="2.09" file="entity/rameses-enterprise-entity.jar"  />
+   <module version="2.07" file="entity/rameses-enterprise-entity-tool.jar"  />
+   <module version="2.07" file="entity/rameses-gov-etracs-entity.jar"  />
+
+   <module version="2.07" file="etracs/rameses-etracs-main.jar"  />
+   <module version="2.02" file="etracs/rameses-gov-etracs-tools.jar"  />
+   <module version="2.02" file="etracs/rameses-gov-etracs-signatory-template.jar"  />
+   <module version="2.04" file="etracs/rameses-gov-lgu.jar"  />
+
+   <import file="market/market-pub-updates.pxml"/> 
+</modules>
+</app>

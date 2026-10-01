@@ -1,0 +1,7 @@
+<schema>
+	<element tablename="sys_image">
+		<field name="objid" primary="true" visible="true" searchable="true"/>
+		<field name="title" required="true" searchable="true"/>
+		<field name="image" />
+	</element>
+</schema>

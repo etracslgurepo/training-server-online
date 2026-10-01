@@ -1,0 +1,8 @@
+<schema>
+	<element tablename="market_billitem" extends="market_abstract_billitem">
+		<field name="objid" primary="true" prefix="MKTBILLITM"/>
+		<field name="year" required="true"/>
+		<field name="month" required="true"/>
+		<field name="duedate" type="date"/>
+	</element>
+</schema>
