@@ -1,0 +1,24 @@
+<app>
+<env>
+app.title=ETRACS 2.5 build 2.5.05.03-20 (DEV)
+app.host=localhost:18070
+app.cluster=osiris3
+app.context=etracs25
+app.help=http://localhost:18080/help
+app.loader=com.rameses.osiris2.client.OsirisAppLoader
+readTimeout=300000
+connectionTimeout=5000
+filemgmt.enabled=false
+
+ws.host=localhost:18060
+#res.host=localhost
+
+socketio.host=192.168.2.22:7080
+
+admin.app.host=localhost:18070
+admin.app.context=etracs25
+</env>
+<modules>
+
+</modules>
+</app>
