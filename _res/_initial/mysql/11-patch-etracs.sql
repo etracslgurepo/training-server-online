@@ -79,3 +79,10 @@ CREATE TABLE `sys_report_output_template` (
   CONSTRAINT `fk_sys_report_def_template_parentid` FOREIGN KEY (`parentid`) REFERENCES `sys_report_def` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8
 ;
+
+CREATE TABLE `sys_report_header` (
+  `name` varchar(50) NOT NULL,
+  `value` text,
+  PRIMARY KEY (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
