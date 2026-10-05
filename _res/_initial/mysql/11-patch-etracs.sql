@@ -61,3 +61,21 @@ select
 from business_payment bp 
 	inner join business_payment_item bpi on bpi.parentid = bp.objid 
 ;
+
+
+-- ## Build 2.5.05.03-24
+-- ## 2026-10-05
+
+CREATE TABLE `sys_report_output_template` (
+  `objid` varchar(50) NOT NULL,
+  `parentid` varchar(50) DEFAULT NULL,
+  `type` varchar(255) DEFAULT NULL,
+  `template` mediumtext,
+  `options` mediumtext,
+  `caption` varchar(255) DEFAULT NULL,
+  `printtype` int DEFAULT NULL,
+  PRIMARY KEY (`objid`),
+  KEY `fk_sys_report_def_template_parentid` (`parentid`),
+  CONSTRAINT `fk_sys_report_def_template_parentid` FOREIGN KEY (`parentid`) REFERENCES `sys_report_def` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
