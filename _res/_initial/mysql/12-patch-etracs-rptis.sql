@@ -7927,6 +7927,44 @@ UNLOCK TABLES;
 /*!50001 SET character_set_results     = @saved_cs_results */;
 /*!50001 SET collation_connection      = @saved_col_connection */;
 
+
+--
+-- Final view structure for view `vw_landtax_eor`
+--
+
+/*!50001 DROP VIEW IF EXISTS `vw_landtax_eor`*/;
+/*!50001 SET @saved_cs_client          = @@character_set_client */;
+/*!50001 SET @saved_cs_results         = @@character_set_results */;
+/*!50001 SET @saved_col_connection     = @@collation_connection */;
+/*!50001 SET character_set_client      = utf8mb4 */;
+/*!50001 SET character_set_results     = utf8mb4 */;
+/*!50001 SET collation_connection      = utf8mb4_general_ci */;
+/*!50001 CREATE ALGORITHM=UNDEFINED */
+/*!50013 DEFINER=`root`@`localhost` SQL SECURITY DEFINER */
+/*!50001 VIEW `vw_landtax_eor` AS select `training_eor`.`eor`.`objid` AS `objid`,`training_eor`.`eor`.`receiptno` AS `receiptno`,`training_eor`.`eor`.`receiptdate` AS `receiptdate`,`training_eor`.`eor`.`txndate` AS `txndate`,`training_eor`.`eor`.`state` AS `state`,`training_eor`.`eor`.`partnerid` AS `partnerid`,`training_eor`.`eor`.`txntype` AS `txntype`,`training_eor`.`eor`.`traceid` AS `traceid`,`training_eor`.`eor`.`tracedate` AS `tracedate`,`training_eor`.`eor`.`refid` AS `refid`,`training_eor`.`eor`.`paidby` AS `paidby`,`training_eor`.`eor`.`paidbyaddress` AS `paidbyaddress`,`training_eor`.`eor`.`payer_objid` AS `payer_objid`,`training_eor`.`eor`.`paymethod` AS `paymethod`,`training_eor`.`eor`.`paymentrefid` AS `paymentrefid`,`training_eor`.`eor`.`remittanceid` AS `remittanceid`,`training_eor`.`eor`.`remarks` AS `remarks`,`training_eor`.`eor`.`amount` AS `amount`,`training_eor`.`eor`.`lockid` AS `lockid` from `training_eor`.`eor` */;
+/*!50001 SET character_set_client      = @saved_cs_client */;
+/*!50001 SET character_set_results     = @saved_cs_results */;
+/*!50001 SET collation_connection      = @saved_col_connection */;
+
+--
+-- Final view structure for view `vw_landtax_eor_remittance`
+--
+
+/*!50001 DROP VIEW IF EXISTS `vw_landtax_eor_remittance`*/;
+/*!50001 SET @saved_cs_client          = @@character_set_client */;
+/*!50001 SET @saved_cs_results         = @@character_set_results */;
+/*!50001 SET @saved_col_connection     = @@collation_connection */;
+/*!50001 SET character_set_client      = utf8mb4 */;
+/*!50001 SET character_set_results     = utf8mb4 */;
+/*!50001 SET collation_connection      = utf8mb4_general_ci */;
+/*!50001 CREATE ALGORITHM=UNDEFINED */
+/*!50013 DEFINER=`root`@`localhost` SQL SECURITY DEFINER */
+/*!50001 VIEW `vw_landtax_eor_remittance` AS select `training_eor`.`eor_remittance`.`objid` AS `objid`,`training_eor`.`eor_remittance`.`state` AS `state`,`training_eor`.`eor_remittance`.`controlno` AS `controlno`,`training_eor`.`eor_remittance`.`partnerid` AS `partnerid`,`training_eor`.`eor_remittance`.`controldate` AS `controldate`,`training_eor`.`eor_remittance`.`dtcreated` AS `dtcreated`,`training_eor`.`eor_remittance`.`createdby_objid` AS `createdby_objid`,`training_eor`.`eor_remittance`.`createdby_name` AS `createdby_name`,`training_eor`.`eor_remittance`.`amount` AS `amount`,`training_eor`.`eor_remittance`.`dtposted` AS `dtposted`,`training_eor`.`eor_remittance`.`postedby_objid` AS `postedby_objid`,`training_eor`.`eor_remittance`.`postedby_name` AS `postedby_name`,`training_eor`.`eor_remittance`.`lockid` AS `lockid` from `training_eor`.`eor_remittance` */;
+/*!50001 SET character_set_client      = @saved_cs_client */;
+/*!50001 SET character_set_results     = @saved_cs_results */;
+/*!50001 SET collation_connection      = @saved_col_connection */;
+
+
 --
 -- Final view structure for view `vw_landtax_abstract_of_collection_detail_eor`
 --
