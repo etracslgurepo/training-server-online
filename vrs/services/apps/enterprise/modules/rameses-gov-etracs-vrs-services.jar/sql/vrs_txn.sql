@@ -58,3 +58,15 @@ AND di.objid NOT IN (
     AND _vt.txndate < $P{txndate} 
 ) 
 ORDER BY vf.sortorder  
+
+[getPayments]
+select * 
+from ( 
+    select distinct 
+        py.parentid as paymentid 
+    from vrs_txn t 
+        inner join vrs_paymentitem py on py.billid = t.billid 
+    where t.objid = $P{txnid}
+)t0, vrs_payment p 
+where p.objid = t0.paymentid 
+order by p.refdate, p.refno 

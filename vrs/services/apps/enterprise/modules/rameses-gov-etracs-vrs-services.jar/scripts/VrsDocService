@@ -46,7 +46,8 @@ public class VrsDocService  {
 	@DataContext("vw_vrs_account")
 	def vwAcctEm;
 
-	
+	@DataContext( dynamic=true )
+	def dynaEm;
 
 	@ProxyMethod
 	public void initDocs(def o) {
@@ -93,6 +94,10 @@ public class VrsDocService  {
 
 		def d = vwDocEm.find( o ).first();
 		def txn = vwTxnEm.find( [objid: d.txnid ] ).first();
+
+		def txnEm = dynaEm.lookup('vrs_txn'); 
+		def payments = txnEm.getPayments([ txnid: txn.objid ]); 
+
 		def infos = vwAcctInfoEm.find( [acctid: txn.acctid] ).list();
 
 		def dtype = d.doctype;
@@ -123,8 +128,10 @@ public class VrsDocService  {
 		if( dtype.approverid ) {
 			doc.approver = sigEm.find( [objid: dtype.approverid ]).first();
 		}
-		return doc;
 
+		doc.payments = payments; 
+		doc.paymentinfo = ( payments ? payments.first() : [:]); 
+		return doc; 
 	}
 
 	@ProxyMethod
