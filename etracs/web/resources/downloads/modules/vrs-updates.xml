@@ -17,6 +17,9 @@ socketio.host=${socketio_server_ip}:7080
 
 admin.app.host=${app_server_ip}:18070
 admin.app.context=etracs25
+
+entity.app.host=${app_server_ip}:18070
+entity.app.context=etracs25
 </env>
 <modules>
    <module version="1.00" file="libs/commons-net-3.5.jar"  />
@@ -47,6 +50,8 @@ admin.app.context=etracs25
    <module version="2.02" file="shared/rameses-client-notification2.jar"  />
    <module version="2.02" file="shared/rameses-email-client.jar"  />
    <module version="2.14" file="shared/rameses-jasper-client.jar"  />
+
+   <module version="2.09" file="entity/rameses-enterprise-entity.jar"  />
 
    <module version="2.07" file="etracs/rameses-etracs-main.jar"  />
    <module version="2.02" file="etracs/rameses-gov-etracs-tools.jar"  />
