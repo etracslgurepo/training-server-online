@@ -133,6 +133,22 @@ class SysReportTemplateService {
 
 	@ProxyMethod
 	public void saveContent( def o ) { 
+		if ( o?.name == null || o?.name.trim() == '') {
+			throw new Exception("name parameter is required in saveContent()"); 
+		} 
+
+		def buff = new StringBuilder(); 
+		o.name.toCharArray().collect{
+			def ci = (int) it; 
+			if (ci == 92 || ci == 47) {
+				buff.append( File.separator ); 
+			} else {
+				buff.append( it ); 
+			}
+		}
+
+		o.name = buff.toString(); 
+
 		def st = new SysReportTemplate( rootPath );
 		st.saveContent( o.name, o.content, o.lastmodified );
 	}
@@ -221,3 +237,4 @@ class SysReportTemplateService {
 		return st.getFileInfo( filename ); 
 	}
 }
+
