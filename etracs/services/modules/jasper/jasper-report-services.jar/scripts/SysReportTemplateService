@@ -14,7 +14,13 @@ class SysReportTemplateService {
 	@DataContext("sys_report_header")
 	def headerEm;
 
-	String rootPath = "/report-files";
+	final String getRootPath() {
+		return BootLoader.getReportFilesDirPath(); 
+	}
+	final String getReportTemplatesDirPath() {
+		def dir = BootLoader.getReportFilesDir().getParentFile(); 
+		return new java.io.File( dir, "report-templates").toPath().toString(); 
+	} 
 
 	@ProxyMethod
 	public def getMasterTemplateList() {
@@ -99,28 +105,30 @@ class SysReportTemplateService {
 
 	@ProxyMethod
 	public def getInfo(def o ) {
-		if ( !o.name ) throw new Exception("name is required in SysReportTemplateService.findTemplate");
-		def tmp =  templateEm.find([ name: o.name ]).first();
-		if ( tmp ) {
+		if(!o.name) throw new Exception("name is required in SysReportTemplateService.findTemplate");
+		def tmp =  templateEm.find( [name:o.name] ).first();
+		if( tmp ) {
 			tmp.resources = getResources([ name: tmp.filepath ]);
 		}
 		return tmp;
 	}
 
 	@ProxyMethod
-	public def getResources( def o ) {
-		def list = [];
-		def st = new SysReportTemplate( rootPath, o.name );
-		st.getResources().each {
-			list << it;
-		}
-		return list;
+	public def getResources( def param ) {
+		def resPath = param.name; 
+		def st = new SysReportTemplate( "", resPath );
+		st.setRootPaths([ rootPath, reportTemplatesDirPath ]); 
+		return st.getResources(); 
 	}
 
 	@ProxyMethod
-	public def getContent( def o ) { 
-		def st = new SysReportTemplate( rootPath );
-		return st.getContent( o.name );
+	public def getContent( def param ) { 
+		def resPath = param.name; 
+		def errorOnVerify = false; 
+
+		def st = new SysReportTemplate("");	
+		st.setRootPaths([ rootPath, reportTemplatesDirPath ]); 
+		return st.getContent( resPath ); 
 	}
 
 	@ProxyMethod
@@ -208,17 +216,8 @@ class SysReportTemplateService {
 
 	@ProxyMethod
 	public def getResource( def filename ) {
-		println "filename is " + filename;
-		def tmp = new SysReportTemplate( rootPath );
-		File f = new File( rootPath , filename );
-		if( f.exists() ) {
-			def r = [:];
-			r.bytes = IOStream.toByteArray( f );
-			r.lastmodified = f.lastModified();
-			return r;
-		}
-		return null;
+		def st = new SysReportTemplate("");
+		st.setRootPaths([ rootPath, reportTemplatesDirPath ]); 
+		return st.getFileInfo( filename ); 
 	}
-
 }
-
